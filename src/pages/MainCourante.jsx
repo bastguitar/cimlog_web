@@ -21,6 +21,8 @@ import {
 const AVIS = ['CODIS', 'CORG', 'C15', 'Préfecture', 'Parquet', 'Mairie', 'Cdt CRS Alpes', 'BIO']
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+// `events.com` arrive avec le code postal collé ("Commune - 38380") — pas utile ici, seule la commune compte.
+const sansCodePostal = (com) => com.replace(/\s*-\s*\d{5}\s*$/, '')
 
 const titreJour = (jour) =>
   jour.toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).toUpperCase()
@@ -326,7 +328,7 @@ export default function MainCourante({ poste }) {
                         <span className="numero-mc" style={{ color: STATUTS[m.statut]?.couleur }}>
                           n°{m.localId ?? '—'}
                         </span>
-                        {m.com && <span className="commune-mc"> — {m.com}</span>}
+                        {m.com && <span className="commune-mc"> — {sansCodePostal(m.com)}</span>}
                       </>
                     ) : (
                       '-'
