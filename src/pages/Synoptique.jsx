@@ -1,5 +1,6 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
-import { dateISO } from '../lib/effectifs'
+import { dateISO, effectifsDuJour } from '../lib/effectifs'
+import { rolesDeLaSection } from '../lib/roles'
 import { exporterSynoptiquePdf } from '../lib/exportSynoptiquePdf'
 import { messagesDuJour, secoursDuJour, estMentionSG, DUREE_MODIFICATION_MS, STATUTS } from '../lib/mainCourante'
 
@@ -29,6 +30,8 @@ export default function Synoptique({ poste }) {
   const [secours, setSecours] = useState([])
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
+  const [roles, setRoles] = useState([])
+  const [effectifs, setEffectifs] = useState(new Map())
 
   const [maintenant, setMaintenant] = useState(() => Date.now())
   useEffect(() => {
@@ -47,6 +50,16 @@ export default function Synoptique({ poste }) {
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false))
   }, [jour])
+
+  useEffect(() => {
+    if (!poste) return
+    Promise.all([rolesDeLaSection(poste.code), effectifsDuJour(poste.code, jour)])
+      .then(([r, e]) => {
+        setRoles(r)
+        setEffectifs(e)
+      })
+      .catch((e) => setErreur(e.message))
+  }, [jour, poste])
 
   const changerJour = (delta) =>
     setJour((j) => {
@@ -107,6 +120,20 @@ export default function Synoptique({ poste }) {
 
       {erreur && <p className="erreur">{erreur}</p>}
 
+      {roles.length > 0 && effectifs.size > 0 && (
+        <div className="bloc-effectifs-syn">
+          <span className="etiquette-effectifs-syn">Effectifs de permanence</span>
+          {roles
+            .filter((r) => effectifs.get(r)?.length)
+            .map((r) => (
+              <span className="groupe-effectif-syn" key={r}>
+                <span className="role-effectif-syn">{r}</span>
+                {effectifs.get(r).map((e) => e.nom).join(', ')}
+              </span>
+            ))}
+        </div>
+      )}
+
       <div className="synoptique-scroll">
         <div
           className="grille-synoptique"
@@ -114,8 +141,8 @@ export default function Synoptique({ poste }) {
         >
           <div className="entete-syn entete-heure-syn">Heure</div>
           <div className="entete-syn entete-generales-syn">Infos générales</div>
-          {secours.map((s) => (
-            <div className="entete-syn entete-secours-syn" key={s.id}>
+          {secours.map((s, i) => (
+            <div className={`entete-syn entete-secours-syn ${i % 2 === 0 ? 'pair' : 'impair'}`} key={s.id}>
               <span className="badge-secours-syn" style={{ background: STATUTS[s.statut]?.couleur }} />
               <div className="titre-secours-syn">
                 <span>n°{s.local_id}</span>

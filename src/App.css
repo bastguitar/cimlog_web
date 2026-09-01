@@ -693,8 +693,11 @@ main > * {
 }
 
 .bloc-effectifs-mc {
+  /* Même traitement que .bloc-effectifs-syn (vue synoptique) : l'effectif de
+     permanence est une info, pas une alerte — le rouge reste réservé au SG
+     et aux avis. */
   padding: 8px 16px;
-  background: var(--accent-bg);
+  background: var(--chaleur-bg);
   border-bottom: 1px solid var(--border);
   font-size: 12px;
   line-height: 1.55;
@@ -706,10 +709,10 @@ main > * {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.06em;
-  color: var(--accent);
+  color: var(--chaleur);
   padding: 2px 7px;
   border-radius: 999px;
-  border: 1px solid var(--accent);
+  border: 1px solid var(--chaleur);
   margin-bottom: 3px;
 }
 
@@ -722,7 +725,7 @@ main > * {
   display: inline-block;
   min-width: 100px;
   font-weight: 700;
-  color: var(--text-h);
+  color: var(--chaleur);
   margin-right: 4px;
 }
 
@@ -1097,14 +1100,59 @@ main > * {
   min-width: 100%;
 }
 
+.bloc-effectifs-syn {
+  padding: 8px 16px;
+  background: var(--chaleur-bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.etiquette-effectifs-syn {
+  display: inline-block;
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--chaleur);
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--chaleur);
+  margin-bottom: 3px;
+}
+
+.groupe-effectif-syn {
+  display: block;
+  color: var(--text);
+}
+
+.role-effectif-syn {
+  display: inline-block;
+  min-width: 100px;
+  font-weight: 700;
+  color: var(--chaleur);
+  margin-right: 4px;
+}
+
+.role-effectif-syn::after {
+  content: ' :';
+}
+
 .entete-syn {
   position: sticky;
   top: 0;
   z-index: 3;
   padding: 8px 10px;
-  background: var(--bg-card);
   border-bottom: 1px solid var(--border);
-  border-right: 1px solid var(--border);
+  border-right: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.entete-heure-syn,
+.entete-generales-syn {
+  background: var(--chaleur-fonce);
+  color: #fff;
 }
 
 .entete-heure-syn {
@@ -1114,7 +1162,7 @@ main > * {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  opacity: 0.6;
+  opacity: 0.85;
   display: flex;
   align-items: center;
 }
@@ -1126,7 +1174,6 @@ main > * {
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--chaleur);
   display: flex;
   align-items: center;
 }
@@ -1140,6 +1187,15 @@ main > * {
   display: flex;
   flex-direction: column;
   gap: 2px;
+  color: #fff;
+}
+
+.entete-secours-syn.pair {
+  background: var(--chaleur);
+}
+
+.entete-secours-syn.impair {
+  background: var(--chaleur-clair);
 }
 
 .badge-secours-syn {
@@ -1147,6 +1203,7 @@ main > * {
   height: 8px;
   border-radius: 50%;
   margin-bottom: 2px;
+  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, 0.6);
 }
 
 .titre-secours-syn {
@@ -1155,17 +1212,17 @@ main > * {
   flex-wrap: wrap;
   font-size: 12px;
   font-weight: 700;
-  color: var(--text-h);
+  color: #fff;
 }
 
 .detail-secours-syn {
   font-size: 10.5px;
-  color: var(--text);
-  opacity: 0.85;
+  color: #fff;
+  opacity: 0.9;
 }
 
 .detail-secours-syn.muet {
-  opacity: 0.55;
+  opacity: 0.7;
 }
 
 .heure-syn {
