@@ -77,6 +77,13 @@ export default function Registre() {
               <div key={jour.cle}>
                 <div className="titre-jour-mc">{titreJournee(jour.date)}</div>
                 <table className="tableau-mc tableau-registre">
+                  <colgroup>
+                    <col className="col-heure-registre" />
+                    <col className="col-numero-registre" />
+                    <col className="col-lieu-registre" />
+                    <col className="col-activite-registre" />
+                    <col className="col-equipe-registre" />
+                  </colgroup>
                   <tbody>
                     {jour.secours.map((s) => (
                       <tr key={s.id} className="ligne-registre" onClick={() => setFicheId(s.id)}>

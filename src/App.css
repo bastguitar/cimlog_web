@@ -1238,6 +1238,38 @@ main > * {
   z-index: 2;
 }
 
+.tableau-registre {
+  /* Chaque jour a sa propre <table> (pour le titre-jour-mc sticky) — sans
+     layout fixe, un lieu très long élargit sa table et désaligne les
+     colonnes par rapport aux jours voisins. Les largeurs sont donc fixées
+     ici, identiques pour toutes les tables de la page. */
+  table-layout: fixed;
+}
+
+.tableau-registre td {
+  overflow-wrap: break-word;
+}
+
+.tableau-registre .col-heure-registre {
+  width: 9%;
+}
+
+.tableau-registre .col-numero-registre {
+  width: 9%;
+}
+
+.tableau-registre .col-lieu-registre {
+  width: 38%;
+}
+
+.tableau-registre .col-activite-registre {
+  width: 20%;
+}
+
+.tableau-registre .col-equipe-registre {
+  width: 24%;
+}
+
 .tableau-registre tbody tr {
   cursor: pointer;
 }
