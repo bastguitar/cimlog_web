@@ -1,31 +1,51 @@
 :root {
-  --text: #3f3f46;
-  --text-h: #08060d;
-  --bg: #fff;
-  --bg-alt: #f6f6f4;
-  --border: #e2e2e5;
+  /* Palette froide et moderne — ardoise et bleu plutôt que la teinte ambrée
+     d'origine : plus proche d'un dashboard actuel, sans perdre en chaleur
+     humaine grâce à l'accent rouge (alertes) conservé tel quel. */
+  --text: #3d4a5c;
+  --text-h: #1a232e;
+  --bg: #f9fafc;
+  --bg-alt: #eef1f6;
+  --bg-card: #ffffff;
+  --border: #dde3ec;
   --accent: #b6242c;
   --accent-bg: rgba(182, 36, 44, 0.08);
+  --chaleur: #3b5a82;
+  --chaleur-bg: rgba(59, 90, 130, 0.1);
+  --succes: #4d7c0f;
+  --succes-bg: rgba(77, 124, 15, 0.1);
 
-  --sans: system-ui, 'Segoe UI', Roboto, sans-serif;
+  --sans: 'Segoe UI', system-ui, Roboto, sans-serif;
 
-  font: 16px/145% var(--sans);
+  --radius-sm: 8px;
+  --radius: 14px;
+  --shadow-sm: 0 1px 2px rgba(20, 30, 45, 0.07);
+  --shadow: 0 4px 14px rgba(20, 30, 45, 0.08), 0 1px 3px rgba(20, 30, 45, 0.06);
+
+  font: 15px/1.5 var(--sans);
   color-scheme: light dark;
   color: var(--text);
-  background: var(--bg);
+  background: var(--bg-alt);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --text: #d1d1d6;
-    --text-h: #f3f4f6;
-    --bg: #17181c;
-    --bg-alt: #1e1f24;
-    --border: #2e303a;
-    --accent: #e05a61;
-    --accent-bg: rgba(224, 90, 97, 0.15);
+    --text: #c3ccd9;
+    --text-h: #eef2f8;
+    --bg: #141a22;
+    --bg-alt: #0e131a;
+    --bg-card: #1b232e;
+    --border: #2c3644;
+    --accent: #e5646b;
+    --accent-bg: rgba(229, 100, 107, 0.13);
+    --chaleur: #7ea1c9;
+    --chaleur-bg: rgba(126, 161, 201, 0.16);
+    --succes: #8bc457;
+    --succes-bg: rgba(139, 196, 87, 0.12);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow: 0 4px 16px rgba(0, 0, 0, 0.4), 0 1px 2px rgba(0, 0, 0, 0.35);
   }
 }
 

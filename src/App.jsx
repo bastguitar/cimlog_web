@@ -7,19 +7,50 @@ import Registre from './pages/Registre'
 import CarteIGN from './pages/CarteIGN'
 import Stats from './pages/Stats'
 import { deconnecter, posteConnecte } from './lib/session'
+import { supabase } from './lib/supabase'
 import './App.css'
 
 export default function App() {
   const [poste, setPoste] = useState(undefined) // undefined = en cours de vérification
+  const [erreurAuto, setErreurAuto] = useState(null)
 
   useEffect(() => {
+    /*
+     * Lien direct depuis le site de prise d'alerte (?access_token=...&
+     * refresh_token=...) : reprend la session déjà ouverte là-bas plutôt que
+     * de redemander le mot de passe — les deux sites partagent le même
+     * projet Supabase, donc la même session y est valable. Retirés de la
+     * barre d'adresse dès qu'on les a lus : ce sont des jetons de connexion,
+     * ils n'ont rien à faire dans un lien qui traîne (historique, favoris…).
+     */
+    const params = new URLSearchParams(window.location.search)
+    const accessToken = params.get('access_token')
+    const refreshToken = params.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      const url = new URL(window.location.href)
+      url.searchParams.delete('access_token')
+      url.searchParams.delete('refresh_token')
+      window.history.replaceState({}, '', url)
+
+      supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken }).then(({ error }) => {
+        if (error) {
+          setErreurAuto('Lien de connexion invalide ou expiré.')
+          setPoste(null)
+          return
+        }
+        posteConnecte().then(setPoste).catch(() => setPoste(null))
+      })
+      return
+    }
+
     posteConnecte()
       .then(setPoste)
       .catch(() => setPoste(null))
   }, [])
 
   if (poste === undefined) return null
-  if (!poste) return <Connexion onConnecte={setPoste} />
+  if (!poste) return <Connexion onConnecte={setPoste} erreurInitiale={erreurAuto} />
 
   return (
     <BrowserRouter>
@@ -44,11 +75,11 @@ export default function App() {
 
         <main>
           <Routes>
-            <Route path="/" element={<MainCourante />} />
-            <Route path="/synoptique" element={<Synoptique />} />
+            <Route path="/" element={<MainCourante poste={poste} />} />
+            <Route path="/synoptique" element={<Synoptique poste={poste} />} />
             <Route path="/registre" element={<Registre />} />
-            <Route path="/carte" element={<CarteIGN />} />
-            <Route path="/stats" element={<Stats />} />
+            <Route path="/carte" element={<CarteIGN poste={poste} />} />
+            <Route path="/stats" element={<Stats poste={poste} />} />
           </Routes>
         </main>
       </div>

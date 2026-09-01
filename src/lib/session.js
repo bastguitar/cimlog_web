@@ -18,7 +18,7 @@ export async function posteConnecte() {
 
   const { data, error } = await supabase
     .from('profils')
-    .select('section, sections(code, nom, identifiant, groupe)')
+    .select('section, sections(code, nom, identifiant, groupe, annuaire_section_id, lat, lon, zoom)')
     .single()
   if (error) throw new Error(`Profil du poste introuvable : ${error.message}`)
 

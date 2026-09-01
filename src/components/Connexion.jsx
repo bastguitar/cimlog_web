@@ -1,12 +1,19 @@
 import { useEffect, useRef, useState } from 'react'
 import { connecter, postesDeConnexion } from '../lib/session'
 
-/** Écran de connexion — mêmes comptes de poste que alerte_secours_web. */
-export default function Connexion({ onConnecte }) {
+/**
+ * Écran de connexion — mêmes comptes de poste que alerte_secours_web.
+ *
+ * `erreurInitiale` : la connexion automatique par lien (voir App.jsx) a
+ * échoué avant même d'arriver ici — jeton expiré, par exemple. On retombe
+ * sur ce formulaire, mais autant dire pourquoi plutôt que de laisser croire
+ * à une simple visite normale.
+ */
+export default function Connexion({ onConnecte, erreurInitiale = null }) {
   const [postes, setPostes] = useState([])
   const [identifiant, setIdentifiant] = useState('')
   const [motDePasse, setMotDePasse] = useState('')
-  const [erreur, setErreur] = useState(null)
+  const [erreur, setErreur] = useState(erreurInitiale)
   const [enCours, setEnCours] = useState(false)
   const champMdp = useRef(null)
 
