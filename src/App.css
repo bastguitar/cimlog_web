@@ -761,6 +761,37 @@ main > * {
   opacity: 0.75;
 }
 
+.tableau-chrono {
+  /* Heure / Secours / Origine resserrées à gauche pour laisser le maximum
+     de place à Message / Action, la colonne qu'on lit vraiment. */
+  table-layout: fixed;
+}
+
+.tableau-chrono td {
+  overflow-wrap: break-word;
+}
+
+.tableau-chrono .col-cadenas-mc {
+  width: 22px;
+}
+
+.tableau-chrono .col-heure-mc {
+  width: 56px;
+}
+
+.tableau-chrono .col-secours-mc {
+  width: 190px;
+}
+
+.tableau-chrono .col-origine-mc {
+  width: 130px;
+}
+
+.cellule-compacte-mc {
+  padding-left: 10px !important;
+  padding-right: 10px !important;
+}
+
 .colonne-cadenas {
   width: 22px;
 }

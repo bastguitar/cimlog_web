@@ -58,9 +58,9 @@ export default function App() {
         <header className="entete">
           <span className="nom-poste">{poste.nom}</span>
           <nav>
-            <NavLink to="/" end>Main courante</NavLink>
-            <NavLink to="/synoptique">Synoptique</NavLink>
-            <NavLink to="/registre">Registre</NavLink>
+            <NavLink to="/" end>MC Chronologique</NavLink>
+            <NavLink to="/synoptique">Vue synoptique</NavLink>
+            <NavLink to="/registre">Registre secours</NavLink>
             <NavLink to="/carte">Carte IGN</NavLink>
             <NavLink to="/stats">Stats</NavLink>
           </nav>

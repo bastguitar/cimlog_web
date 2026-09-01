@@ -278,13 +278,19 @@ export default function MainCourante({ poste }) {
           <p className="aide">Aucun message {aujourdhui ? 'aujourd’hui' : 'ce jour-là'}.</p>
         )}
 
-        <table className="tableau-mc">
+        <table className="tableau-mc tableau-chrono">
+          <colgroup>
+            <col className="col-cadenas-mc" />
+            <col className="col-heure-mc" />
+            <col className="col-secours-mc" />
+            <col className="col-origine-mc" />
+          </colgroup>
           <thead>
             <tr>
               <th className="colonne-cadenas" />
-              <th>Heure</th>
-              <th>Secours</th>
-              <th>Origine</th>
+              <th className="cellule-compacte-mc">Heure</th>
+              <th className="cellule-compacte-mc">Secours</th>
+              <th className="cellule-compacte-mc">Origine</th>
               <th>Message / Action</th>
             </tr>
           </thead>
@@ -307,8 +313,8 @@ export default function MainCourante({ poste }) {
                       </span>
                     )}
                   </td>
-                  <td>{formatHeure(m.createdAt)}</td>
-                  <td>
+                  <td className="cellule-compacte-mc">{formatHeure(m.createdAt)}</td>
+                  <td className="cellule-compacte-mc">
                     {m.eventId != null ? (
                       <>
                         <span className="numero-mc" style={{ color: STATUTS[m.statut]?.couleur }}>
@@ -320,7 +326,7 @@ export default function MainCourante({ poste }) {
                       '-'
                     )}
                   </td>
-                  <td>{m.origin}</td>
+                  <td className="cellule-compacte-mc">{m.origin}</td>
                   <td className="cellule-message-mc">
                     {enEdition ? (
                       <form
