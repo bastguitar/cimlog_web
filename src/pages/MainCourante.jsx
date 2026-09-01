@@ -16,6 +16,9 @@ import {
   TYPES_MENTION_SG,
   estMentionSG,
   STATUTS,
+  victimesDesEvenements,
+  estMessageIdentite,
+  formatIdentiteVictime,
 } from '../lib/mainCourante'
 
 const AVIS = ['CODIS', 'CORG', 'C15', 'Préfecture', 'Parquet', 'Mairie', 'Cdt CRS Alpes', 'BIO']
@@ -52,6 +55,7 @@ export default function MainCourante({ poste }) {
   const [secours, setSecours] = useState([])
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
+  const [victimesParEvenement, setVictimesParEvenement] = useState(new Map())
 
   const [effectifsOuverts, setEffectifsOuverts] = useState(false)
   const [exportOuvert, setExportOuvert] = useState(false)
@@ -131,6 +135,24 @@ export default function MainCourante({ poste }) {
       .then(setSecouristes)
       .catch((e) => setErreur(e.message))
   }, [poste])
+
+  // Le message « Identité transmise : N personne(s) » (posé par
+  // enregistrer_identites côté Cim'Alerte) ne dit rien de qui — on va
+  // chercher le détail dans victimes pour l'afficher à la place.
+  const eventIdsIdentite = useMemo(
+    () => [...new Set(messages.filter((m) => estMessageIdentite(m.content) && m.eventId != null).map((m) => m.eventId))],
+    [messages]
+  )
+  useEffect(() => {
+    if (eventIdsIdentite.length === 0) {
+      setVictimesParEvenement(new Map())
+      return
+    }
+    victimesDesEvenements(eventIdsIdentite)
+      .then(setVictimesParEvenement)
+      .catch((e) => setErreur(e.message))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventIdsIdentite.join(',')])
 
   const changerJour = (delta) =>
     setJour((j) => {
@@ -315,9 +337,19 @@ export default function MainCourante({ poste }) {
                     {m.origin !== 'Système' && (
                       <span
                         className={verrouille ? 'icone-cadenas' : 'icone-cadenas ouvert'}
-                        title={verrouille ? 'Verrouillé — plus de 2h' : 'Modifiable encore un moment'}
+                        title={verrouille ? 'Verrouillé — plus modifiable (plus de 2h)' : 'Modifiable encore un moment'}
                       >
-                        {verrouille ? '🔒' : '🔓'}
+                        {verrouille ? (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none" />
+                            <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+                          </svg>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                            <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none" />
+                            <path d="M8 11V7a4 4 0 0 1 7.5-2" />
+                          </svg>
+                        )}
                       </span>
                     )}
                   </td>
@@ -361,7 +393,19 @@ export default function MainCourante({ poste }) {
                       </form>
                     ) : (
                       <div className="ligne-message-mc">
-                        <span className="texte-message-mc">{m.content}</span>
+                        <span className="texte-message-mc">
+                          {estMessageIdentite(m.content) && victimesParEvenement.get(m.eventId)?.length > 0 ? (
+                            <span className="identites-message-mc">
+                              {victimesParEvenement.get(m.eventId).map((v, i) => (
+                                <span className="identite-victime-mc" key={i}>
+                                  {formatIdentiteVictime(v)}
+                                </span>
+                              ))}
+                            </span>
+                          ) : (
+                            m.content
+                          )}
+                        </span>
                         <span className="actions-message-mc">
                           {modifiable && (
                             <button type="button" onClick={() => commencerEdition(m)} title="Modifier" aria-label="Modifier">

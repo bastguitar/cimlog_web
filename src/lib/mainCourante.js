@@ -102,6 +102,46 @@ export async function messagesDeEvenement(eventId) {
     .map(mapMessage)
 }
 
+/**
+ * Identités des victimes de plusieurs interventions, groupées par
+ * intervention — pour afficher le détail sous un message « Identité
+ * transmise : N personne(s) » (voir enregistrer_identites, côté
+ * Cim'Alerte, qui pose ce message générique sans le détail).
+ */
+export async function victimesDesEvenements(eventIds) {
+  if (eventIds.length === 0) return new Map()
+  const { data, error } = await supabase
+    .from('victimes')
+    .select('event_id, nom, prenom, date_naissance, lieu_naissance, telephone')
+    .in('event_id', eventIds)
+    .not('nom', 'is', null)
+  if (error) throw new Error(`Identités : ${error.message}`)
+
+  const parEvenement = new Map()
+  for (const v of data ?? []) {
+    if (!parEvenement.has(v.event_id)) parEvenement.set(v.event_id, [])
+    parEvenement.get(v.event_id).push(v)
+  }
+  return parEvenement
+}
+
+/**
+ * Reconnaît le message générique posé par enregistrer_identites (« Identité
+ * transmise : N personne(s) ») ainsi que la formulation plus ancienne des
+ * données reprises de l'ancien logiciel (« Identité victime transmise »).
+ */
+export const estMessageIdentite = (contenu) => /identité.*transmise/i.test(contenu)
+
+export function formatIdentiteVictime(v) {
+  const nom = [v.nom, v.prenom].filter(Boolean).join(' ')
+  const naissance = v.date_naissance
+    ? `né(e) le ${new Date(v.date_naissance).toLocaleDateString('fr-FR')}${v.lieu_naissance ? ` à ${v.lieu_naissance}` : ''}`
+    : v.lieu_naissance
+      ? `né(e) à ${v.lieu_naissance}`
+      : ''
+  return [nom, naissance, v.telephone].filter(Boolean).join(', ')
+}
+
 /** Secours à proposer dans le sélecteur du composeur, pour rattacher un message. */
 export async function secoursDuJour(jour) {
   const debut = debutDuJour(jour)

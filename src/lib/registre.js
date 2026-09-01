@@ -58,7 +58,7 @@ export async function ficheSecours(id) {
         'helicopter, support_units, type_intervention, moyens_engages, ' +
         'recherche_personne, personne_recherchee_nom, snosm, ' +
         'victimes(id, local_id, sexe, age, pathologie, gravite, circonstances, cinetique, douleur, ' +
-        'nom, prenom, bilan_terrain)'
+        'nom, prenom, date_naissance, lieu_naissance, telephone, bilan_terrain)'
     )
     .eq('id', id)
     .single()

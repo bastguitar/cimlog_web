@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { ficheSecours } from '../lib/registre'
-import { messagesDeEvenement, STATUTS } from '../lib/mainCourante'
+import { messagesDeEvenement, STATUTS, formatIdentiteVictime } from '../lib/mainCourante'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const formatDateHeure = (iso) =>
@@ -195,8 +195,8 @@ function OngletVictimes({ victimes }) {
           <strong>
             Victime {v.local_id ?? ''} — {v.sexe || '—'}
             {v.age ? `, ${v.age} ans` : ''}
-            {(v.nom || v.prenom) && ` — ${[v.nom, v.prenom].filter(Boolean).join(' ')}`}
           </strong>
+          {v.nom && <p className="identite-victime-fiche">{formatIdentiteVictime(v)}</p>}
           {v.pathologie && <p>{v.pathologie}</p>}
           {v.gravite && <p className="muet">Gravité : {v.gravite}</p>}
           {v.douleur != null && <p className="muet">Douleur : {v.douleur}/10</p>}
