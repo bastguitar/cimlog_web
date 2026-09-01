@@ -204,14 +204,16 @@ export default function MainCourante({ poste }) {
 
         <button
           type="button"
-          className={effectifsOuverts ? 'bouton-effectifs actif' : 'bouton-effectifs'}
+          className={effectifsOuverts ? 'bouton-permanence-mc actif' : 'bouton-permanence-mc'}
           onClick={() => setEffectifsOuverts((v) => !v)}
         >
+          <span className="icone-permanence-mc" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="currentColor">
+              <path d="M9 12a4 4 0 1 0 0-8 4 4 0 0 0 0 8Zm0 2c-3.6 0-7 1.8-7 4.5V20h14v-1.5c0-2.7-3.4-4.5-7-4.5Z" />
+              <path d="M16.5 12A3.5 3.5 0 1 0 16.5 5a3.5 3.5 0 0 0 0 7Zm.7 1.6c-.3 0-.6.02-.9.06 1.4.9 2.3 2.2 2.3 3.84V20H23v-1.5c0-2.6-3-4.9-5.8-4.9Z" opacity=".7" />
+            </svg>
+          </span>
           Effectifs
-        </button>
-
-        <button type="button" className="bouton-effectifs" onClick={() => setExportOuvert(true)}>
-          Exporter
         </button>
 
         <input
@@ -235,6 +237,10 @@ export default function MainCourante({ poste }) {
           onClick={() => setFiltreSG((v) => !v)}
         >
           SG
+        </button>
+
+        <button type="button" className="bouton-effectifs bouton-exporter-mc" onClick={() => setExportOuvert(true)}>
+          Exporter
         </button>
         <span className="compte-resultats-mc">{messagesFiltres.length} résultat{messagesFiltres.length > 1 ? 's' : ''}</span>
       </div>
