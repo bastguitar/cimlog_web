@@ -1226,15 +1226,14 @@ main > * {
 .titre-semaine-registre {
   position: sticky;
   top: 0;
-  padding: 6px 16px;
-  background: var(--bg-alt);
-  border-bottom: 1px solid var(--border);
-  font-size: 11px;
+  padding: 10px 16px;
+  background: var(--chaleur-bg);
+  border-bottom: 2px solid var(--chaleur);
+  font-size: 13px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-  color: var(--text);
-  opacity: 0.75;
+  color: var(--chaleur);
   z-index: 2;
 }
 
