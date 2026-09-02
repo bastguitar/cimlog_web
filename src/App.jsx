@@ -87,7 +87,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<MainCourante poste={poste} />} />
             <Route path="/synoptique" element={<Synoptique poste={poste} />} />
-            <Route path="/registre" element={<Registre />} />
+            <Route path="/registre" element={<Registre poste={poste} />} />
             <Route path="/carte" element={<CarteIGN poste={poste} />} />
             <Route path="/stats" element={<Stats poste={poste} />} />
           </Routes>

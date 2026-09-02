@@ -4,6 +4,9 @@ import { dateISO, effectifsDuJour, ajouterEffectif, retirerEffectif } from '../l
 import { secouristesDeSection } from '../lib/annuaire'
 import { rolesDeLaSection, ajouterRole } from '../lib/roles'
 import { debutSemaine } from '../lib/semaines'
+import { couleurSection } from '../lib/sections'
+import { useFiltreSections } from '../hooks/useFiltreSections'
+import SelecteurSections from '../components/SelecteurSections'
 import { exporterMainCourantePdf } from '../lib/exportMainCourantePdf'
 import {
   messagesDuJour,
@@ -161,10 +164,13 @@ export default function MainCourante({ poste }) {
       return d
     })
 
+  const fSections = useFiltreSections(poste)
+
   const messagesFiltres = useMemo(() => {
     const mot = recherche.trim().toLowerCase()
     const numero = filtreNumero.trim()
     return messages.filter((m) => {
+      if (!fSections.estVisible(m.squadCode)) return false
       if (filtreSG && !estMentionSG(m.content)) return false
       if (numero && String(m.localId ?? '') !== numero) return false
       if (!mot) return true
@@ -174,7 +180,7 @@ export default function MainCourante({ poste }) {
         (m.lieu ?? '').toLowerCase().includes(mot)
       )
     })
-  }, [messages, recherche, filtreNumero, filtreSG])
+  }, [messages, recherche, filtreNumero, filtreSG, fSections])
 
   function commencerEdition(m) {
     setEditionId(m.idStatus)
@@ -262,6 +268,8 @@ export default function MainCourante({ poste }) {
         >
           SG
         </button>
+
+        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
 
         <button type="button" className="bouton-principal bouton-exporter-mc" onClick={() => setExportOuvert(true)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -362,6 +370,9 @@ export default function MainCourante({ poste }) {
                   <td className="cellule-compacte-mc">
                     {m.eventId != null ? (
                       <>
+                        {fSections.sections.length > 1 && (
+                          <span className="badge-section" style={{ background: couleurSection(m.squadCode) }} />
+                        )}
                         <span className="numero-mc" style={{ color: STATUTS[m.statut]?.couleur }}>
                           n°{m.localId ?? '—'}
                         </span>

@@ -4,9 +4,12 @@ import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { listerAnnee } from '../lib/registre'
 import { STATUTS } from '../lib/mainCourante'
+import { couleurSection } from '../lib/sections'
 import { BASEMAPS, MAX_ZOOM } from '../lib/basemaps'
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
+import { useFiltreSections } from '../hooks/useFiltreSections'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
+import SelecteurSections from '../components/SelecteurSections'
 import ModaleFiche from '../components/ModaleFiche'
 
 const formatDate = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
@@ -21,21 +24,25 @@ const ZOOM_DEFAUT = 11
  * point de la carte d'une ligne du Registre sans avoir à cliquer chaque
  * repère un par un.
  */
-const icones = new Map() // couleur -> L.DivIcon, pour ne pas en refabriquer une par marqueur
-function iconeNumero(local_id, couleur) {
-  if (!icones.has(couleur)) {
+const icones = new Map() // "couleur|anneau" -> Map(local_id -> L.DivIcon)
+function iconeNumero(local_id, couleur, anneau = null) {
+  const cle = `${couleur}|${anneau ?? ''}`
+  if (!icones.has(cle)) {
     icones.set(
-      couleur,
+      cle,
       new Map() // local_id -> icône, la couleur ne change pas mais le numéro si
     )
   }
-  const parCouleur = icones.get(couleur)
+  const parCouleur = icones.get(cle)
   if (!parCouleur.has(local_id)) {
+    const style = anneau
+      ? `background:${couleur};box-shadow:0 0 0 2.5px ${anneau}, 0 1px 4px rgba(0,0,0,.45)`
+      : `background:${couleur}`
     parCouleur.set(
       local_id,
       L.divIcon({
         className: 'icone-secours-carte',
-        html: `<span style="background:${couleur}">${local_id}</span>`,
+        html: `<span style="${style}">${local_id}</span>`,
         iconSize: null,
       })
     )
@@ -65,13 +72,15 @@ export default function CarteIGN({ poste }) {
   }, [annee])
 
   const f = useFiltresRegistre(evenements)
+  const fSections = useFiltreSections(poste)
 
   const points = useMemo(
     () =>
-      f.evenementsFiltres
+      fSections
+        .filtrer(f.evenementsFiltres)
         .map((s) => ({ ...s, lat: Number(s.lat), lon: Number(s.lon) }))
         .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lon) && (s.lat !== 0 || s.lon !== 0)),
-    [f.evenementsFiltres]
+    [f.evenementsFiltres, fSections]
   )
 
   const centre = poste?.lat && poste?.lon ? [Number(poste.lat), Number(poste.lon)] : CENTRE_DEFAUT
@@ -95,6 +104,8 @@ export default function CarteIGN({ poste }) {
         </div>
 
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre…" />
+
+        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
 
         <span className="compte-resultats-mc">
           {points.length} secours localisé{points.length > 1 ? 's' : ''}
@@ -130,7 +141,15 @@ export default function CarteIGN({ poste }) {
           )}
 
           {points.map((s) => (
-            <Marker key={s.id} position={[s.lat, s.lon]} icon={iconeNumero(s.local_id, STATUTS[s.statut]?.couleur ?? '#64748b')}>
+            <Marker
+              key={s.id}
+              position={[s.lat, s.lon]}
+              icon={iconeNumero(
+                s.local_id,
+                STATUTS[s.statut]?.couleur ?? '#64748b',
+                fSections.sections.length > 1 ? couleurSection(s.squad_code) : null
+              )}
+            >
               <Popup>
                 <strong>
                   n°{s.local_id} — {s.activity || 'Activité non précisée'}

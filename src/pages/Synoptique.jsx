@@ -1,6 +1,9 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { dateISO, effectifsDuJour } from '../lib/effectifs'
 import { rolesDeLaSection } from '../lib/roles'
+import { couleurSection } from '../lib/sections'
+import { useFiltreSections } from '../hooks/useFiltreSections'
+import SelecteurSections from '../components/SelecteurSections'
 import { exporterSynoptiquePdf } from '../lib/exportSynoptiquePdf'
 import { messagesDuJour, secoursDuJour, estMentionSG, DUREE_MODIFICATION_MS, STATUTS } from '../lib/mainCourante'
 
@@ -68,21 +71,28 @@ export default function Synoptique({ poste }) {
       return d
     })
 
+  const fSections = useFiltreSections(poste)
+  const secoursVisibles = useMemo(() => fSections.filtrer(secours), [secours, fSections])
+
   // Une colonne « général » (event_id NULL), puis une par secours du jour,
   // chacune avec ses 24 cases d'heure déjà préparées — plus simple à rendre
-  // que de chercher, à chaque case, les messages qui y tombent.
+  // que de chercher, à chaque case, les messages qui y tombent. Un message
+  // rattaché à un secours masqué (section décochée) n'a plus de case où
+  // tomber, donc il disparaît avec lui ; un message général (event_id NULL)
+  // est filtré à part, sur sa propre section.
   const grille = useMemo(() => {
     const parColonne = new Map()
     parColonne.set('general', HEURES.map(() => []))
-    for (const s of secours) parColonne.set(s.id, HEURES.map(() => []))
+    for (const s of secoursVisibles) parColonne.set(s.id, HEURES.map(() => []))
 
     for (const m of messages) {
+      if (m.eventId == null && !fSections.estVisible(m.squadCode)) continue
       const bucket = parColonne.get(m.eventId ?? 'general')
       if (!bucket) continue
       bucket[new Date(m.createdAt).getHours()].push(m)
     }
     return parColonne
-  }, [messages, secours])
+  }, [messages, secoursVisibles, fSections])
 
   // Toutes les heures avant le premier message sont vides (34px chacune,
   // aucune n'est jamais plus grande) — un simple décalage vertical vers
@@ -90,10 +100,10 @@ export default function Synoptique({ poste }) {
   const premiereHeureAvecMessages = useMemo(() => {
     for (let h = 0; h < 24; h++) {
       if (grille.get('general')[h].length > 0) return h
-      if (secours.some((s) => grille.get(s.id)[h].length > 0)) return h
+      if (secoursVisibles.some((s) => grille.get(s.id)[h].length > 0)) return h
     }
     return null
-  }, [grille, secours])
+  }, [grille, secoursVisibles])
 
   const scrollRef = useRef(null)
   useEffect(() => {
@@ -108,7 +118,7 @@ export default function Synoptique({ poste }) {
   function exporter() {
     if (!poste) return
     try {
-      exporterSynoptiquePdf({ poste, jour, secours, grille })
+      exporterSynoptiquePdf({ poste, jour, secours: secoursVisibles, grille })
     } catch (e) {
       setErreur(e.message)
     }
@@ -131,6 +141,8 @@ export default function Synoptique({ poste }) {
             </button>
           )}
         </div>
+        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
+
         {/* Même disposition que la main courante chronologique (MainCourante.jsx) :
             bouton Exporter poussé à droite via .bouton-exporter-mc
             (margin-left: auto), le compte juste après. */}
@@ -138,7 +150,7 @@ export default function Synoptique({ poste }) {
           type="button"
           className="bouton-principal bouton-exporter-mc"
           onClick={exporter}
-          disabled={!poste || secours.length === 0}
+          disabled={!poste || secoursVisibles.length === 0}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M12 3v12" />
@@ -148,7 +160,7 @@ export default function Synoptique({ poste }) {
           Exporter
         </button>
         <span className="compte-resultats-mc">
-          {secours.length} secours {secours.length > 1 ? 'affichés' : 'affiché'}
+          {secoursVisibles.length} secours {secoursVisibles.length > 1 ? 'affichés' : 'affiché'}
         </span>
       </div>
 
@@ -176,15 +188,19 @@ export default function Synoptique({ poste }) {
             // rejette silencieusement et garde l'ancienne valeur en mémoire
             // (grille désalignée en zigzag) — d'où la branche à part quand
             // il n'y a aucun secours, Heure/Infos générales restant seules.
-            gridTemplateColumns: secours.length > 0 ? `56px 190px repeat(${secours.length}, 170px)` : '56px 190px',
+            gridTemplateColumns:
+              secoursVisibles.length > 0 ? `56px 190px repeat(${secoursVisibles.length}, 170px)` : '56px 190px',
           }}
         >
           <div className="entete-syn entete-heure-syn">Heure</div>
           <div className="entete-syn entete-generales-syn">Infos générales</div>
-          {secours.map((s, i) => (
+          {secoursVisibles.map((s, i) => (
             <div className={`entete-syn entete-secours-syn ${i % 2 === 0 ? 'pair' : 'impair'}`} key={s.id}>
               <span className="badge-secours-syn" style={{ background: STATUTS[s.statut]?.couleur }} />
               <div className="titre-secours-syn">
+                {fSections.sections.length > 1 && (
+                  <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
+                )}
                 <span>n°{s.local_id}</span>
                 {s.com && <span>— {s.com}</span>}
               </div>
@@ -197,7 +213,7 @@ export default function Synoptique({ poste }) {
             <Fragment key={h}>
               <div className="heure-syn" data-heure={h}>{h}h</div>
               <CelluleSyn messages={grille.get('general')[h]} maintenant={maintenant} generale />
-              {secours.map((s) => (
+              {secoursVisibles.map((s) => (
                 <CelluleSyn key={s.id} messages={grille.get(s.id)[h]} maintenant={maintenant} />
               ))}
             </Fragment>
@@ -205,7 +221,7 @@ export default function Synoptique({ poste }) {
         </div>
       </div>
 
-      {!chargement && !erreur && secours.length === 0 && (
+      {!chargement && !erreur && secoursVisibles.length === 0 && (
         <p className="aide">Aucun secours {aujourdhui ? 'aujourd’hui' : 'ce jour-là'}.</p>
       )}
     </section>

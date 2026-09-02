@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
 import { useFiltresRegistre, filtrerEvenements } from '../hooks/useFiltresRegistre'
+import { useFiltreSections } from '../hooks/useFiltreSections'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
+import SelecteurSections from '../components/SelecteurSections'
 
 const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 const JOUR_MS = 24 * 60 * 60 * 1000
@@ -62,24 +64,29 @@ export default function Stats({ poste }) {
   }, [])
 
   const f = useFiltresRegistre(evenements)
+  const fSections = useFiltreSections(poste)
+  const evenementsVisibles = useMemo(() => fSections.filtrer(f.evenementsFiltres), [f.evenementsFiltres, fSections])
   const precedentsFiltres = useMemo(
-    () => filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche),
-    [evenementsPrecedents, f.filtres, f.recherche]
+    () => fSections.filtrer(filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche)),
+    [evenementsPrecedents, f.filtres, f.recherche, fSections]
   )
-  const fenetreFiltree = useMemo(() => filtrerEvenements(fenetre, f.filtres, f.recherche), [fenetre, f.filtres, f.recherche])
+  const fenetreFiltree = useMemo(
+    () => fSections.filtrer(filtrerEvenements(fenetre, f.filtres, f.recherche)),
+    [fenetre, f.filtres, f.recherche, fSections]
+  )
   const fenetrePrecedenteFiltree = useMemo(
-    () => filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche),
-    [fenetrePrecedente, f.filtres, f.recherche]
+    () => fSections.filtrer(filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche)),
+    [fenetrePrecedente, f.filtres, f.recherche, fSections]
   )
 
-  const total = f.evenementsFiltres.length
+  const total = evenementsVisibles.length
   const totalPrecedent = precedentsFiltres.length
   const delta = totalPrecedent > 0 ? Math.round(((total - totalPrecedent) / totalPrecedent) * 100) : null
-  const totalVictimes = f.evenementsFiltres.reduce((n, s) => n + (s.victimes?.length ?? 0), 0)
-  const medicalisees = f.evenementsFiltres.filter((s) => s.is_med).length
+  const totalVictimes = evenementsVisibles.reduce((n, s) => n + (s.victimes?.length ?? 0), 0)
+  const medicalisees = evenementsVisibles.filter((s) => s.is_med).length
   const pctMedicalisees = total > 0 ? Math.round((medicalisees / total) * 100) : 0
 
-  const parMois = useMemo(() => compterParMois(f.evenementsFiltres), [f.evenementsFiltres])
+  const parMois = useMemo(() => compterParMois(evenementsVisibles), [evenementsVisibles])
   const parMoisPrecedent = useMemo(() => compterParMois(precedentsFiltres), [precedentsFiltres])
 
   const parJour = useMemo(() => compterParJourGlissant(fenetreFiltree, FENETRE_JOURS), [fenetreFiltree])
@@ -91,7 +98,7 @@ export default function Stats({ poste }) {
 
   const activites = useMemo(() => {
     const compte = new Map()
-    for (const s of f.evenementsFiltres) {
+    for (const s of evenementsVisibles) {
       const cle = s.activity || 'Non précisée'
       compte.set(cle, (compte.get(cle) ?? 0) + 1)
     }
@@ -100,7 +107,7 @@ export default function Stats({ poste }) {
     const tete = trie.slice(0, 7)
     const reste = trie.slice(7).reduce((n, d) => n + d.valeur, 0)
     return [...tete, { label: 'Autres', valeur: reste }]
-  }, [f.evenementsFiltres])
+  }, [evenementsVisibles])
 
   return (
     <section className="page page-mc">
@@ -119,6 +126,8 @@ export default function Stats({ poste }) {
         </div>
 
         <ControlesFiltresRegistre f={f} placeholder="Filtrer les statistiques…" />
+
+        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
 
         <span className="compte-resultats-mc">
           {total} intervention{total > 1 ? 's' : ''}
