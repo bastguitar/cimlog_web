@@ -269,7 +269,13 @@ export default function MainCourante({ poste }) {
           SG
         </button>
 
-        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
+        <SelecteurSections
+          sections={fSections.sections}
+          actives={fSections.actives}
+          onToggle={fSections.toggler}
+          onTout={fSections.toutAfficher}
+          onMaSection={fSections.maSectionSeulement}
+        />
 
         <button type="button" className="bouton-principal bouton-exporter-mc" onClick={() => setExportOuvert(true)}>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -370,7 +376,7 @@ export default function MainCourante({ poste }) {
                   <td className="cellule-compacte-mc">
                     {m.eventId != null ? (
                       <>
-                        {fSections.sections.length > 1 && (
+                        {fSections.actives.size > 1 && (
                           <span className="badge-section" style={{ background: couleurSection(m.squadCode) }} />
                         )}
                         <span className="numero-mc" style={{ color: STATUTS[m.statut]?.couleur }}>

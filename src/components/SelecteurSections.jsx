@@ -1,6 +1,7 @@
-/** Légende cliquable par section — voir useFiltreSections. Rien à afficher tant qu'une seule section est visible (rien à filtrer). */
-export default function SelecteurSections({ sections, actives, onToggle }) {
+/** Légende cliquable par section — voir useFiltreSections. Rien à afficher tant qu'une seule section existe dans la région (rien à filtrer). */
+export default function SelecteurSections({ sections, actives, onToggle, onTout, onMaSection }) {
   if (sections.length <= 1) return null
+  const toutesActives = sections.every((s) => actives.has(s.code))
   return (
     <div className="selecteur-sections">
       {sections.map((s) => (
@@ -15,6 +16,9 @@ export default function SelecteurSections({ sections, actives, onToggle }) {
           {s.nom}
         </button>
       ))}
+      <button type="button" className="lien-selecteur-sections" onClick={toutesActives ? onMaSection : onTout}>
+        {toutesActives ? 'Ma section' : 'Toute la région'}
+      </button>
     </div>
   )
 }

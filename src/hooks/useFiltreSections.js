@@ -1,38 +1,43 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { sectionsDeLaRegion, groupeDe } from '../lib/sections'
 
 /**
- * Filtre par section (Grenoble/Briançon/Albertville/…), partagé par toutes
- * les pages qui lisent maintenant les interventions de toute la région
- * (voir visibilite_regionale.sql) — sans lui, une seule liste mélangerait
- * silencieusement les sections sans moyen de les distinguer ou de revenir
- * à la sienne seule.
+ * Filtre par section (Grenoble/Briançon/Albertville/…) — par défaut, un
+ * poste ne voit que sa propre section, comme avant la visibilité régionale
+ * (voir visibilite_regionale.sql) : voir les autres est un choix volontaire
+ * via la légende, jamais l'état de départ. Un poste garde par ailleurs la
+ * main sur sa propre main courante quoi qu'il ait sélectionné ici — écrire
+ * un message reste toujours au nom de sa propre section (poste.code), ce
+ * filtre ne change que ce qui s'affiche.
  */
 export function useFiltreSections(poste) {
   const [sections, setSections] = useState([])
-  const [actives, setActives] = useState(null) // null = toutes actives
+  const [actives, setActives] = useState(new Set())
 
   useEffect(() => {
     if (!poste) return
     sectionsDeLaRegion(poste.code)
-      .then(setSections)
+      .then((liste) => {
+        setSections(liste)
+        setActives(new Set([groupeDe(poste.code)]))
+      })
       .catch(() => setSections([]))
   }, [poste])
 
-  const ensembleActif = useMemo(() => actives ?? new Set(sections.map((s) => s.code)), [actives, sections])
-
   const toggler = (code) => {
     setActives((a) => {
-      const base = a ?? new Set(sections.map((s) => s.code))
-      const suivant = new Set(base)
+      const suivant = new Set(a)
       if (suivant.has(code)) suivant.delete(code)
       else suivant.add(code)
       return suivant
     })
   }
 
-  const estVisible = (squadCode) => ensembleActif.has(groupeDe(squadCode))
+  const toutAfficher = () => setActives(new Set(sections.map((s) => s.code)))
+  const maSectionSeulement = () => setActives(new Set([groupeDe(poste?.code)]))
+
+  const estVisible = (squadCode) => actives.has(groupeDe(squadCode))
   const filtrer = (liste, cleSection = 'squad_code') => liste.filter((e) => estVisible(e[cleSection]))
 
-  return { sections, actives: ensembleActif, toggler, estVisible, filtrer }
+  return { sections, actives, toggler, toutAfficher, maSectionSeulement, estVisible, filtrer }
 }

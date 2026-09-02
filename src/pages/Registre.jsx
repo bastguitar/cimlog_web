@@ -59,7 +59,13 @@ export default function Registre({ poste }) {
 
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre (n°, commune, victime…)" />
 
-        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
+        <SelecteurSections
+          sections={fSections.sections}
+          actives={fSections.actives}
+          onToggle={fSections.toggler}
+          onTout={fSections.toutAfficher}
+          onMaSection={fSections.maSectionSeulement}
+        />
 
         <span className="compte-resultats-mc">
           {evenementsVisibles.length} intervention{evenementsVisibles.length > 1 ? 's' : ''}
@@ -96,7 +102,7 @@ export default function Registre({ poste }) {
                       <tr key={s.id} className="ligne-registre" onClick={() => setFicheId(s.id)}>
                         <td>{formatHeure(s.created_at)}</td>
                         <td>
-                          {fSections.sections.length > 1 && (
+                          {fSections.actives.size > 1 && (
                             <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
                           )}
                           <span className="numero-mc" style={{ color: STATUTS[s.statut]?.couleur }}>

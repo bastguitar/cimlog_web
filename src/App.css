@@ -1436,6 +1436,24 @@ main > * {
   flex-shrink: 0;
 }
 
+.lien-selecteur-sections {
+  font: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 4px;
+  border: none;
+  background: none;
+  color: var(--chaleur);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.lien-selecteur-sections:hover {
+  color: var(--accent);
+}
+
 .badge-section {
   display: inline-block;
   width: 7px;

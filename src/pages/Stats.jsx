@@ -127,7 +127,13 @@ export default function Stats({ poste }) {
 
         <ControlesFiltresRegistre f={f} placeholder="Filtrer les statistiques…" />
 
-        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
+        <SelecteurSections
+          sections={fSections.sections}
+          actives={fSections.actives}
+          onToggle={fSections.toggler}
+          onTout={fSections.toutAfficher}
+          onMaSection={fSections.maSectionSeulement}
+        />
 
         <span className="compte-resultats-mc">
           {total} intervention{total > 1 ? 's' : ''}

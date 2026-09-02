@@ -105,7 +105,13 @@ export default function CarteIGN({ poste }) {
 
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre…" />
 
-        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
+        <SelecteurSections
+          sections={fSections.sections}
+          actives={fSections.actives}
+          onToggle={fSections.toggler}
+          onTout={fSections.toutAfficher}
+          onMaSection={fSections.maSectionSeulement}
+        />
 
         <span className="compte-resultats-mc">
           {points.length} secours localisé{points.length > 1 ? 's' : ''}
@@ -147,7 +153,7 @@ export default function CarteIGN({ poste }) {
               icon={iconeNumero(
                 s.local_id,
                 STATUTS[s.statut]?.couleur ?? '#64748b',
-                fSections.sections.length > 1 ? couleurSection(s.squad_code) : null
+                fSections.actives.size > 1 ? couleurSection(s.squad_code) : null
               )}
             >
               <Popup>

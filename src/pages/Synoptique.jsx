@@ -141,7 +141,13 @@ export default function Synoptique({ poste }) {
             </button>
           )}
         </div>
-        <SelecteurSections sections={fSections.sections} actives={fSections.actives} onToggle={fSections.toggler} />
+        <SelecteurSections
+          sections={fSections.sections}
+          actives={fSections.actives}
+          onToggle={fSections.toggler}
+          onTout={fSections.toutAfficher}
+          onMaSection={fSections.maSectionSeulement}
+        />
 
         {/* Même disposition que la main courante chronologique (MainCourante.jsx) :
             bouton Exporter poussé à droite via .bouton-exporter-mc
@@ -198,7 +204,7 @@ export default function Synoptique({ poste }) {
             <div className={`entete-syn entete-secours-syn ${i % 2 === 0 ? 'pair' : 'impair'}`} key={s.id}>
               <span className="badge-secours-syn" style={{ background: STATUTS[s.statut]?.couleur }} />
               <div className="titre-secours-syn">
-                {fSections.sections.length > 1 && (
+                {fSections.actives.size > 1 && (
                   <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
                 )}
                 <span>n°{s.local_id}</span>
