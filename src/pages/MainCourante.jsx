@@ -53,6 +53,7 @@ export default function MainCourante({ poste }) {
     return d
   })
   const aujourdhui = dateISO(jour) === dateISO(new Date())
+  const fSections = useFiltreSections(poste)
 
   const [messages, setMessages] = useState([])
   const [secours, setSecours] = useState([])
@@ -92,7 +93,10 @@ export default function MainCourante({ poste }) {
 
   async function charger() {
     try {
-      const [m, s] = await Promise.all([messagesDuJour(jour), secoursDuJour(jour)])
+      // secoursDuJour reste toujours sur sa propre section, quel que soit le
+      // filtre affiché : c'est la liste du composeur, on ne rédige jamais au
+      // nom d'une autre section (voir secoursDuJour, lib/mainCourante.js).
+      const [m, s] = await Promise.all([messagesDuJour(jour, fSections.codesRequete), secoursDuJour(jour)])
       setMessages(m)
       setSecours(s)
       setErreur(null)
@@ -130,7 +134,7 @@ export default function MainCourante({ poste }) {
       supabase.removeChannel(canal)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [jour, poste])
+  }, [jour, poste, fSections.codesRequete])
 
   useEffect(() => {
     if (!poste) return
@@ -151,11 +155,11 @@ export default function MainCourante({ poste }) {
       setVictimesParEvenement(new Map())
       return
     }
-    victimesDesEvenements(eventIdsIdentite)
+    victimesDesEvenements(eventIdsIdentite, fSections.codesRequete != null)
       .then(setVictimesParEvenement)
       .catch((e) => setErreur(e.message))
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [eventIdsIdentite.join(',')])
+  }, [eventIdsIdentite.join(','), fSections.codesRequete])
 
   const changerJour = (delta) =>
     setJour((j) => {
@@ -164,13 +168,10 @@ export default function MainCourante({ poste }) {
       return d
     })
 
-  const fSections = useFiltreSections(poste)
-
   const messagesFiltres = useMemo(() => {
     const mot = recherche.trim().toLowerCase()
     const numero = filtreNumero.trim()
     return messages.filter((m) => {
-      if (!fSections.estVisible(m.squadCode)) return false
       if (filtreSG && !estMentionSG(m.content)) return false
       if (numero && String(m.localId ?? '') !== numero) return false
       if (!mot) return true
@@ -180,7 +181,7 @@ export default function MainCourante({ poste }) {
         (m.lieu ?? '').toLowerCase().includes(mot)
       )
     })
-  }, [messages, recherche, filtreNumero, filtreSG, fSections])
+  }, [messages, recherche, filtreNumero, filtreSG])
 
   function commencerEdition(m) {
     setEditionId(m.idStatus)

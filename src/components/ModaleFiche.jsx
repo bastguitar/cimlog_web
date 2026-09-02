@@ -33,7 +33,7 @@ const ONGLETS_FICHE = [
  * (clic sur une ligne) et la Carte IGN (clic sur un repère) : même fiche,
  * quel que soit l'écran d'où on l'ouvre.
  */
-export default function ModaleFiche({ id, onFermer }) {
+export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
   const [fiche, setFiche] = useState(null)
   const [messages, setMessages] = useState([])
   const [erreur, setErreur] = useState(null)
@@ -42,7 +42,7 @@ export default function ModaleFiche({ id, onFermer }) {
 
   useEffect(() => {
     setChargement(true)
-    Promise.all([ficheSecours(id), messagesDeEvenement(id)])
+    Promise.all([ficheSecours(id, codesRequete), messagesDeEvenement(id, codesRequete)])
       .then(([f, m]) => {
         setFiche(f)
         setMessages(m)
@@ -50,6 +50,10 @@ export default function ModaleFiche({ id, onFermer }) {
       })
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false))
+    // codesRequete délibérément absent : la fiche garde la portée avec
+    // laquelle elle a été ouverte, elle ne se recharge pas si le filtre de
+    // section change pendant qu'elle est affichée.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   useEffect(() => {

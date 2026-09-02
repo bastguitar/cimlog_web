@@ -38,9 +38,11 @@ export default function Stats({ poste }) {
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
 
+  const fSections = useFiltreSections(poste)
+
   useEffect(() => {
     setChargement(true)
-    Promise.all([listerAnnee(annee), listerAnnee(annee - 1)])
+    Promise.all([listerAnnee(annee, fSections.codesRequete), listerAnnee(annee - 1, fSections.codesRequete)])
       .then(([a, b]) => {
         setEvenements(a)
         setEvenementsPrecedents(b)
@@ -48,35 +50,37 @@ export default function Stats({ poste }) {
       })
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false))
-  }, [annee])
+  }, [annee, fSections.codesRequete])
 
   useEffect(() => {
     const fin = new Date()
     const debut = new Date(fin.getTime() - FENETRE_JOURS * JOUR_MS)
     const finPrecedente = new Date(fin.getTime() - 365 * JOUR_MS)
     const debutPrecedente = new Date(debut.getTime() - 365 * JOUR_MS)
-    Promise.all([listerPeriode(debut, fin), listerPeriode(debutPrecedente, finPrecedente)])
+    Promise.all([
+      listerPeriode(debut, fin, fSections.codesRequete),
+      listerPeriode(debutPrecedente, finPrecedente, fSections.codesRequete),
+    ])
       .then(([a, b]) => {
         setFenetre(a)
         setFenetrePrecedente(b)
       })
       .catch((e) => setErreur(e.message))
-  }, [])
+  }, [fSections.codesRequete])
 
   const f = useFiltresRegistre(evenements)
-  const fSections = useFiltreSections(poste)
-  const evenementsVisibles = useMemo(() => fSections.filtrer(f.evenementsFiltres), [f.evenementsFiltres, fSections])
+  const evenementsVisibles = f.evenementsFiltres
   const precedentsFiltres = useMemo(
-    () => fSections.filtrer(filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche)),
-    [evenementsPrecedents, f.filtres, f.recherche, fSections]
+    () => filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche),
+    [evenementsPrecedents, f.filtres, f.recherche]
   )
   const fenetreFiltree = useMemo(
-    () => fSections.filtrer(filtrerEvenements(fenetre, f.filtres, f.recherche)),
-    [fenetre, f.filtres, f.recherche, fSections]
+    () => filtrerEvenements(fenetre, f.filtres, f.recherche),
+    [fenetre, f.filtres, f.recherche]
   )
   const fenetrePrecedenteFiltree = useMemo(
-    () => fSections.filtrer(filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche)),
-    [fenetrePrecedente, f.filtres, f.recherche, fSections]
+    () => filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche),
+    [fenetrePrecedente, f.filtres, f.recherche]
   )
 
   const total = evenementsVisibles.length

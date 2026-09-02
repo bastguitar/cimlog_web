@@ -1,15 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
-import { sectionsDeLaRegion, groupeDe } from '../lib/sections'
+import { sectionsDeLaRegion, groupeDe, codesDuGroupe } from '../lib/sections'
 
 /**
  * Filtre par section — sélection UNIQUE (jamais plusieurs sections isolées
  * à la fois : soit sa propre section, soit une autre section précise, soit
- * toute la région d'un coup). Par défaut, un poste ne voit que sa propre
- * section, comme avant la visibilité régionale (voir visibilite_regionale.sql)
- * — voir ailleurs est un choix volontaire, jamais l'état de départ, et
- * re-cliquer l'option déjà choisie y ramène. Écrire un message reste
- * toujours au nom de sa propre section (poste.code), quoi que ce filtre
- * affiche.
+ * toute la région d'un coup). Par défaut (selection null), un poste ne voit
+ * que sa propre section — inchangé, RLS d'origine, aucun appel réseau
+ * supplémentaire. Voir une autre section passe par les fonctions RPC
+ * cimlog_evenements/cimlog_messages/cimlog_victimes (voir
+ * sections_lecture_region.sql) : `codesRequete` porte les squad_code à leur
+ * demander, calculé ici, jamais par les pages elles-mêmes.
  */
 export function useFiltreSections(poste) {
   const [sections, setSections] = useState([]) // sections de la région, la sienne comprise
@@ -32,22 +32,19 @@ export function useFiltreSections(poste) {
 
   const selectionner = (code) => setSelection((s) => (s === code ? null : code))
 
-  const groupesVisibles = useMemo(() => {
-    if (selection === 'REGION') return new Set(sections.map((s) => s.code))
-    if (selection) return new Set([selection])
-    return new Set([monGroupe])
-  }, [selection, sections, monGroupe])
-
-  const estVisible = (squadCode) => groupesVisibles.has(groupeDe(squadCode))
-  const filtrer = (liste, cleSection = 'squad_code') => liste.filter((e) => estVisible(e[cleSection]))
+  // null = pas d'appel RPC nécessaire, on reste sur le chemin RLS d'origine.
+  const codesRequete = useMemo(() => {
+    if (selection === 'REGION') return sections.flatMap((s) => codesDuGroupe(s.code))
+    if (selection) return codesDuGroupe(selection)
+    return null
+  }, [selection, sections])
 
   return {
     sections: autresSections,
     region,
     selection,
     selectionner,
-    estVisible,
-    filtrer,
+    codesRequete,
     multiple: selection === 'REGION',
   }
 }

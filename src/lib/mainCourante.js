@@ -43,6 +43,25 @@ const mapMessage = (m) => ({
 })
 
 /**
+ * Complète des messages venus de la RPC cimlog_messages (voir
+ * sections_lecture_region.sql, aucun embed events(...) possible depuis une
+ * RPC) avec les interventions correspondantes, dans la même forme que
+ * l'embed PostgREST d'origine — pour que mapMessage reste inchangé.
+ */
+async function attacherEvenements(messagesBruts, codesRequete) {
+  const ids = [...new Set(messagesBruts.map((m) => m.event_id).filter((id) => id != null))]
+  if (ids.length === 0) return messagesBruts.map((m) => ({ ...m, events: null }))
+
+  const { data: evenements, error } = await supabase.rpc('cimlog_evenements', {
+    p_squad_codes: codesRequete,
+    p_event_ids: ids,
+  })
+  if (error) throw new Error(`Interventions : ${error.message}`)
+  const parId = new Map((evenements ?? []).map((e) => [e.id, e]))
+  return messagesBruts.map((m) => ({ ...m, events: m.event_id != null ? (parId.get(m.event_id) ?? null) : null }))
+}
+
+/**
  * Messages de main courante d'une journée, toutes interventions confondues —
  * la RLS (`par_section` + `par_section_generale`, voir auth_rls.sql et
  * main_courante_generale.sql) restreint déjà aux sections visibles du poste
@@ -51,26 +70,49 @@ const mapMessage = (m) => ({
  * Pas de borne haute pour aujourd'hui : un message qui vient d'arriver doit
  * apparaître sans attendre le minuit suivant — même choix que
  * alerte_secours_web/src/lib/alertesCarte.js, messagesDuJour.
+ *
+ * `codesRequete` : `null` (par défaut) garde le chemin d'origine, RLS
+ * standard, sa propre section seulement. Un tableau de squad_code passe par
+ * la RPC cimlog_messages (voir sections_lecture_region.sql) — voir une autre
+ * section ou toute sa région, choix explicite (useFiltreSections), jamais le
+ * comportement par défaut.
  */
-export async function messagesDuJour(jour) {
+export async function messagesDuJour(jour, codesRequete = null) {
   const debut = debutDuJour(jour)
   const fin = new Date(debut)
   fin.setDate(fin.getDate() + 1)
 
-  let requete = supabase.from('messages').select(SELECT_MESSAGES).gte('created_at', debut.toISOString())
-  if (!estAujourdhui(debut)) requete = requete.lt('created_at', fin.toISOString())
+  if (!codesRequete) {
+    let requete = supabase.from('messages').select(SELECT_MESSAGES).gte('created_at', debut.toISOString())
+    if (!estAujourdhui(debut)) requete = requete.lt('created_at', fin.toISOString())
 
-  const { data, error } = await requete.order('created_at', { ascending: true })
+    const { data, error } = await requete.order('created_at', { ascending: true })
+    if (error) throw new Error(`Main courante du jour : ${error.message}`)
+
+    return (data ?? [])
+      .filter((m) => m.events?.statut !== 'brouillon')
+      .filter((m) => !m.content.startsWith('***ALERTE SECOURS'))
+      .filter((m) => !estMessageLocalisation(m.content))
+      .map(mapMessage)
+  }
+
+  const { data, error } = await supabase.rpc('cimlog_messages', {
+    p_squad_codes: codesRequete,
+    p_debut: debut.toISOString(),
+    p_fin: estAujourdhui(debut) ? null : fin.toISOString(),
+  })
   if (error) throw new Error(`Main courante du jour : ${error.message}`)
 
-  return (data ?? [])
-    .filter((m) => m.events?.statut !== 'brouillon')
+  const avecEvenements = await attacherEvenements(data ?? [], codesRequete)
+  return avecEvenements
+    .filter((m) => m.event_id == null || m.events != null)
     .filter((m) => !m.content.startsWith('***ALERTE SECOURS'))
     .filter((m) => !estMessageLocalisation(m.content))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
     .map(mapMessage)
 }
 
-/** Messages sur une période arbitraire, bornes incluses/exclue — pour l'export PDF. */
+/** Messages sur une période arbitraire, bornes incluses/exclue — pour l'export PDF (toujours sa propre section). */
 export async function messagesEntre(debut, fin) {
   const { data, error } = await supabase
     .from('messages')
@@ -87,18 +129,34 @@ export async function messagesEntre(debut, fin) {
     .map(mapMessage)
 }
 
-/** Tous les messages d'une intervention précise, quel que soit le jour — pour le Registre. */
-export async function messagesDeEvenement(eventId) {
-  const { data, error } = await supabase
-    .from('messages')
-    .select(SELECT_MESSAGES)
-    .eq('event_id', eventId)
-    .order('created_at', { ascending: true })
+/**
+ * Tous les messages d'une intervention précise, quel que soit le jour — pour
+ * la fiche du Registre. `codesRequete` : voir messagesDuJour — doit être le
+ * même que celui qui a servi à afficher la liste où la fiche a été ouverte.
+ */
+export async function messagesDeEvenement(eventId, codesRequete = null) {
+  if (!codesRequete) {
+    const { data, error } = await supabase
+      .from('messages')
+      .select(SELECT_MESSAGES)
+      .eq('event_id', eventId)
+      .order('created_at', { ascending: true })
+    if (error) throw new Error(`Main courante de l’intervention : ${error.message}`)
+
+    return (data ?? [])
+      .filter((m) => !m.content.startsWith('***ALERTE SECOURS'))
+      .filter((m) => !estMessageLocalisation(m.content))
+      .map(mapMessage)
+  }
+
+  const { data, error } = await supabase.rpc('cimlog_messages', { p_squad_codes: codesRequete, p_event_id: eventId })
   if (error) throw new Error(`Main courante de l’intervention : ${error.message}`)
 
-  return (data ?? [])
+  const avecEvenements = await attacherEvenements(data ?? [], codesRequete)
+  return avecEvenements
     .filter((m) => !m.content.startsWith('***ALERTE SECOURS'))
     .filter((m) => !estMessageLocalisation(m.content))
+    .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
     .map(mapMessage)
 }
 
@@ -107,18 +165,26 @@ export async function messagesDeEvenement(eventId) {
  * intervention — pour afficher le détail sous un message « Identité
  * transmise : N personne(s) » (voir enregistrer_identites, côté
  * Cim'Alerte, qui pose ce message générique sans le détail).
+ *
+ * `regional` : voir messagesDuJour — passe par la RPC cimlog_victimes
+ * (aucune liste de squad_code à fournir, elle dérive elle-même la portée de
+ * l'intervention de chaque victime).
  */
-export async function victimesDesEvenements(eventIds) {
+export async function victimesDesEvenements(eventIds, regional = false) {
   if (eventIds.length === 0) return new Map()
-  const { data, error } = await supabase
-    .from('victimes')
-    .select('event_id, nom, prenom, date_naissance, lieu_naissance, telephone')
-    .in('event_id', eventIds)
-    .not('nom', 'is', null)
+
+  const { data, error } = regional
+    ? await supabase.rpc('cimlog_victimes', { p_event_ids: eventIds })
+    : await supabase
+        .from('victimes')
+        .select('event_id, nom, prenom, date_naissance, lieu_naissance, telephone')
+        .in('event_id', eventIds)
+        .not('nom', 'is', null)
   if (error) throw new Error(`Identités : ${error.message}`)
 
   const parEvenement = new Map()
   for (const v of data ?? []) {
+    if (!v.nom) continue
     if (!parEvenement.has(v.event_id)) parEvenement.set(v.event_id, [])
     parEvenement.get(v.event_id).push(v)
   }
@@ -142,23 +208,42 @@ export function formatIdentiteVictime(v) {
   return [nom, naissance, v.telephone].filter(Boolean).join(', ')
 }
 
-/** Secours à proposer dans le sélecteur du composeur, pour rattacher un message. */
-export async function secoursDuJour(jour) {
+/**
+ * Secours à proposer dans le sélecteur du composeur (toujours sa propre
+ * section — on ne rédige jamais au nom d'une autre) et pour la grille de la
+ * Vue synoptique, qui elle peut porter sur une autre section ou sa région
+ * (voir `codesRequete`).
+ */
+export async function secoursDuJour(jour, codesRequete = null) {
   const debut = debutDuJour(jour)
   const fin = new Date(debut)
   fin.setDate(fin.getDate() + 1)
 
-  let requete = supabase
-    .from('events')
-    .select('id, local_id, squad_code, statut, com, lieu, activity, created_at')
-    .neq('statut', 'brouillon')
-  requete = estAujourdhui(debut)
-    ? requete.or(`statut.eq.en_cours,created_at.gte.${debut.toISOString()}`)
-    : requete.gte('created_at', debut.toISOString()).lt('created_at', fin.toISOString())
+  if (!codesRequete) {
+    let requete = supabase
+      .from('events')
+      .select('id, local_id, squad_code, statut, com, lieu, activity, created_at')
+      .neq('statut', 'brouillon')
+    requete = estAujourdhui(debut)
+      ? requete.or(`statut.eq.en_cours,created_at.gte.${debut.toISOString()}`)
+      : requete.gte('created_at', debut.toISOString()).lt('created_at', fin.toISOString())
 
-  const { data, error } = await requete.order('created_at', { ascending: true })
+    const { data, error } = await requete.order('created_at', { ascending: true })
+    if (error) throw new Error(`Secours du jour : ${error.message}`)
+    return data ?? []
+  }
+
+  // Simplification volontaire par rapport au chemin d'origine : une
+  // intervention d'une autre section restée « en cours » depuis un jour
+  // précédent ne remonte pas ici pour le jour du calendrier consulté — cas
+  // rare, et cette liste ne sert, en mode région, qu'à la Vue synoptique.
+  const { data, error } = await supabase.rpc('cimlog_evenements', {
+    p_squad_codes: codesRequete,
+    p_debut: debut.toISOString(),
+    p_fin: fin.toISOString(),
+  })
   if (error) throw new Error(`Secours du jour : ${error.message}`)
-  return data ?? []
+  return (data ?? []).sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 }
 
 /**

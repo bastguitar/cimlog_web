@@ -1,10 +1,10 @@
 import { supabase } from './supabase'
 
 /**
- * Regroupement section mère / postes secondaires — le même que la migration
- * visibilite_regionale.sql (repris de noms_postes.sql, alerte_secours_web).
- * Un poste secondaire partage toujours la couleur et le filtre de sa mère :
- * inutile de multiplier les entrées de légende pour Grenoble-Huez, Albertville-
+ * Regroupement section mère / postes secondaires — le même que côté base
+ * (voir visibilite_regionale.sql, sections_lecture_region.sql). Un poste
+ * secondaire partage toujours la couleur et le filtre de sa mère : inutile
+ * de multiplier les entrées de légende pour Grenoble-Huez, Albertville-
  * Modane, etc.
  */
 const GROUPES = {
@@ -24,6 +24,9 @@ for (const [groupe, codes] of Object.entries(GROUPES)) {
 /** Code de la section mère d'un squad_code — lui-même s'il n'a pas de mère connue. */
 export const groupeDe = (squadCode) => CODE_VERS_GROUPE.get(squadCode) ?? squadCode
 
+/** Tous les squad_code d'un groupe (section mère + postes secondaires) — pour interroger cimlog_evenements/cimlog_messages. */
+export const codesDuGroupe = (groupeCode) => GROUPES[groupeCode] ?? [groupeCode]
+
 const PALETTE = ['#3b82c4', '#4d9e5c', '#e08a3c', '#2ba89e', '#8b5fbf', '#c4547e', '#b5a642', '#6b7c93']
 const COULEUR_PAR_GROUPE = new Map(Object.keys(GROUPES).map((g, i) => [g, PALETTE[i % PALETTE.length]]))
 
@@ -32,9 +35,9 @@ export const couleurSection = (squadCode) => COULEUR_PAR_GROUPE.get(groupeDe(squ
 
 /**
  * Sections mères de la région du poste connecté, avec leur couleur — pour la
- * légende/filtre par section. `sections` reste lisible par tout poste connecté
- * (voir auth_rls.sql), donc pas besoin de la nouvelle policy de lecture
- * régionale ici : uniquement le nom, jamais les interventions elles-mêmes.
+ * légende/filtre par section. `sections` reste lisible par tout poste
+ * connecté (voir auth_rls.sql, policy "lecture") : ce n'est qu'un nom et une
+ * région, jamais une intervention.
  */
 export async function sectionsDeLaRegion(codeSection) {
   const { data, error } = await supabase.from('sections').select('code, nom, region').eq('code', codeSection).single()

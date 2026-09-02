@@ -42,9 +42,11 @@ export default function Synoptique({ poste }) {
     return () => clearInterval(minuteur)
   }, [])
 
+  const fSections = useFiltreSections(poste)
+
   useEffect(() => {
     setChargement(true)
-    Promise.all([messagesDuJour(jour), secoursDuJour(jour)])
+    Promise.all([messagesDuJour(jour, fSections.codesRequete), secoursDuJour(jour, fSections.codesRequete)])
       .then(([m, s]) => {
         setMessages(m)
         setSecours(s)
@@ -52,7 +54,7 @@ export default function Synoptique({ poste }) {
       })
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false))
-  }, [jour])
+  }, [jour, fSections.codesRequete])
 
   useEffect(() => {
     if (!poste) return
@@ -71,28 +73,25 @@ export default function Synoptique({ poste }) {
       return d
     })
 
-  const fSections = useFiltreSections(poste)
-  const secoursVisibles = useMemo(() => fSections.filtrer(secours), [secours, fSections])
+  const secoursVisibles = secours
 
   // Une colonne « général » (event_id NULL), puis une par secours du jour,
   // chacune avec ses 24 cases d'heure déjà préparées — plus simple à rendre
-  // que de chercher, à chaque case, les messages qui y tombent. Un message
-  // rattaché à un secours masqué (section décochée) n'a plus de case où
-  // tomber, donc il disparaît avec lui ; un message général (event_id NULL)
-  // est filtré à part, sur sa propre section.
+  // que de chercher, à chaque case, les messages qui y tombent. `messages`
+  // et `secours` sont déjà scopés à la bonne section/région dès la requête
+  // (messagesDuJour/secoursDuJour, codesRequete) — rien à refiltrer ici.
   const grille = useMemo(() => {
     const parColonne = new Map()
     parColonne.set('general', HEURES.map(() => []))
     for (const s of secoursVisibles) parColonne.set(s.id, HEURES.map(() => []))
 
     for (const m of messages) {
-      if (m.eventId == null && !fSections.estVisible(m.squadCode)) continue
       const bucket = parColonne.get(m.eventId ?? 'general')
       if (!bucket) continue
       bucket[new Date(m.createdAt).getHours()].push(m)
     }
     return parColonne
-  }, [messages, secoursVisibles, fSections])
+  }, [messages, secoursVisibles])
 
   // Toutes les heures avant le premier message sont vides (34px chacune,
   // aucune n'est jamais plus grande) — un simple décalage vertical vers

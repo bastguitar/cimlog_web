@@ -25,20 +25,21 @@ export default function Registre({ poste }) {
   const [chargement, setChargement] = useState(true)
   const [ficheId, setFicheId] = useState(null)
 
+  const fSections = useFiltreSections(poste)
+
   useEffect(() => {
     setChargement(true)
-    listerAnnee(annee)
+    listerAnnee(annee, fSections.codesRequete)
       .then((d) => {
         setEvenements(d)
         setErreur(null)
       })
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false))
-  }, [annee])
+  }, [annee, fSections.codesRequete])
 
   const f = useFiltresRegistre(evenements)
-  const fSections = useFiltreSections(poste)
-  const evenementsVisibles = useMemo(() => fSections.filtrer(f.evenementsFiltres), [fSections, f.evenementsFiltres])
+  const evenementsVisibles = f.evenementsFiltres
   const semaines = useMemo(() => regrouperParSemaine(evenementsVisibles), [evenementsVisibles])
 
   return (
@@ -123,7 +124,9 @@ export default function Registre({ poste }) {
         ))}
       </div>
 
-      {ficheId != null && <ModaleFiche id={ficheId} onFermer={() => setFicheId(null)} />}
+      {ficheId != null && (
+        <ModaleFiche id={ficheId} onFermer={() => setFicheId(null)} codesRequete={fSections.codesRequete} />
+      )}
     </section>
   )
 }

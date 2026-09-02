@@ -65,22 +65,22 @@ export default function CarteIGN({ poste }) {
   const [melange, setMelange] = useState(0)
   const [ficheId, setFicheId] = useState(null)
 
+  const fSections = useFiltreSections(poste)
+
   useEffect(() => {
-    listerAnnee(annee)
+    listerAnnee(annee, fSections.codesRequete)
       .then(setEvenements)
       .catch((e) => setErreur(e.message))
-  }, [annee])
+  }, [annee, fSections.codesRequete])
 
   const f = useFiltresRegistre(evenements)
-  const fSections = useFiltreSections(poste)
 
   const points = useMemo(
     () =>
-      fSections
-        .filtrer(f.evenementsFiltres)
+      f.evenementsFiltres
         .map((s) => ({ ...s, lat: Number(s.lat), lon: Number(s.lon) }))
         .filter((s) => Number.isFinite(s.lat) && Number.isFinite(s.lon) && (s.lat !== 0 || s.lon !== 0)),
-    [f.evenementsFiltres, fSections]
+    [f.evenementsFiltres]
   )
 
   const centre = poste?.lat && poste?.lon ? [Number(poste.lat), Number(poste.lon)] : CENTRE_DEFAUT
@@ -200,7 +200,9 @@ export default function CarteIGN({ poste }) {
         </div>
       </div>
 
-      {ficheId != null && <ModaleFiche id={ficheId} onFermer={() => setFicheId(null)} />}
+      {ficheId != null && (
+        <ModaleFiche id={ficheId} onFermer={() => setFicheId(null)} codesRequete={fSections.codesRequete} />
+      )}
     </section>
   )
 }
