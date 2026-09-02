@@ -9,6 +9,13 @@ const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep'
 const JOUR_MS = 24 * 60 * 60 * 1000
 const FENETRE_JOURS = 30
 
+// Des fiches créées côté Cim'Alerte sans réel engagement CRS — secours pris
+// en charge par le SDIS, ou clôturés sans aucun moyen envoyé. Comptées à
+// part (voir les tuiles dédiées), jamais dans le reste des statistiques.
+const estSDIS = (s) => s.helicopter === 'SDIS'
+const estSansMoyen = (s) => !s.helicopter || s.helicopter === 'Pas de moyens engagés'
+const estExclu = (s) => estSDIS(s) || estSansMoyen(s)
+
 const compterParMois = (liste) => {
   const c = Array(12).fill(0)
   for (const s of liste) c[new Date(s.created_at).getMonth()]++
@@ -69,17 +76,20 @@ export default function Stats({ poste }) {
   }, [fSections.codesRequete])
 
   const f = useFiltresRegistre(evenements)
-  const evenementsVisibles = f.evenementsFiltres
+  const evenementsVisibles = useMemo(() => f.evenementsFiltres.filter((s) => !estExclu(s)), [f.evenementsFiltres])
+  const nbSDIS = useMemo(() => f.evenementsFiltres.filter(estSDIS).length, [f.evenementsFiltres])
+  const nbSansMoyen = useMemo(() => f.evenementsFiltres.filter(estSansMoyen).length, [f.evenementsFiltres])
+
   const precedentsFiltres = useMemo(
-    () => filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche),
+    () => filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche).filter((s) => !estExclu(s)),
     [evenementsPrecedents, f.filtres, f.recherche]
   )
   const fenetreFiltree = useMemo(
-    () => filtrerEvenements(fenetre, f.filtres, f.recherche),
+    () => filtrerEvenements(fenetre, f.filtres, f.recherche).filter((s) => !estExclu(s)),
     [fenetre, f.filtres, f.recherche]
   )
   const fenetrePrecedenteFiltree = useMemo(
-    () => filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche),
+    () => filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche).filter((s) => !estExclu(s)),
     [fenetrePrecedente, f.filtres, f.recherche]
   )
 
@@ -163,6 +173,8 @@ export default function Stats({ poste }) {
                 : null
             }
           />
+          <TuileStat label="Secours donnés au SDIS" valeur={nbSDIS} sousLabel="exclus des statistiques" />
+          <TuileStat label="Secours sans moyens engagés" valeur={nbSansMoyen} sousLabel="exclus des statistiques" />
         </div>
 
         <div className="grille-graphiques-stats">
