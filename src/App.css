@@ -44,6 +44,10 @@
 }
 
 .bouton-principal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
   font: inherit;
   font-weight: 600;
   padding: 10px 16px;
@@ -54,6 +58,12 @@
   cursor: pointer;
   box-shadow: var(--shadow-sm);
   transition: filter 0.15s, transform 0.05s;
+}
+
+.bouton-principal svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
 }
 
 .bouton-principal:hover:not(:disabled) {

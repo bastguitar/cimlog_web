@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { dateISO, effectifsDuJour } from '../lib/effectifs'
 import { rolesDeLaSection } from '../lib/roles'
 import { exporterSynoptiquePdf } from '../lib/exportSynoptiquePdf'
@@ -84,6 +84,27 @@ export default function Synoptique({ poste }) {
     return parColonne
   }, [messages, secours])
 
+  // Toutes les heures avant le premier message sont vides (34px chacune,
+  // aucune n'est jamais plus grande) — un simple décalage vertical vers
+  // cette rangée-là évite de partir de 0h et de devoir tout dérouler.
+  const premiereHeureAvecMessages = useMemo(() => {
+    for (let h = 0; h < 24; h++) {
+      if (grille.get('general')[h].length > 0) return h
+      if (secours.some((s) => grille.get(s.id)[h].length > 0)) return h
+    }
+    return null
+  }, [grille, secours])
+
+  const scrollRef = useRef(null)
+  useEffect(() => {
+    const conteneur = scrollRef.current
+    if (!conteneur || premiereHeureAvecMessages == null) return
+    const cible = conteneur.querySelector(`[data-heure="${premiereHeureAvecMessages}"]`)
+    const entete = conteneur.querySelector('.entete-syn')
+    if (!cible) return
+    conteneur.scrollTop = cible.offsetTop - (entete?.getBoundingClientRect().height ?? 0)
+  }, [premiereHeureAvecMessages, jour])
+
   function exporter() {
     if (!poste) return
     try {
@@ -119,7 +140,12 @@ export default function Synoptique({ poste }) {
           onClick={exporter}
           disabled={!poste || secours.length === 0}
         >
-          Exporter PDF
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 3v12" />
+            <path d="M7 10l5 5 5-5" />
+            <path d="M5 21h14" />
+          </svg>
+          Exporter
         </button>
         <span className="compte-resultats-mc">
           {secours.length} secours {secours.length > 1 ? 'affichés' : 'affiché'}
@@ -142,7 +168,7 @@ export default function Synoptique({ poste }) {
         </div>
       )}
 
-      <div className="synoptique-scroll">
+      <div className="synoptique-scroll" ref={scrollRef}>
         <div
           className="grille-synoptique"
           style={{
@@ -169,7 +195,7 @@ export default function Synoptique({ poste }) {
 
           {HEURES.map((h) => (
             <Fragment key={h}>
-              <div className="heure-syn">{h}h</div>
+              <div className="heure-syn" data-heure={h}>{h}h</div>
               <CelluleSyn messages={grille.get('general')[h]} maintenant={maintenant} generale />
               {secours.map((s) => (
                 <CelluleSyn key={s.id} messages={grille.get(s.id)[h]} maintenant={maintenant} />
