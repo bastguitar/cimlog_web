@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet'
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet'
 import L from 'leaflet'
 import 'leaflet/dist/leaflet.css'
 import { listerAnnee } from '../lib/registre'
@@ -51,6 +51,20 @@ function iconeNumero(local_id, couleur, anneau = null) {
 }
 
 /**
+ * Recentre/zoome la carte quand la section choisie change — `MapContainer`
+ * n'écoute ses props `center`/`zoom` qu'au montage, il faut passer par la
+ * carte Leaflet elle-même (useMap) pour la déplacer après coup.
+ */
+function RecentrageCarte({ centre, zoom, limites }) {
+  const carte = useMap()
+  useEffect(() => {
+    if (limites) carte.fitBounds(limites, { padding: [40, 40] })
+    else carte.setView(centre, zoom)
+  }, [centre, zoom, limites, carte])
+  return null
+}
+
+/**
  * Carte IGN — les interventions de l'année, positionnées géographiquement.
  * Mêmes fonds de carte que Cim'Alerte (Géoplateforme IGN, clé SCAN25 comprise
  * — voir lib/basemaps.js), réduits aux deux fonds : pas besoin des
@@ -86,6 +100,17 @@ export default function CarteIGN({ poste }) {
   const centre = poste?.lat && poste?.lon ? [Number(poste.lat), Number(poste.lon)] : CENTRE_DEFAUT
   const zoom = poste?.zoom ?? ZOOM_DEFAUT
   const pourcent = Math.round(melange * 100)
+
+  // Centre/zoom de la section choisie dans le menu — sur toute la région
+  // (CRS Alpes/Pyrénées), on cadre plutôt sur les repères réellement affichés,
+  // qui en disent plus que le centre d'une seule section.
+  const sectionActive =
+    fSections.selection && fSections.selection !== 'REGION'
+      ? fSections.sections.find((s) => s.code === fSections.selection)
+      : null
+  const centreCarte = sectionActive?.lat && sectionActive?.lon ? [Number(sectionActive.lat), Number(sectionActive.lon)] : centre
+  const zoomCarte = sectionActive?.zoom ?? zoom
+  const limitesRegion = fSections.selection === 'REGION' && points.length > 0 ? points.map((p) => [p.lat, p.lon]) : null
 
   return (
     <section className="page page-mc">
@@ -125,6 +150,7 @@ export default function CarteIGN({ poste }) {
 
       <div className="cadre-carte-ign">
         <MapContainer center={centre} zoom={zoom} maxZoom={MAX_ZOOM} className="carte-ign">
+          <RecentrageCarte centre={centreCarte} zoom={zoomCarte} limites={limitesRegion} />
           {melange < 1 && (
             <TileLayer
               key={BASEMAPS.scan25.id}

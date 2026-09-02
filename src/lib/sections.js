@@ -48,7 +48,7 @@ export async function sectionsDeLaRegion(codeSection) {
   const codesMeres = Object.keys(GROUPES)
   const { data: meres, error: erreurMeres } = await supabase
     .from('sections')
-    .select('code, nom, region')
+    .select('code, nom, region, lat, lon, zoom')
     .in('code', codesMeres)
     .eq('region', region)
     .order('nom', { ascending: true })
