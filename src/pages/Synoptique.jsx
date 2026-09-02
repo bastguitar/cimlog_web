@@ -110,12 +110,20 @@ export default function Synoptique({ poste }) {
             </button>
           )}
         </div>
+        {/* Même disposition que la main courante chronologique (MainCourante.jsx) :
+            bouton Exporter poussé à droite via .bouton-exporter-mc
+            (margin-left: auto), le compte juste après. */}
+        <button
+          type="button"
+          className="bouton-principal bouton-exporter-mc"
+          onClick={exporter}
+          disabled={!poste || secours.length === 0}
+        >
+          Exporter PDF
+        </button>
         <span className="compte-resultats-mc">
           {secours.length} secours {secours.length > 1 ? 'affichés' : 'affiché'}
         </span>
-        <button type="button" className="bouton-principal" onClick={exporter} disabled={!poste || secours.length === 0}>
-          Exporter PDF
-        </button>
       </div>
 
       {erreur && <p className="erreur">{erreur}</p>}
@@ -137,7 +145,13 @@ export default function Synoptique({ poste }) {
       <div className="synoptique-scroll">
         <div
           className="grille-synoptique"
-          style={{ gridTemplateColumns: `56px 190px repeat(${secours.length}, 170px)` }}
+          style={{
+            // `repeat(0, 170px)` est une valeur invalide : le navigateur la
+            // rejette silencieusement et garde l'ancienne valeur en mémoire
+            // (grille désalignée en zigzag) — d'où la branche à part quand
+            // il n'y a aucun secours, Heure/Infos générales restant seules.
+            gridTemplateColumns: secours.length > 0 ? `56px 190px repeat(${secours.length}, 170px)` : '56px 190px',
+          }}
         >
           <div className="entete-syn entete-heure-syn">Heure</div>
           <div className="entete-syn entete-generales-syn">Infos générales</div>
