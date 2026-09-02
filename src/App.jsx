@@ -8,6 +8,7 @@ import CarteIGN from './pages/CarteIGN'
 import Stats from './pages/Stats'
 import { deconnecter, posteConnecte } from './lib/session'
 import { supabase } from './lib/supabase'
+import logoCimLog from './assets/logo-cimlog.png'
 import './App.css'
 
 export default function App() {
@@ -56,7 +57,7 @@ export default function App() {
     <BrowserRouter>
       <div className="app">
         <header className="entete">
-          <span className="nom-poste">{poste.nom}</span>
+          <img src={logoCimLog} alt="Cim'Log" className="logo-entete" />
           <nav>
             <NavLink to="/" end>MC Chronologique</NavLink>
             <NavLink to="/synoptique">Vue synoptique</NavLink>
@@ -64,13 +65,22 @@ export default function App() {
             <NavLink to="/carte">Carte IGN</NavLink>
             <NavLink to="/stats">Stats</NavLink>
           </nav>
-          <button
-            type="button"
-            className="bouton-deconnexion"
-            onClick={() => deconnecter().then(() => setPoste(null))}
-          >
-            Déconnexion
-          </button>
+          <div className="entete-droite">
+            <span className="nom-poste">{poste.nom}</span>
+            <button
+              type="button"
+              className="bouton-deconnexion"
+              onClick={() => deconnecter().then(() => setPoste(null))}
+              title="Déconnexion"
+              aria-label="Déconnexion"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3" />
+                <path d="M16 17l5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
+            </button>
+          </div>
         </header>
 
         <main>

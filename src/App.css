@@ -96,6 +96,17 @@
   z-index: 10;
 }
 
+.entete-droite {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.logo-entete {
+  height: 32px;
+  width: auto;
+}
+
 .nom-poste {
   font-weight: 700;
   color: var(--text-h);
@@ -133,15 +144,23 @@
 }
 
 .bouton-deconnexion {
-  font: inherit;
-  font-size: 13px;
-  padding: 7px 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
   background: none;
   color: var(--text);
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s;
+}
+
+.bouton-deconnexion svg {
+  width: 17px;
+  height: 17px;
 }
 
 .bouton-deconnexion:hover {
