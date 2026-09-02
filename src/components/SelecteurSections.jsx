@@ -4,7 +4,11 @@ import { useEffect, useRef, useState } from 'react'
  * Bouton discret + menu déroulant — voir useFiltreSections. Sélection
  * unique : cliquer une option déjà choisie la désélectionne (retour à sa
  * propre section) ; en choisir une autre remplace la précédente, jamais de
- * cumul individuel — seule « Toute la région » combine plusieurs sections.
+ * cumul individuel. « CRS Alpes »/« CRS Pyrénées » (selon la région du
+ * poste connecté) est une option de la liste comme les autres — pas un
+ * intitulé générique, pas un en-tête à part : cliquer dessus donne toutes
+ * les sections de cette région à la fois, c'est la seule façon d'en voir
+ * plusieurs en même temps.
  */
 export default function SelecteurSections({ sections, region, selection, onSelect }) {
   const [ouvert, setOuvert] = useState(false)
@@ -19,9 +23,9 @@ export default function SelecteurSections({ sections, region, selection, onSelec
     return () => document.removeEventListener('mousedown', fermerSiExterieur)
   }, [ouvert])
 
-  if (sections.length === 0) return null
+  if (!region || sections.length === 0) return null
 
-  const etiquetteRegion = region ? `CRS ${region}` : 'Toute la région'
+  const etiquetteRegion = `CRS ${region}`
   const sectionActive = selection && selection !== 'REGION' ? sections.find((s) => s.code === selection) : null
   const etiquette = selection === 'REGION' ? etiquetteRegion : (sectionActive?.nom ?? 'Ma section')
 
@@ -51,9 +55,9 @@ export default function SelecteurSections({ sections, region, selection, onSelec
             className={selection === 'REGION' ? 'option-menu-sections active' : 'option-menu-sections'}
             onClick={() => choisir('REGION')}
           >
+            <span className="point-section point-section-region" />
             {etiquetteRegion}
           </button>
-          <div className="separateur-menu-sections" />
           {sections.map((s) => (
             <button
               key={s.code}

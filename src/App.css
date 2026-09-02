@@ -1480,17 +1480,15 @@ main > * {
   background: var(--chaleur-bg);
 }
 
-.separateur-menu-sections {
-  height: 1px;
-  margin: 4px 2px;
-  background: var(--border);
-}
-
 .point-section {
   width: 8px;
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
+}
+
+.point-section-region {
+  background: conic-gradient(#3b82c4, #4d9e5c, #e08a3c, #2ba89e, #3b82c4);
 }
 
 .badge-section {
