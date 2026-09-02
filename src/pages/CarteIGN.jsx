@@ -105,17 +105,18 @@ export default function CarteIGN({ poste }) {
 
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre…" />
 
-        <SelecteurSections
-          sections={fSections.sections}
-          actives={fSections.actives}
-          onToggle={fSections.toggler}
-          onTout={fSections.toutAfficher}
-          onMaSection={fSections.maSectionSeulement}
-        />
+        <div className="groupe-droite-mc">
+          <SelecteurSections
+            sections={fSections.sections}
+            region={fSections.region}
+            selection={fSections.selection}
+            onSelect={fSections.selectionner}
+          />
 
-        <span className="compte-resultats-mc">
-          {points.length} secours localisé{points.length > 1 ? 's' : ''}
-        </span>
+          <span className="compte-resultats-mc">
+            {points.length} secours localisé{points.length > 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
 
       <PanneauFiltresRegistre f={f} />
@@ -153,7 +154,7 @@ export default function CarteIGN({ poste }) {
               icon={iconeNumero(
                 s.local_id,
                 STATUTS[s.statut]?.couleur ?? '#64748b',
-                fSections.actives.size > 1 ? couleurSection(s.squad_code) : null
+                fSections.multiple ? couleurSection(s.squad_code) : null
               )}
             >
               <Popup>

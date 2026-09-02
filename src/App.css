@@ -359,12 +359,7 @@ main > * {
   width: 110px;
 }
 
-.bouton-exporter-mc {
-  margin-left: auto;
-}
-
 .compte-resultats-mc {
-  margin-left: auto;
   font-size: 12px;
   font-weight: 600;
   color: var(--text);
@@ -1399,34 +1394,96 @@ main > * {
   background: var(--accent-bg);
 }
 
-.selecteur-sections {
+.groupe-droite-mc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-left: auto;
+}
+
+.menu-sections {
+  position: relative;
+}
+
+.bouton-sections {
   display: flex;
   align-items: center;
   gap: 6px;
-  flex-wrap: wrap;
-}
-
-.puce-section {
-  display: flex;
-  align-items: center;
-  gap: 5px;
   font: inherit;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 600;
-  padding: 5px 10px 5px 8px;
-  border: 1px solid transparent;
-  border-radius: 999px;
+  padding: 8px 14px 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
   background: none;
   color: var(--text);
-  opacity: 0.4;
   cursor: pointer;
-  transition: opacity 0.15s, border-color 0.15s, background 0.15s;
+  white-space: nowrap;
+  transition: border-color 0.15s, color 0.15s, background 0.15s;
 }
 
-.puce-section.active {
-  opacity: 1;
-  border-color: var(--border);
+.bouton-sections svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.bouton-sections:hover {
+  border-color: var(--chaleur);
+  color: var(--chaleur);
+}
+
+.bouton-sections.actif {
+  border-color: var(--chaleur);
+  background: var(--chaleur-bg);
+  color: var(--chaleur);
+}
+
+.liste-menu-sections {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  min-width: 190px;
+  padding: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+
+.option-menu-sections {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 10px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: var(--text);
+  cursor: pointer;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.option-menu-sections:hover {
   background: var(--bg-alt);
+}
+
+.option-menu-sections.active {
+  color: var(--chaleur);
+  background: var(--chaleur-bg);
+}
+
+.separateur-menu-sections {
+  height: 1px;
+  margin: 4px 2px;
+  background: var(--border);
 }
 
 .point-section {
@@ -1434,24 +1491,6 @@ main > * {
   height: 8px;
   border-radius: 50%;
   flex-shrink: 0;
-}
-
-.lien-selecteur-sections {
-  font: inherit;
-  font-size: 12px;
-  font-weight: 600;
-  padding: 5px 4px;
-  border: none;
-  background: none;
-  color: var(--chaleur);
-  text-decoration: underline;
-  text-underline-offset: 2px;
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.lien-selecteur-sections:hover {
-  color: var(--accent);
 }
 
 .badge-section {

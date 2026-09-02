@@ -59,17 +59,18 @@ export default function Registre({ poste }) {
 
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre (n°, commune, victime…)" />
 
-        <SelecteurSections
-          sections={fSections.sections}
-          actives={fSections.actives}
-          onToggle={fSections.toggler}
-          onTout={fSections.toutAfficher}
-          onMaSection={fSections.maSectionSeulement}
-        />
+        <div className="groupe-droite-mc">
+          <SelecteurSections
+            sections={fSections.sections}
+            region={fSections.region}
+            selection={fSections.selection}
+            onSelect={fSections.selectionner}
+          />
 
-        <span className="compte-resultats-mc">
-          {evenementsVisibles.length} intervention{evenementsVisibles.length > 1 ? 's' : ''}
-        </span>
+          <span className="compte-resultats-mc">
+            {evenementsVisibles.length} intervention{evenementsVisibles.length > 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
 
       <PanneauFiltresRegistre f={f} />
@@ -102,7 +103,7 @@ export default function Registre({ poste }) {
                       <tr key={s.id} className="ligne-registre" onClick={() => setFicheId(s.id)}>
                         <td>{formatHeure(s.created_at)}</td>
                         <td>
-                          {fSections.actives.size > 1 && (
+                          {fSections.multiple && (
                             <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
                           )}
                           <span className="numero-mc" style={{ color: STATUTS[s.statut]?.couleur }}>

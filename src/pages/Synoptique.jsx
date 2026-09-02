@@ -141,33 +141,31 @@ export default function Synoptique({ poste }) {
             </button>
           )}
         </div>
-        <SelecteurSections
-          sections={fSections.sections}
-          actives={fSections.actives}
-          onToggle={fSections.toggler}
-          onTout={fSections.toutAfficher}
-          onMaSection={fSections.maSectionSeulement}
-        />
+        <div className="groupe-droite-mc">
+          <SelecteurSections
+            sections={fSections.sections}
+            region={fSections.region}
+            selection={fSections.selection}
+            onSelect={fSections.selectionner}
+          />
 
-        {/* Même disposition que la main courante chronologique (MainCourante.jsx) :
-            bouton Exporter poussé à droite via .bouton-exporter-mc
-            (margin-left: auto), le compte juste après. */}
-        <button
-          type="button"
-          className="bouton-principal bouton-exporter-mc"
-          onClick={exporter}
-          disabled={!poste || secoursVisibles.length === 0}
-        >
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M12 3v12" />
-            <path d="M7 10l5 5 5-5" />
-            <path d="M5 21h14" />
-          </svg>
-          Exporter
-        </button>
-        <span className="compte-resultats-mc">
-          {secoursVisibles.length} secours {secoursVisibles.length > 1 ? 'affichés' : 'affiché'}
-        </span>
+          <button
+            type="button"
+            className="bouton-principal bouton-exporter-mc"
+            onClick={exporter}
+            disabled={!poste || secoursVisibles.length === 0}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M12 3v12" />
+              <path d="M7 10l5 5 5-5" />
+              <path d="M5 21h14" />
+            </svg>
+            Exporter
+          </button>
+          <span className="compte-resultats-mc">
+            {secoursVisibles.length} secours {secoursVisibles.length > 1 ? 'affichés' : 'affiché'}
+          </span>
+        </div>
       </div>
 
       {erreur && <p className="erreur">{erreur}</p>}
@@ -204,7 +202,7 @@ export default function Synoptique({ poste }) {
             <div className={`entete-syn entete-secours-syn ${i % 2 === 0 ? 'pair' : 'impair'}`} key={s.id}>
               <span className="badge-secours-syn" style={{ background: STATUTS[s.statut]?.couleur }} />
               <div className="titre-secours-syn">
-                {fSections.actives.size > 1 && (
+                {fSections.multiple && (
                   <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
                 )}
                 <span>n°{s.local_id}</span>

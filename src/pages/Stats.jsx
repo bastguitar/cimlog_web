@@ -127,17 +127,18 @@ export default function Stats({ poste }) {
 
         <ControlesFiltresRegistre f={f} placeholder="Filtrer les statistiques…" />
 
-        <SelecteurSections
-          sections={fSections.sections}
-          actives={fSections.actives}
-          onToggle={fSections.toggler}
-          onTout={fSections.toutAfficher}
-          onMaSection={fSections.maSectionSeulement}
-        />
+        <div className="groupe-droite-mc">
+          <SelecteurSections
+            sections={fSections.sections}
+            region={fSections.region}
+            selection={fSections.selection}
+            onSelect={fSections.selectionner}
+          />
 
-        <span className="compte-resultats-mc">
-          {total} intervention{total > 1 ? 's' : ''}
-        </span>
+          <span className="compte-resultats-mc">
+            {total} intervention{total > 1 ? 's' : ''}
+          </span>
+        </div>
       </div>
 
       <PanneauFiltresRegistre f={f} />
