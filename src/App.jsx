@@ -10,6 +10,7 @@ import { deconnecter, posteConnecte } from './lib/session'
 import { supabase } from './lib/supabase'
 import { useFiltreSections } from './hooks/useFiltreSections'
 import SelecteurSections from './components/SelecteurSections'
+import GardeInactivite from './components/GardeInactivite'
 import logoCimLog from './assets/logo-cimlog.png'
 import './App.css'
 
@@ -93,6 +94,12 @@ export default function App() {
             </button>
           </div>
         </header>
+
+        <GardeInactivite
+          actif={fSections.selection != null}
+          nomSection={poste.nom}
+          onExpiration={fSections.reinitialiser}
+        />
 
         <main>
           <Routes>

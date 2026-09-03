@@ -32,6 +32,9 @@ export function useFiltreSections(poste) {
 
   const selectionner = (code) => setSelection((s) => (s === code ? null : code))
 
+  /** Retour forcé à sa propre section — voir GardeInactivite (App.jsx). */
+  const reinitialiser = () => setSelection(null)
+
   // null = pas d'appel RPC nécessaire, on reste sur le chemin RLS d'origine.
   const codesRequete = useMemo(() => {
     if (selection === 'REGION') return sections.flatMap((s) => codesDuGroupe(s.code))
@@ -44,6 +47,7 @@ export function useFiltreSections(poste) {
     region,
     selection,
     selectionner,
+    reinitialiser,
     codesRequete,
     multiple: selection === 'REGION',
   }

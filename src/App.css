@@ -369,6 +369,49 @@ main > * {
   letter-spacing: 0.03em;
 }
 
+.alerte-inactivite {
+  position: fixed;
+  top: 70px;
+  left: 50%;
+  transform: translateX(-50%);
+  /* Au-dessus de tout, y compris .fond-modale (2000) et le menu de sections
+     (1100) — c'est un garde-fou, il doit rester visible quoi qu'il y ait
+     à l'écran. */
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: var(--radius);
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 600;
+  animation: apparition-modale 0.18s cubic-bezier(0.2, 0.8, 0.3, 1);
+}
+
+.alerte-inactivite strong {
+  font-weight: 800;
+}
+
+.alerte-inactivite button {
+  font: inherit;
+  font-weight: 700;
+  font-size: 13px;
+  padding: 6px 14px;
+  border: 1.5px solid #fff;
+  border-radius: var(--radius-sm);
+  background: none;
+  color: #fff;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.alerte-inactivite button:hover {
+  background: rgba(255, 255, 255, 0.18);
+}
+
 .fond-modale {
   position: fixed;
   inset: 0;
