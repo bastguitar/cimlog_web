@@ -180,12 +180,26 @@ export default function MainCourante({ poste, fSections }) {
     })
   }, [messages, recherche, filtreNumero, filtreSG])
 
+  // Lecture seule dès qu'on regarde une autre section que la sienne — on ne
+  // rédige, ne modifie et ne raye jamais rien pour une section qui n'est pas
+  // la sienne (voir GardeInactivite pour le retour automatique si on oublie
+  // qu'on est sur ce mode). Double verrou : les commandes ci-dessous
+  // refusent d'agir même si un bouton caché était quand même déclenché, en
+  // plus de ne plus être affichées du tout dans le rendu.
+  const lectureSeule = fSections.codesRequete != null
+  const nomVue =
+    fSections.selection === 'REGION'
+      ? `CRS ${fSections.region}`
+      : (fSections.sections.find((s) => s.code === fSections.selection)?.nom ?? 'une autre section')
+
   function commencerEdition(m) {
+    if (lectureSeule) return
     setEditionId(m.idStatus)
     setTexteEdition(m.content)
   }
 
   async function validerEdition(m) {
+    if (lectureSeule) return
     const texte = texteEdition.trim()
     if (!texte) return
     try {
@@ -198,6 +212,7 @@ export default function MainCourante({ poste, fSections }) {
   }
 
   async function basculerBarre(m) {
+    if (lectureSeule) return
     try {
       await rayerMessageMc({ idStatus: m.idStatus, barre: !m.barre })
       await charger()
@@ -234,6 +249,8 @@ export default function MainCourante({ poste, fSections }) {
           type="button"
           className={effectifsOuverts ? 'bouton-permanence-mc actif' : 'bouton-permanence-mc'}
           onClick={() => setEffectifsOuverts((v) => !v)}
+          disabled={lectureSeule}
+          title={lectureSeule ? `Indisponible — vous consultez ${nomVue}` : undefined}
         >
           <span className="icone-permanence-mc" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="currentColor">
@@ -280,7 +297,7 @@ export default function MainCourante({ poste, fSections }) {
         </div>
       </div>
 
-      {effectifsOuverts && poste && (
+      {effectifsOuverts && poste && !lectureSeule && (
         <ModaleEffectifs
           poste={poste}
           jour={jour}
@@ -300,7 +317,10 @@ export default function MainCourante({ poste, fSections }) {
       <div className="liste-mc">
         <div className="titre-jour-mc">{titreJour(jour)}</div>
 
-        {roles.length > 0 && effectifs.size > 0 && (
+        {/* Toujours ceux de sa propre section (voir chargerEffectifs) — les
+            masquer en lecture seule évite de laisser croire que ce sont
+            ceux de la section consultée. */}
+        {!lectureSeule && roles.length > 0 && effectifs.size > 0 && (
           <div className="bloc-effectifs-mc">
             <span className="etiquette-effectifs-mc">Effectifs de permanence</span>
             {roles
@@ -338,8 +358,8 @@ export default function MainCourante({ poste, fSections }) {
           <tbody>
             {messagesFiltres.map((m) => {
               const verrouille = maintenant - new Date(m.createdAt).getTime() > DUREE_MODIFICATION_MS
-              const modifiable = !verrouille && m.origin !== 'Système' && !m.barre
-              const rayable = m.origin !== 'Système'
+              const modifiable = !lectureSeule && !verrouille && m.origin !== 'Système' && !m.barre
+              const rayable = !lectureSeule && m.origin !== 'Système'
               const enEdition = editionId === m.idStatus
 
               return (
@@ -347,10 +367,16 @@ export default function MainCourante({ poste, fSections }) {
                   <td className="cellule-cadenas">
                     {m.origin !== 'Système' && (
                       <span
-                        className={verrouille ? 'icone-cadenas' : 'icone-cadenas ouvert'}
-                        title={verrouille ? 'Verrouillé — plus modifiable (plus de 2h)' : 'Modifiable encore un moment'}
+                        className={verrouille || lectureSeule ? 'icone-cadenas' : 'icone-cadenas ouvert'}
+                        title={
+                          lectureSeule
+                            ? `Lecture seule — vous consultez ${nomVue}`
+                            : verrouille
+                              ? 'Verrouillé — plus modifiable (plus de 2h)'
+                              : 'Modifiable encore un moment'
+                        }
                       >
-                        {verrouille ? (
+                        {verrouille || lectureSeule ? (
                           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
                             <rect x="5" y="11" width="14" height="10" rx="2" fill="currentColor" stroke="none" />
                             <path d="M8 11V7a4 4 0 0 1 8 0v4" />
@@ -448,7 +474,9 @@ export default function MainCourante({ poste, fSections }) {
         <div ref={finListe} />
       </div>
 
-      {aujourdhui && poste ? (
+      {lectureSeule ? (
+        <p className="aide-jour-passe">Lecture seule — vous consultez {nomVue}, on n’y écrit pas depuis ici.</p>
+      ) : aujourdhui && poste ? (
         <Composeur poste={poste} secours={secours} onEnvoye={charger} />
       ) : (
         <p className="aide-jour-passe">Lecture seule — on n’écrit que dans aujourd’hui.</p>

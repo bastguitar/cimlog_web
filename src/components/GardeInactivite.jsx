@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 
-const DELAI_INACTIVITE_MS = 10 * 1000 // TEST TEMPORAIRE — remettre 5 * 60 * 1000
-const DUREE_COMPTE_A_REBOURS_S = 15 // TEST TEMPORAIRE — remettre 30
+const DELAI_INACTIVITE_MS = 5 * 60 * 1000
+const DUREE_COMPTE_A_REBOURS_S = 30
 const EVENEMENTS_ACTIVITE = ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart']
 
 /**
