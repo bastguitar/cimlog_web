@@ -2,8 +2,6 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { dateISO, effectifsDuJour } from '../lib/effectifs'
 import { rolesDeLaSection } from '../lib/roles'
 import { couleurSection } from '../lib/sections'
-import { useFiltreSections } from '../hooks/useFiltreSections'
-import SelecteurSections from '../components/SelecteurSections'
 import { exporterSynoptiquePdf } from '../lib/exportSynoptiquePdf'
 import { messagesDuJour, secoursDuJour, estMentionSG, DUREE_MODIFICATION_MS, STATUTS } from '../lib/mainCourante'
 
@@ -21,7 +19,7 @@ const formatHeureMin = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour
  * courante chronologique, qui reste l'écran de saisie — celui-ci n'est
  * qu'une autre façon de regarder les mêmes données.
  */
-export default function Synoptique({ poste }) {
+export default function Synoptique({ poste, fSections }) {
   const [jour, setJour] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
@@ -41,8 +39,6 @@ export default function Synoptique({ poste }) {
     const minuteur = setInterval(() => setMaintenant(Date.now()), 60000)
     return () => clearInterval(minuteur)
   }, [])
-
-  const fSections = useFiltreSections(poste)
 
   useEffect(() => {
     setChargement(true)
@@ -141,13 +137,6 @@ export default function Synoptique({ poste }) {
           )}
         </div>
         <div className="groupe-droite-mc">
-          <SelecteurSections
-            sections={fSections.sections}
-            region={fSections.region}
-            selection={fSections.selection}
-            onSelect={fSections.selectionner}
-          />
-
           <button
             type="button"
             className="bouton-principal bouton-exporter-mc"

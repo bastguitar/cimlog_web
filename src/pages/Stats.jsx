@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
 import { useFiltresRegistre, filtrerEvenements } from '../hooks/useFiltresRegistre'
-import { useFiltreSections } from '../hooks/useFiltreSections'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
-import SelecteurSections from '../components/SelecteurSections'
 
 const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 const JOUR_MS = 24 * 60 * 60 * 1000
@@ -36,7 +34,7 @@ function etiquettesEspacees(n, maxAffichees) {
  * du contexte plutôt qu'une deuxième série à part entière — utile surtout
  * dans quelques années, quand il y aura plusieurs années à comparer.
  */
-export default function Stats({ poste }) {
+export default function Stats({ poste, fSections }) {
   const [annee, setAnnee] = useState(() => new Date().getFullYear())
   const [evenements, setEvenements] = useState([])
   const [evenementsPrecedents, setEvenementsPrecedents] = useState([])
@@ -44,8 +42,6 @@ export default function Stats({ poste }) {
   const [fenetrePrecedente, setFenetrePrecedente] = useState([])
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
-
-  const fSections = useFiltreSections(poste)
 
   useEffect(() => {
     setChargement(true)
@@ -142,13 +138,6 @@ export default function Stats({ poste }) {
         <ControlesFiltresRegistre f={f} placeholder="Filtrer les statistiques…" />
 
         <div className="groupe-droite-mc">
-          <SelecteurSections
-            sections={fSections.sections}
-            region={fSections.region}
-            selection={fSections.selection}
-            onSelect={fSections.selectionner}
-          />
-
           <span className="compte-resultats-mc">
             {total} intervention{total > 1 ? 's' : ''}
           </span>

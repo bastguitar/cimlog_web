@@ -4,9 +4,7 @@ import { STATUTS } from '../lib/mainCourante'
 import { couleurSection } from '../lib/sections'
 import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from '../lib/semaines'
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
-import { useFiltreSections } from '../hooks/useFiltreSections'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
-import SelecteurSections from '../components/SelecteurSections'
 import ModaleFiche from '../components/ModaleFiche'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
@@ -18,14 +16,12 @@ const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '
  * cliquer une ligne ouvre sa fiche (infos, victimes, main courante complète),
  * pas d'édition ici — la main courante chronologique reste l'écran de saisie.
  */
-export default function Registre({ poste }) {
+export default function Registre({ fSections }) {
   const [annee, setAnnee] = useState(() => new Date().getFullYear())
   const [evenements, setEvenements] = useState([])
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
   const [ficheId, setFicheId] = useState(null)
-
-  const fSections = useFiltreSections(poste)
 
   useEffect(() => {
     setChargement(true)
@@ -61,13 +57,6 @@ export default function Registre({ poste }) {
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre (n°, commune, victime…)" />
 
         <div className="groupe-droite-mc">
-          <SelecteurSections
-            sections={fSections.sections}
-            region={fSections.region}
-            selection={fSections.selection}
-            onSelect={fSections.selectionner}
-          />
-
           <span className="compte-resultats-mc">
             {evenementsVisibles.length} intervention{evenementsVisibles.length > 1 ? 's' : ''}
           </span>

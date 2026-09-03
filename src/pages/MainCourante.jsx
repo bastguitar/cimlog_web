@@ -5,8 +5,6 @@ import { secouristesDeSection } from '../lib/annuaire'
 import { rolesDeLaSection, ajouterRole } from '../lib/roles'
 import { debutSemaine } from '../lib/semaines'
 import { couleurSection } from '../lib/sections'
-import { useFiltreSections } from '../hooks/useFiltreSections'
-import SelecteurSections from '../components/SelecteurSections'
 import { exporterMainCourantePdf } from '../lib/exportMainCourantePdf'
 import {
   messagesDuJour,
@@ -46,14 +44,13 @@ function ajouterModele(texteActuel, modele) {
   return /[,;]$/.test(t) ? `${t} ${modele}` : `${t}, ${modele}`
 }
 
-export default function MainCourante({ poste }) {
+export default function MainCourante({ poste, fSections }) {
   const [jour, setJour] = useState(() => {
     const d = new Date()
     d.setHours(0, 0, 0, 0)
     return d
   })
   const aujourdhui = dateISO(jour) === dateISO(new Date())
-  const fSections = useFiltreSections(poste)
 
   const [messages, setMessages] = useState([])
   const [secours, setSecours] = useState([])
@@ -271,13 +268,6 @@ export default function MainCourante({ poste }) {
         </button>
 
         <div className="groupe-droite-mc">
-          <SelecteurSections
-            sections={fSections.sections}
-            region={fSections.region}
-            selection={fSections.selection}
-            onSelect={fSections.selectionner}
-          />
-
           <button type="button" className="bouton-principal bouton-exporter-mc" onClick={() => setExportOuvert(true)}>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M12 3v12" />

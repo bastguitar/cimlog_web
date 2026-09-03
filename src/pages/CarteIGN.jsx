@@ -7,9 +7,7 @@ import { STATUTS } from '../lib/mainCourante'
 import { couleurSection } from '../lib/sections'
 import { BASEMAPS, MAX_ZOOM } from '../lib/basemaps'
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
-import { useFiltreSections } from '../hooks/useFiltreSections'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
-import SelecteurSections from '../components/SelecteurSections'
 import ModaleFiche from '../components/ModaleFiche'
 
 const formatDate = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })
@@ -72,14 +70,12 @@ function RecentrageCarte({ centre, zoom, limites }) {
  * prise d'alerte en direct, ici on relit après coup. La fiche ouverte au
  * clic sur un repère est la même que celle du Registre.
  */
-export default function CarteIGN({ poste }) {
+export default function CarteIGN({ poste, fSections }) {
   const [annee, setAnnee] = useState(() => new Date().getFullYear())
   const [evenements, setEvenements] = useState([])
   const [erreur, setErreur] = useState(null)
   const [melange, setMelange] = useState(0)
   const [ficheId, setFicheId] = useState(null)
-
-  const fSections = useFiltreSections(poste)
 
   useEffect(() => {
     listerAnnee(annee, fSections.codesRequete)
@@ -131,13 +127,6 @@ export default function CarteIGN({ poste }) {
         <ControlesFiltresRegistre f={f} placeholder="Recherche libre…" />
 
         <div className="groupe-droite-mc">
-          <SelecteurSections
-            sections={fSections.sections}
-            region={fSections.region}
-            selection={fSections.selection}
-            onSelect={fSections.selectionner}
-          />
-
           <span className="compte-resultats-mc">
             {points.length} secours localisé{points.length > 1 ? 's' : ''}
           </span>

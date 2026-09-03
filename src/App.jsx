@@ -8,12 +8,17 @@ import CarteIGN from './pages/CarteIGN'
 import Stats from './pages/Stats'
 import { deconnecter, posteConnecte } from './lib/session'
 import { supabase } from './lib/supabase'
+import { useFiltreSections } from './hooks/useFiltreSections'
+import SelecteurSections from './components/SelecteurSections'
 import logoCimLog from './assets/logo-cimlog.png'
 import './App.css'
 
 export default function App() {
   const [poste, setPoste] = useState(undefined) // undefined = en cours de vérification
   const [erreurAuto, setErreurAuto] = useState(null)
+  // En haut de l'arbre : la sélection de section doit survivre à la
+  // navigation entre onglets, pas repartir de zéro à chaque page.
+  const fSections = useFiltreSections(poste || null)
 
   useEffect(() => {
     /*
@@ -66,7 +71,13 @@ export default function App() {
             <NavLink to="/stats">Stats</NavLink>
           </nav>
           <div className="entete-droite">
-            <span className="nom-poste">{poste.nom}</span>
+            <SelecteurSections
+              sections={fSections.sections}
+              region={fSections.region}
+              selection={fSections.selection}
+              onSelect={fSections.selectionner}
+              nomPropre={poste.nom}
+            />
             <button
               type="button"
               className="bouton-deconnexion"
@@ -85,11 +96,11 @@ export default function App() {
 
         <main>
           <Routes>
-            <Route path="/" element={<MainCourante poste={poste} />} />
-            <Route path="/synoptique" element={<Synoptique poste={poste} />} />
-            <Route path="/registre" element={<Registre poste={poste} />} />
-            <Route path="/carte" element={<CarteIGN poste={poste} />} />
-            <Route path="/stats" element={<Stats poste={poste} />} />
+            <Route path="/" element={<MainCourante poste={poste} fSections={fSections} />} />
+            <Route path="/synoptique" element={<Synoptique poste={poste} fSections={fSections} />} />
+            <Route path="/registre" element={<Registre poste={poste} fSections={fSections} />} />
+            <Route path="/carte" element={<CarteIGN poste={poste} fSections={fSections} />} />
+            <Route path="/stats" element={<Stats poste={poste} fSections={fSections} />} />
           </Routes>
         </main>
       </div>
