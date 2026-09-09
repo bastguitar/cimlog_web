@@ -1,5 +1,16 @@
 import { supabase } from './supabase'
 
+/** Identité lisible d'une victime — nom, naissance, téléphone, ce qui existe. */
+export function formatIdentiteVictime(v) {
+  const nom = [v.nom, v.prenom].filter(Boolean).join(' ')
+  const naissance = v.date_naissance
+    ? `né(e) le ${new Date(v.date_naissance).toLocaleDateString('fr-FR')}${v.lieu_naissance ? ` à ${v.lieu_naissance}` : ''}`
+    : v.lieu_naissance
+      ? `né(e) à ${v.lieu_naissance}`
+      : ''
+  return [nom, naissance, v.telephone].filter(Boolean).join(', ')
+}
+
 /**
  * Victimes de plusieurs interventions, groupées par intervention — via la
  * RPC cimlog_victimes (voir sections_lecture_region.sql), qui ne rend que

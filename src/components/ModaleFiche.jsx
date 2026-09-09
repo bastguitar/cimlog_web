@@ -1,8 +1,7 @@
 import { useEffect, useState } from 'react'
-import { ficheSecours } from '../lib/registre'
-import { messagesDeEvenement, STATUTS, formatIdentiteVictime } from '../lib/mainCourante'
+import { ficheSecours, formatIdentiteVictime } from '../lib/registre'
+import { STATUTS } from '../lib/statuts'
 
-const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const formatDateHeure = (iso) =>
   new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
 
@@ -24,7 +23,6 @@ function renduValeur(v) {
 const ONGLETS_FICHE = [
   { cle: 'infos', libelle: 'Infos' },
   { cle: 'victimes', libelle: 'Victimes' },
-  { cle: 'mc', libelle: 'Main courante' },
   { cle: 'snosm', libelle: 'SNOSM' },
 ]
 
@@ -35,17 +33,15 @@ const ONGLETS_FICHE = [
  */
 export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
   const [fiche, setFiche] = useState(null)
-  const [messages, setMessages] = useState([])
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
   const [onglet, setOnglet] = useState('infos')
 
   useEffect(() => {
     setChargement(true)
-    Promise.all([ficheSecours(id, codesRequete), messagesDeEvenement(id, codesRequete)])
-      .then(([f, m]) => {
+    ficheSecours(id, codesRequete)
+      .then((f) => {
         setFiche(f)
-        setMessages(m)
         setErreur(null)
       })
       .catch((e) => setErreur(e.message))
@@ -61,11 +57,6 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
     window.addEventListener('keydown', surTouche)
     return () => window.removeEventListener('keydown', surTouche)
   }, [onFermer])
-
-  // Pas de colonne de clôture sur `events` : l'heure de fin se relit dans le
-  // dernier statut FIN de la main courante — même méthode que ResumeSecours
-  // côté alerte_secours_web.
-  const fin = [...messages].reverse().find((m) => m.type === 'status' && m.content.startsWith('FIN'))
 
   return (
     <div className="fond-modale" onClick={onFermer}>
@@ -89,10 +80,12 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
               <span>{fiche.activity || fiche.accident_type || 'Activité non précisée'}</span>
               <span>{[fiche.com, fiche.lieu].filter(Boolean).join(' — ')}</span>
             </div>
-            <p className="dates-fiche">
-              Alerte le {formatDateHeure(fiche.created_at)}
-              {fin && <> · Terminée le {formatDateHeure(fin.createdAt)}</>}
-            </p>
+            {/* Terminée le … reviendra avec ClotureLe une fois Cim'Log branché
+                sur Grist (voir sections_lecture_region.sql/registre.js) — pas
+                de colonne de clôture côté Supabase, et sa seule source
+                jusqu'ici (le dernier statut FIN de la main courante) a
+                disparu avec elle. */}
+            <p className="dates-fiche">Alerte le {formatDateHeure(fiche.created_at)}</p>
 
             <div className="onglets-fiche">
               {ONGLETS_FICHE.map((o) => (
@@ -104,7 +97,6 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
                 >
                   {o.libelle}
                   {o.cle === 'victimes' && fiche.victimes?.length > 0 && ` (${fiche.victimes.length})`}
-                  {o.cle === 'mc' && messages.length > 0 && ` (${messages.length})`}
                 </button>
               ))}
             </div>
@@ -112,7 +104,6 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
             <div className="corps-fiche">
               {onglet === 'infos' && <OngletInfos fiche={fiche} />}
               {onglet === 'victimes' && <OngletVictimes victimes={fiche.victimes ?? []} />}
-              {onglet === 'mc' && <OngletMainCourante messages={messages} />}
               {onglet === 'snosm' && (
                 <p className="aide">
                   Formulaire SNOSM — à venir. La fiche porte déjà l’indicateur « SNOSM :{' '}
@@ -209,21 +200,6 @@ function OngletVictimes({ victimes }) {
           {v.bilan_terrain && <p className="muet">{v.bilan_terrain}</p>}
         </div>
       ))}
-    </div>
-  )
-}
-
-function OngletMainCourante({ messages }) {
-  return (
-    <div className="fil-fiche">
-      {messages.map((m) => (
-        <div className="ligne-fil-fiche" key={m.idStatus}>
-          <span className="heure-fil-fiche">{formatHeure(m.createdAt)}</span>
-          <span className="origine-fil-fiche">{m.origin}</span>
-          <span className={m.barre ? 'texte-fil-fiche barre' : 'texte-fil-fiche'}>{m.content}</span>
-        </div>
-      ))}
-      {messages.length === 0 && <p className="aide">Aucun message.</p>}
     </div>
   )
 }

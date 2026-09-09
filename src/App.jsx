@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react'
 import { BrowserRouter, NavLink, Route, Routes } from 'react-router-dom'
 import Connexion from './components/Connexion'
-import MainCourante from './pages/MainCourante'
-import Synoptique from './pages/Synoptique'
 import Registre from './pages/Registre'
 import CarteIGN from './pages/CarteIGN'
 import Stats from './pages/Stats'
@@ -65,9 +63,7 @@ export default function App() {
         <header className="entete">
           <img src={logoCimLog} alt="Cim'Log" className="logo-entete" />
           <nav>
-            <NavLink to="/" end>MC Chronologique</NavLink>
-            <NavLink to="/synoptique">Vue synoptique</NavLink>
-            <NavLink to="/registre">Registre secours</NavLink>
+            <NavLink to="/" end>Registre secours</NavLink>
             <NavLink to="/carte">Carte IGN</NavLink>
             <NavLink to="/stats">Stats</NavLink>
           </nav>
@@ -103,9 +99,7 @@ export default function App() {
 
         <main>
           <Routes>
-            <Route path="/" element={<MainCourante poste={poste} fSections={fSections} />} />
-            <Route path="/synoptique" element={<Synoptique poste={poste} fSections={fSections} />} />
-            <Route path="/registre" element={<Registre poste={poste} fSections={fSections} />} />
+            <Route path="/" element={<Registre poste={poste} fSections={fSections} />} />
             <Route path="/carte" element={<CarteIGN poste={poste} fSections={fSections} />} />
             <Route path="/stats" element={<Stats poste={poste} fSections={fSections} />} />
           </Routes>

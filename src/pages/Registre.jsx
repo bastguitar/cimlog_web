@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { listerAnnee } from '../lib/registre'
-import { STATUTS } from '../lib/mainCourante'
+import { STATUTS } from '../lib/statuts'
 import { couleurSection } from '../lib/sections'
 import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from '../lib/semaines'
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
