@@ -17,6 +17,23 @@ export function sansCodePostal(com) {
 }
 
 /**
+ * Juste le nom de famille d'un équipier, sans le prénom ni la section entre
+ * parenthèses (« TARNOWKA Serge (BRIANCON) » -> « TARNOWKA ») — repose sur la
+ * convention NOM (majuscules) Prénom (Section) déjà utilisée côté
+ * Cim'Alerte : les mots en tête entièrement en majuscules forment le nom.
+ */
+export function nomSeul(equipier) {
+  const sansSection = (equipier ?? '').split(' (')[0].trim()
+  const mots = sansSection.split(' ')
+  const nom = []
+  for (const mot of mots) {
+    if (mot && mot === mot.toUpperCase() && mot !== mot.toLowerCase()) nom.push(mot)
+    else break
+  }
+  return nom.length > 0 ? nom.join(' ') : sansSection
+}
+
+/**
  * Point d'entrée unique vers l'Edge Function `grist` (voir
  * supabase/functions/grist) — jamais d'appel direct à l'API Grist depuis le
  * navigateur, la clé n'y est pas exposée. `codesRequete` (toujours un

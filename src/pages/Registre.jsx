@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listerAnnee, sansCodePostal } from '../lib/registre'
+import { listerAnnee, sansCodePostal, nomSeul } from '../lib/registre'
 import { STATUTS } from '../lib/statuts'
 import { couleurSection, groupeDe } from '../lib/sections'
 import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from '../lib/semaines'
@@ -157,7 +157,7 @@ export default function Registre({ fSections }) {
                         </td>
                         <td>{pathologiesDe(s) || '—'}</td>
                         <td>{s.helicopter || '—'}</td>
-                        <td>{(s.team ?? []).join(', ') || '—'}</td>
+                        <td>{(s.team ?? []).map(nomSeul).join(', ') || '—'}</td>
                       </tr>
                     ))}
                   </tbody>
