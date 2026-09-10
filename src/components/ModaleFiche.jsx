@@ -1,6 +1,55 @@
-import { useEffect, useState } from 'react'
-import { ficheSecours, formatIdentiteVictime } from '../lib/registre'
+import { useEffect, useMemo, useState } from 'react'
+import { ficheSecours, formatIdentiteVictime, modifierIntervention } from '../lib/registre'
 import { STATUTS } from '../lib/statuts'
+import { groupeDe } from '../lib/sections'
+import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
+
+/**
+ * Champs de l'onglet Infos modifiables en édition — même liste (côté
+ * présentation seulement) que CHAMPS_MODIFIABLES_INTERVENTION dans
+ * supabase/functions/grist/index.ts, qui reste la seule autorité réelle :
+ * un champ absent d'ici n'est simplement pas proposé à l'édition, mais le
+ * vrai filtrage se fait côté serveur.
+ */
+const GROUPES_EDITION_INFOS = [
+  {
+    titre: 'Origine de l’alerte',
+    champs: [
+      { cle: 'alert_origin', label: 'Origine' },
+      { cle: 'requerant_nom', label: 'Requérant' },
+      { cle: 'requerant_telephone', label: 'Téléphone' },
+      { cle: 'contre_appel', label: 'Contre-appel' },
+      { cle: 'personne_recherchee_nom', label: 'Personne recherchée' },
+    ],
+  },
+  {
+    titre: 'Localisation',
+    champs: [
+      { cle: 'com', label: 'Commune' },
+      { cle: 'lieu', label: 'Lieu' },
+      { cle: 'county', label: 'Département' },
+      { cle: 'massif', label: 'Massif' },
+      { cle: 'alt', label: 'Altitude (m)' },
+      { cle: 'tgi', label: 'TGI' },
+      { cle: 'type_localisation', label: 'Précision' },
+      { cle: 'meteo', label: 'Météo' },
+    ],
+  },
+  {
+    titre: 'Moyens engagés',
+    champs: [
+      { cle: 'helicopter', label: 'Hélicoptère' },
+      { cle: 'type_intervention', label: 'Type d’intervention' },
+      { cle: 'support_units', label: 'Unités en soutien' },
+      { cle: 'is_med', label: 'Médicalisée', type: 'bool' },
+      { cle: 'infirmier', label: 'Infirmier', type: 'bool' },
+    ],
+  },
+  {
+    titre: 'Description',
+    champs: [{ cle: 'description', label: 'Description', type: 'texte-long' }],
+  },
+]
 
 const formatDateHeure = (iso) =>
   new Date(iso).toLocaleString('fr-FR', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' })
@@ -31,11 +80,22 @@ const ONGLETS_FICHE = [
  * (clic sur une ligne) et la Carte IGN (clic sur un repère) : même fiche,
  * quel que soit l'écran d'où on l'ouvre.
  */
-export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
+export default function ModaleFiche({ id, onFermer, codesRequete = null, fSections = null }) {
   const [fiche, setFiche] = useState(null)
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
   const [onglet, setOnglet] = useState('infos')
+  const [edition, setEdition] = useState(false)
+  const [brouillon, setBrouillon] = useState(null)
+  const [enregistrement, setEnregistrement] = useState(false)
+  const [generationTO, setGenerationTO] = useState(false)
+
+  // Nom de la section propriétaire de la fiche, pour l'en-tête « DE : » du TO
+  // — pas forcément la section du poste connecté (fiche consultée en vue région).
+  const nomDeSection = useMemo(
+    () => new Map((fSections?.toutesSections ?? []).map((s) => [s.code, s.nom])),
+    [fSections]
+  )
 
   useEffect(() => {
     setChargement(true)
@@ -57,6 +117,59 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
     window.addEventListener('keydown', surTouche)
     return () => window.removeEventListener('keydown', surTouche)
   }, [onFermer])
+
+  function demarrerEdition() {
+    setBrouillon(Object.fromEntries(GROUPES_EDITION_INFOS.flatMap((g) => g.champs).map(({ cle }) => [cle, fiche[cle] ?? ''])))
+    setEdition(true)
+    setErreur(null)
+  }
+
+  function annulerEdition() {
+    setEdition(false)
+    setBrouillon(null)
+  }
+
+  async function genererTO() {
+    setGenerationTO(true)
+    try {
+      const sectionNom = nomDeSection.get(groupeDe(fiche.squad_code)) ?? fiche.squad_code
+      await telechargerTelegrammeTO(fiche, { sectionNom })
+    } catch (e) {
+      setErreur(e.message)
+    } finally {
+      setGenerationTO(false)
+    }
+  }
+
+  async function enregistrer() {
+    const champs = Object.fromEntries(
+      Object.entries(brouillon).filter(([cle, valeur]) => valeur !== (fiche[cle] ?? ''))
+    )
+    if (Object.keys(champs).length === 0) {
+      setEdition(false)
+      setBrouillon(null)
+      return
+    }
+    setEnregistrement(true)
+    try {
+      await modifierIntervention(fiche.id, codesRequete, champs)
+      setFiche({ ...fiche, ...champs })
+      setEdition(false)
+      setBrouillon(null)
+      setErreur(null)
+    } catch (e) {
+      setErreur(e.message)
+      if (e.codeErreur === 409) {
+        // Figée entre-temps (télégramme officiel envoyé ailleurs) : on
+        // ressort de l'édition et on relit la fiche pour refléter l'état réel.
+        setEdition(false)
+        setBrouillon(null)
+        ficheSecours(id, codesRequete).then(setFiche).catch(() => {})
+      }
+    } finally {
+      setEnregistrement(false)
+    }
+  }
 
   return (
     <div className="fond-modale" onClick={onFermer}>
@@ -94,27 +207,105 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null }) {
                   type="button"
                   className={onglet === o.cle ? 'onglet-fiche actif' : 'onglet-fiche'}
                   onClick={() => setOnglet(o.cle)}
+                  disabled={edition}
                 >
                   {o.libelle}
                   {o.cle === 'victimes' && fiche.victimes?.length > 0 && ` (${fiche.victimes.length})`}
                 </button>
               ))}
+              {/* Pas de télégramme officiel envoyé : la fiche reste modifiable.
+                  Une fois TOEnvoyeLe posé (futur envoi du TO), elle se fige —
+                  silencieusement, aucun bouton Modifier n'apparaît plus. */}
+              {onglet === 'infos' && !edition && !fiche.toEnvoyeLe && (
+                <button type="button" className="bouton-secondaire bouton-modifier-fiche" onClick={demarrerEdition}>
+                  Modifier
+                </button>
+              )}
             </div>
 
             <div className="corps-fiche">
-              {onglet === 'infos' && <OngletInfos fiche={fiche} />}
+              {onglet === 'infos' &&
+                (edition ? (
+                  <OngletInfosEdition brouillon={brouillon} onChange={setBrouillon} />
+                ) : (
+                  <OngletInfos fiche={fiche} />
+                ))}
               {onglet === 'victimes' && <OngletVictimes victimes={fiche.victimes ?? []} />}
               {onglet === 'snosm' && (
-                <p className="aide">
-                  Formulaire SNOSM — à venir. La fiche porte déjà l’indicateur « SNOSM :{' '}
-                  {renduValeur(fiche.snosm) ?? 'non renseigné'} » côté Cim’Alerte.
-                </p>
+                <div className="section-fiche">
+                  <h4>Télégramme officiel (TO)</h4>
+                  <p className="aide">
+                    Génère un brouillon PDF sur le modèle IFSM, pré-rempli avec ce que Cim’Alerte connaît déjà. Les
+                    champs pas encore saisis (rédacteur, autorités précises, bilan détaillé…) restent à compléter à
+                    la main — le formulaire SNOSM complet, à venir, les remplira automatiquement.
+                  </p>
+                  <button type="button" className="bouton-principal" onClick={genererTO} disabled={generationTO}>
+                    {generationTO ? 'Génération…' : 'Télécharger le TO (brouillon)'}
+                  </button>
+                  <p className="aide" style={{ marginTop: 14 }}>
+                    Indicateur SNOSM côté Cim’Alerte : {renduValeur(fiche.snosm) ?? 'non renseigné'}.
+                  </p>
+                </div>
               )}
             </div>
+
+            {edition && (
+              <div className="actions-edition-fiche">
+                <button type="button" className="bouton-secondaire" onClick={annulerEdition} disabled={enregistrement}>
+                  Annuler
+                </button>
+                <button type="button" className="bouton-principal" onClick={enregistrer} disabled={enregistrement}>
+                  {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
+                </button>
+              </div>
+            )}
           </>
         )}
       </div>
     </div>
+  )
+}
+
+function OngletInfosEdition({ brouillon, onChange }) {
+  const majChamp = (cle, valeur) => onChange((b) => ({ ...b, [cle]: valeur }))
+
+  return (
+    <>
+      {GROUPES_EDITION_INFOS.map((groupe) => (
+        <div className="section-fiche" key={groupe.titre}>
+          <h4>{groupe.titre}</h4>
+          <div className="grille-details-fiche">
+            {groupe.champs.map(({ cle, label, type }) => (
+              <div className={type === 'texte-long' ? 'detail-fiche-edition detail-pleine-largeur' : 'detail-fiche-edition'} key={cle}>
+                <span className="etiquette-detail-fiche">{label}</span>
+                {type === 'bool' ? (
+                  <div className="champ-bool-edition">
+                    <button
+                      type="button"
+                      className={brouillon[cle] ? 'option-bool-edition actif' : 'option-bool-edition'}
+                      onClick={() => majChamp(cle, true)}
+                    >
+                      Oui
+                    </button>
+                    <button
+                      type="button"
+                      className={!brouillon[cle] ? 'option-bool-edition actif' : 'option-bool-edition'}
+                      onClick={() => majChamp(cle, false)}
+                    >
+                      Non
+                    </button>
+                  </div>
+                ) : type === 'texte-long' ? (
+                  <textarea value={brouillon[cle] ?? ''} onChange={(e) => majChamp(cle, e.target.value)} rows={4} />
+                ) : (
+                  <input type="text" value={brouillon[cle] ?? ''} onChange={(e) => majChamp(cle, e.target.value)} />
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </>
   )
 }
 

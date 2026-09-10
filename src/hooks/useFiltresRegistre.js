@@ -3,10 +3,13 @@ import { regrouperParSemaine, debutSemaine } from '../lib/semaines'
 
 /** Repéré par le sélecteur « Moyen » — voir estSansMoyen ci-dessous. */
 export const SANS_MOYEN = '__sans_moyen__'
+/** Tous les moyens CRS à la fois — équivaut à exclure SDIS et « sans moyen », voir Stats.jsx (estSDIS/estSansMoyen). */
+export const MOYENS_CRS = '__moyens_crs__'
 // Valeur littérale posée côté Cim'Alerte quand rien n'est engagé — pas une
 // colonne vide : le filtre doit reconnaître ce texte précis.
 const AUCUN_MOYEN_TEXTE = 'Pas de moyens engagés'
 const estSansMoyen = (helicopter) => !helicopter || helicopter === AUCUN_MOYEN_TEXTE
+const estSDIS = (helicopter) => helicopter === 'SDIS'
 
 const FILTRES_VIDES = {
   semaine: '',
@@ -15,7 +18,11 @@ const FILTRES_VIDES = {
   secouriste: '',
   moyen: '',
   activite: '',
+  aTraiter: false,
 }
+
+/** Clôturée mais pas encore couverte par un télégramme officiel — voir modifierIntervention/TOEnvoyeLe. */
+const estATraiter = (s) => Boolean(s.clotureLe) && !s.toEnvoyeLe
 
 /** Un texte se retrouve dans une intervention — numéro exact, ou sous-chaîne d'un des champs. */
 function correspond(s, mot) {
@@ -43,10 +50,15 @@ export function filtrerEvenements(evenements, filtres, recherche = '') {
     if (communeMot && !(s.com ?? '').toLowerCase().includes(communeMot)) return false
     if (filtres.secouriste && !(s.team ?? []).includes(filtres.secouriste)) return false
     if (filtres.activite && s.activity !== filtres.activite) return false
-    if (filtres.moyen) {
-      if (filtres.moyen === SANS_MOYEN ? !estSansMoyen(s.helicopter) : s.helicopter !== filtres.moyen) return false
+    if (filtres.moyen === SANS_MOYEN) {
+      if (!estSansMoyen(s.helicopter)) return false
+    } else if (filtres.moyen === MOYENS_CRS) {
+      if (estSansMoyen(s.helicopter) || estSDIS(s.helicopter)) return false
+    } else if (filtres.moyen && s.helicopter !== filtres.moyen) {
+      return false
     }
     if (filtres.semaine && debutSemaine(new Date(s.created_at)).getTime() !== Number(filtres.semaine)) return false
+    if (filtres.aTraiter && !estATraiter(s)) return false
     return true
   })
 }
@@ -83,6 +95,9 @@ export function useFiltresRegistre(evenements) {
   const resetFiltres = () => setFiltres(FILTRES_VIDES)
   const nombreFiltresActifs = Object.values(filtres).filter(Boolean).length
   const filtresActifs = nombreFiltresActifs > 0 || recherche.trim() !== ''
+  // Indépendant du filtre "aTraiter" lui-même (actif ou non) — pour afficher
+  // le compte sur le bouton même quand on ne l'a pas encore activé.
+  const nombreATraiter = useMemo(() => evenements.filter(estATraiter).length, [evenements])
 
   const evenementsFiltres = useMemo(
     () => filtrerEvenements(evenements, filtres, recherche),
@@ -99,6 +114,7 @@ export function useFiltresRegistre(evenements) {
     setFiltresOuverts,
     nombreFiltresActifs,
     filtresActifs,
+    nombreATraiter,
     semainesAnnee,
     secouristes,
     moyens,

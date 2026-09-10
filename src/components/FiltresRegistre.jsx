@@ -1,5 +1,5 @@
 import { numeroSemaine, libelleSemaine } from '../lib/semaines'
-import { SANS_MOYEN } from '../hooks/useFiltresRegistre'
+import { SANS_MOYEN, MOYENS_CRS } from '../hooks/useFiltresRegistre'
 
 /** Recherche libre + bouton « Filtres » — à placer dans la barre principale. */
 export function ControlesFiltresRegistre({ f, placeholder = 'Recherche libre…' }) {
@@ -18,6 +18,13 @@ export function ControlesFiltresRegistre({ f, placeholder = 'Recherche libre…'
         onClick={() => f.setFiltresOuverts((v) => !v)}
       >
         Filtres{f.nombreFiltresActifs > 0 ? ` (${f.nombreFiltresActifs})` : ''}
+      </button>
+      <button
+        type="button"
+        className={f.filtres.aTraiter ? 'bouton-effectifs actif' : 'bouton-effectifs'}
+        onClick={() => f.majFiltre('aTraiter', !f.filtres.aTraiter)}
+      >
+        À traiter{f.nombreATraiter > 0 ? ` (${f.nombreATraiter})` : ''}
       </button>
     </>
   )
@@ -65,6 +72,7 @@ export function PanneauFiltresRegistre({ f }) {
       </select>
       <select className="filtre-select-registre" value={f.filtres.moyen} onChange={(e) => f.majFiltre('moyen', e.target.value)}>
         <option value="">Tous les moyens</option>
+        <option value={MOYENS_CRS}>Tous les moyens CRS</option>
         <option value={SANS_MOYEN}>Pas de moyen engagé</option>
         {f.moyens.map((m) => (
           <option key={m} value={m}>

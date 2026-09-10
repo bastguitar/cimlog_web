@@ -216,7 +216,12 @@ export default function CarteIGN({ poste, fSections }) {
       </div>
 
       {ficheId != null && (
-        <ModaleFiche id={ficheId} onFermer={() => setFicheId(null)} codesRequete={fSections.codesRequete} />
+        <ModaleFiche
+          id={ficheId}
+          onFermer={() => setFicheId(null)}
+          codesRequete={fSections.codesRequete}
+          fSections={fSections}
+        />
       )}
     </section>
   )

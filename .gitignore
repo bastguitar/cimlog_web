@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Cache local du CLI Supabase (npx supabase ...)
+supabase/.temp
+
 # Environnement (clés Supabase)
 .env
 .env.*

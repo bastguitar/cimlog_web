@@ -1574,23 +1574,39 @@ main > * {
 }
 
 .tableau-registre .col-heure-registre {
-  width: 9%;
+  width: 7%;
 }
 
 .tableau-registre .col-numero-registre {
-  width: 9%;
+  width: 6%;
+}
+
+.tableau-registre .col-unite-registre {
+  width: 10%;
+}
+
+.tableau-registre .col-commune-registre {
+  width: 15%;
 }
 
 .tableau-registre .col-lieu-registre {
-  width: 38%;
+  width: 14%;
 }
 
 .tableau-registre .col-activite-registre {
-  width: 20%;
+  width: 15%;
+}
+
+.tableau-registre .col-pathologies-registre {
+  width: 13%;
+}
+
+.tableau-registre .col-moyen-registre {
+  width: 8%;
 }
 
 .tableau-registre .col-equipe-registre {
-  width: 24%;
+  width: 12%;
 }
 
 .tableau-registre tbody tr {
@@ -1599,6 +1615,43 @@ main > * {
 
 .tableau-registre tbody tr:hover {
   background: var(--accent-bg);
+}
+
+/* En-tête de colonnes fixe, au-dessus de .liste-mc — une seule fois, pas
+   répétée par jour (chaque jour garde sa propre <table>, voir plus haut). */
+.tableau-entete-registre {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-sm);
+}
+
+.tableau-entete-registre th {
+  position: static;
+  padding: 8px 16px;
+  text-align: left;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: color-mix(in srgb, var(--text) 60%, var(--bg-alt));
+  background: transparent;
+  border: none;
+}
+
+.cellule-principale-registre {
+  font-weight: 600;
+  color: var(--text-h);
+}
+
+.cellule-activite-registre {
+  color: var(--chaleur);
+}
+
+.cellule-sous-registre {
+  margin-top: 1px;
+  font-size: 11.5px;
+  color: color-mix(in srgb, var(--text) 65%, var(--bg-alt));
 }
 
 .modale-fiche {
@@ -1712,6 +1765,69 @@ main > * {
   text-transform: uppercase;
   letter-spacing: 0.04em;
   opacity: 0.55;
+}
+
+.detail-fiche-edition {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 13px;
+}
+
+.detail-fiche-edition.detail-pleine-largeur {
+  grid-column: 1 / -1;
+}
+
+.detail-fiche-edition input,
+.detail-fiche-edition textarea {
+  font: inherit;
+  font-size: 13px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--text-h);
+}
+
+.detail-fiche-edition textarea {
+  resize: vertical;
+}
+
+.champ-bool-edition {
+  display: flex;
+  gap: 6px;
+}
+
+.option-bool-edition {
+  padding: 5px 12px;
+  font-size: 12.5px;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--text);
+  cursor: pointer;
+}
+
+.option-bool-edition.actif {
+  background: var(--chaleur);
+  border-color: var(--chaleur);
+  color: #fff;
+}
+
+.bouton-modifier-fiche {
+  margin-left: auto;
+  align-self: center;
+  padding: 4px 12px;
+  font-size: 12.5px;
+}
+
+.actions-edition-fiche {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
 }
 
 .carte-victime {

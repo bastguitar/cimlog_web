@@ -1,20 +1,49 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listerAnnee } from '../lib/registre'
+import { listerAnnee, sansCodePostal } from '../lib/registre'
 import { STATUTS } from '../lib/statuts'
-import { couleurSection } from '../lib/sections'
+import { couleurSection, groupeDe } from '../lib/sections'
 import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from '../lib/semaines'
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
 import ModaleFiche from '../components/ModaleFiche'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
+const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
+
+/** Mêmes colonnes pour l'en-tête fixe et chaque table du jour — colgroup partagé pour un alignement garanti. */
+function colonnesRegistre(multiple) {
+  const colonnes = [
+    { cle: 'heure', label: 'Heure', classe: 'col-heure-registre' },
+    { cle: 'numero', label: 'N°', classe: 'col-numero-registre' },
+  ]
+  if (multiple) colonnes.push({ cle: 'unite', label: 'Unité', classe: 'col-unite-registre' })
+  colonnes.push(
+    { cle: 'commune', label: 'Commune / Massif', classe: 'col-commune-registre' },
+    { cle: 'lieu', label: 'Lieu', classe: 'col-lieu-registre' },
+    { cle: 'activite', label: 'Motif / Activité', classe: 'col-activite-registre' },
+    { cle: 'pathologies', label: 'Pathologies', classe: 'col-pathologies-registre' },
+    { cle: 'moyen', label: 'Moyen', classe: 'col-moyen-registre' },
+    { cle: 'equipe', label: 'Équipe', classe: 'col-equipe-registre' }
+  )
+  return colonnes
+}
+
+function ColgroupRegistre({ colonnes }) {
+  return (
+    <colgroup>
+      {colonnes.map((c) => (
+        <col key={c.cle} className={c.classe} />
+      ))}
+    </colgroup>
+  )
+}
 
 /**
  * Registre des secours — toutes les interventions de l'année, les plus
  * récentes d'abord, groupées par semaine de service puis par jour (même
- * découpage que la relève, lundi 8h — voir lib/semaines.js). Lecture seule :
- * cliquer une ligne ouvre sa fiche (infos, victimes, main courante complète),
- * pas d'édition ici — la main courante chronologique reste l'écran de saisie.
+ * découpage que la relève, lundi 8h — voir lib/semaines.js). Cliquer une
+ * ligne ouvre sa fiche (infos, victimes, SNOSM) ; la fiche elle-même peut
+ * s'éditer tant qu'aucun télégramme officiel n'a été envoyé (ModaleFiche).
  */
 export default function Registre({ fSections }) {
   const [annee, setAnnee] = useState(() => new Date().getFullYear())
@@ -37,6 +66,13 @@ export default function Registre({ fSections }) {
   const f = useFiltresRegistre(evenements)
   const evenementsVisibles = f.evenementsFiltres
   const semaines = useMemo(() => regrouperParSemaine(evenementsVisibles), [evenementsVisibles])
+  const colonnes = useMemo(() => colonnesRegistre(fSections.multiple), [fSections.multiple])
+  // Nom d'une section à partir de son squad_code, sections secondaires
+  // ramenées à leur section mère (même regroupement que le sélecteur).
+  const nomDeSection = useMemo(
+    () => new Map((fSections.toutesSections ?? []).map((s) => [s.code, s.nom])),
+    [fSections.toutesSections]
+  )
 
   return (
     <section className="page page-mc">
@@ -70,6 +106,19 @@ export default function Registre({ fSections }) {
         <p className="aide">Aucune intervention {f.filtresActifs ? 'ne correspond' : 'cette année'}.</p>
       )}
 
+      {evenementsVisibles.length > 0 && (
+        <table className="tableau-mc tableau-registre tableau-entete-registre" aria-hidden="true">
+          <ColgroupRegistre colonnes={colonnes} />
+          <thead>
+            <tr>
+              {colonnes.map((c) => (
+                <th key={c.cle}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+        </table>
+      )}
+
       <div className="liste-mc">
         {semaines.map((semaine) => (
           <div key={semaine.cle}>
@@ -81,27 +130,33 @@ export default function Registre({ fSections }) {
               <div key={jour.cle}>
                 <div className="titre-jour-mc">{titreJournee(jour.date)}</div>
                 <table className="tableau-mc tableau-registre">
-                  <colgroup>
-                    <col className="col-heure-registre" />
-                    <col className="col-numero-registre" />
-                    <col className="col-lieu-registre" />
-                    <col className="col-activite-registre" />
-                    <col className="col-equipe-registre" />
-                  </colgroup>
+                  <ColgroupRegistre colonnes={colonnes} />
                   <tbody>
                     {jour.secours.map((s) => (
                       <tr key={s.id} className="ligne-registre" onClick={() => setFicheId(s.id)}>
                         <td>{formatHeure(s.created_at)}</td>
                         <td>
-                          {fSections.multiple && (
-                            <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
-                          )}
                           <span className="numero-mc" style={{ color: STATUTS[s.statut]?.couleur }}>
                             n°{s.local_id}
                           </span>
                         </td>
-                        <td>{[s.com, s.lieu].filter(Boolean).join(' — ') || '—'}</td>
-                        <td>{s.activity || '—'}</td>
+                        {fSections.multiple && (
+                          <td>
+                            <span className="badge-section" style={{ background: couleurSection(s.squad_code) }} />
+                            {nomDeSection.get(groupeDe(s.squad_code)) ?? s.squad_code}
+                          </td>
+                        )}
+                        <td>
+                          <div className="cellule-principale-registre">{sansCodePostal(s.com) || '—'}</div>
+                          {s.massif && <div className="cellule-sous-registre">{s.massif}</div>}
+                        </td>
+                        <td>{s.lieu || '—'}</td>
+                        <td>
+                          <div className="cellule-principale-registre cellule-activite-registre">{s.activity || '—'}</div>
+                          {s.accident_type && <div className="cellule-sous-registre">{s.accident_type}</div>}
+                        </td>
+                        <td>{pathologiesDe(s) || '—'}</td>
+                        <td>{s.helicopter || '—'}</td>
                         <td>{(s.team ?? []).join(', ') || '—'}</td>
                       </tr>
                     ))}
@@ -114,7 +169,12 @@ export default function Registre({ fSections }) {
       </div>
 
       {ficheId != null && (
-        <ModaleFiche id={ficheId} onFermer={() => setFicheId(null)} codesRequete={fSections.codesRequete} />
+        <ModaleFiche
+          id={ficheId}
+          onFermer={() => setFicheId(null)}
+          codesRequete={fSections.codesRequete}
+          fSections={fSections}
+        />
       )}
     </section>
   )
