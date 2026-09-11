@@ -126,10 +126,10 @@ async function deleteGrist(docId: string, apiKey: string, table: string, gristId
 // Champs SNOSM — une seule table [app-key, colonne Grist, type] par table
 // Grist, utilisée à la fois pour lire (SELECT + mapping) et écrire (liste
 // blanche + conversion) : évite que les quatre listes dérivent les unes des
-// autres sur ~90 champs. Les menus déroulants ne sont pas encore remplis
-// (voir src/lib/optionsSnosm.js côté client) — tous ces champs sont du texte
-// libre pour l'instant côté Grist de toute façon, rien à perdre à les
-// convertir en vraies listes plus tard.
+// autres sur ~90 champs. Les colonnes Grist restent du texte (le vocabulaire
+// fermé du SNOSM est imposé côté client via <select>, voir
+// src/lib/optionsSnosm.js — cette Edge Function reste agnostique du contenu
+// des menus déroulants, elle ne fait que transporter la valeur choisie).
 // ---------------------------------------------------------------------------
 type TypeChamp = 'text' | 'int' | 'numeric' | 'bool' | 'datetime'
 
@@ -140,6 +140,8 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_depart_le', 'SnosmDepartLe', 'datetime'],
   ['snosm_arrivee_lieux_le', 'SnosmArriveeLieuxLe', 'datetime'],
   ['snosm_fin_operation_le', 'SnosmFinOperationLe', 'datetime'],
+  ['snosm_meteo', 'SnosmMeteo', 'text'],
+  ['snosm_nature_operation', 'SnosmNatureOperation', 'text'],
   ['snosm_type_domaine', 'SnosmTypeDomaine', 'text'],
   ['snosm_encadrement', 'SnosmEncadrement', 'text'],
   ['snosm_diplome_encadrant', 'SnosmDiplomeEncadrant', 'text'],

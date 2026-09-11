@@ -1,0 +1,204 @@
+/**
+ * Vocabulaire imposé par le SNOSM pour les champs à choix fermé du
+ * formulaire — recoupé entre le référentiel SNOSM fourni par l'utilisateur
+ * (tableur) et l'export réel des télégrammes Grigoletto (comptage des
+ * valeurs effectivement utilisées), puis validé point par point avec
+ * l'utilisateur. Toute cette correspondance vit ici, pas dans l'Edge
+ * Function Grist ni dans Supabase : Cim'Log ne change que sa propre
+ * présentation, jamais le format d'échange.
+ */
+
+export const OPTIONS_ENCADREMENT = ['ENCADREMENT ASSOCIATIF', 'ENCADREMENT PROFESSIONNEL', 'NON ENCADRE']
+
+export const OPTIONS_DIPLOME_ENCADRANT = [
+  'GUIDE DE HAUTE MONTAGNE',
+  'MONITEUR / MONITRICE DE SKI',
+  'AMM',
+  'DEJEPS CANYONISME',
+  'DEJEPS ESCALADE',
+  'AUTRE',
+]
+
+// Confirmé directement par l'utilisateur sur le formulaire SNOSM (le
+// tableur fourni n'en listait que 3 — il manquait "Autre à préciser" et
+// "Village / Fond de vallée", ajoutés à l'app après le tableur).
+export const OPTIONS_TYPE_DOMAINE = [
+  'Domaine montagne',
+  'Domaine skiable sur piste',
+  'Domaine skiable hors-piste',
+  'Autre à préciser',
+  'Village / Fond de vallée',
+]
+
+export const OPTIONS_LOCALISATION_PISTE = [
+  'COMPETITION',
+  'HORS PISTE GRAVITAIRE',
+  'MONTAGNE',
+  'PISTE BLEUE',
+  'PISTE NOIRE',
+  'PISTE ROUGE',
+  'PISTE VERTE',
+  'SNOWPRK ET SNOWCROSS',
+  'VILLAGE',
+]
+
+export const OPTIONS_NEIGE = [
+  'DURE',
+  'DOUCE',
+  'VERGLACEE',
+  'HUMIDE / DE PRINTEMPS',
+  'POUDREUSE / FRAICHE',
+  'CROUTEE',
+  'BOSSELEE',
+  'FAIBLE ENNEIGEMENT',
+]
+
+// Confirmé directement par l'utilisateur — nouveau menu déroulant dédié
+// dans l'onglet SNOSM, le champ Cim'Alerte équivalent (TypeOperation) n'est
+// jamais alimenté.
+export const OPTIONS_NATURE_OPERATION = [
+  'Secours en montagne',
+  'Mission SAMU',
+  'Plan secours spéléologie',
+  'Assistance judiciaire',
+  'Plan SATER',
+]
+
+// Confirmé directement par l'utilisateur : nouveau menu déroulant dédié,
+// séparé du champ météo Cim'Alerte (texte libre).
+export const OPTIONS_METEO = [
+  'AUTRE',
+  'BROUILLARD',
+  'ENSOLEILLE / BEAU TEMPS',
+  'JOUR BLANC',
+  'NEIGEUX',
+  'NUAGEUX / COUVERT',
+  'NUIT',
+  'PLUVIEUX',
+  'TEMPETE DE NEIGE',
+  'VENTEUX',
+]
+
+export const OPTIONS_ETAT_MEDICAL = ['Décédé traumatique', 'Décédé non traumatique', 'Blessé', 'Disparu', 'Malade', 'Indemne']
+
+export const OPTIONS_LOCALISATION_BLESSURE = [
+  'ABDOMEN',
+  'AVANT-BRAS',
+  'BASSIN',
+  'BRAS',
+  'CHEVILLE',
+  'CLAVICULE',
+  'COU',
+  'COUDE',
+  'DOIGTS',
+  'EPAULE',
+  'FEMUR',
+  'GENOU',
+  'INDEMNE',
+  'MAIN',
+  'NON TRAUMATIQUE',
+  'ORGANES GENITAUX',
+  'PIED',
+  'POIGNET',
+  'POLYTRAUMATISMES',
+  'RACHIS CERVICAL',
+  'RACHIS DORSAL',
+  'RACHIS LOMBAIRE',
+  'TETE',
+  'THORAX',
+  'TIBIA PERONE',
+  'VISAGE',
+  'AUTRE',
+]
+
+export const OPTIONS_TYPE_BLESSURE = [
+  'ARRET CARDIO-RESPIRATOIRE',
+  'BRULURE',
+  'CHOC EMOTIONNEL',
+  'CONDITION PHYSIQUE(FATIGUE, HYPGLYCEMIE)',
+  'CONTUSION / HEMATOME',
+  "CRISE D'ANGOISSE / TETANIE / SPAMOPHILIE",
+  "CRISE D'EPILEPSIE",
+  'DECES',
+  'DEFICIT NEUROLOGIQUE (DE TYPE AVC)',
+  'DERMABRASION',
+  'DOULEURS THORACIQUES',
+  'GELURE',
+  'HYPOTHERMIE ASOCIEE',
+  'HYPOTHERMIE ISOLEE',
+  'INDEMNE',
+  'MALAISE',
+  'MAM',
+  'NAUSEE / VOMISSEMENT',
+  'PLAIE HEMORAGIQUE',
+  'PLAIE NON HEMORAGIQUE',
+  'PROBLEME OPHTALMOLOGIQUE',
+  'PROBLEME RESPIRATOIRE',
+  'PROBLEME MUSCULAIRE',
+  'SUSPICION ALCOOLEMIE / DROGUE',
+  'SUSPICION HEMORRAGIE INTERNE',
+  'SUSPICION ENTORSE',
+  'SUSPICION FRACTURE FERMEE',
+  'SUSPICION FRACTURE OUVERTE',
+  'SUSPICION DE LUXATION',
+  'TRAUMA CRANIEN AVEC PERTE DE CONNAISSANCE',
+  'TRAUMA CRANIEN SANS PERTE DE CONNAISSANCE',
+  'AUTRE',
+]
+
+export const OPTIONS_CIRCONSTANCES_VICTIME = [
+  'AVALANCHE',
+  'CHUTE DE PIERRES',
+  'CHUTE DE SERAC',
+  'FOUDRE',
+  'RUPTURE DE MATERIEL',
+  'DECOLLAGE OU ATTERISSAGE',
+  'VOL',
+  'CONDITION PHYSIQUE INSUFFISANTE',
+  'DEVISSAGE (PERSONNE ENCORDEE)',
+  'EQUIPEMENT DU SUJET NON ADAPTE',
+  "ERREUR D'ITINERAIRE",
+  'ERREUR TECHNIQUE',
+  'GLISSADE OU CHUTE (NON USAGE DE LA CORDE)',
+  'NOYADE',
+  'CHUTE EN CREVASSE',
+  'TEMPETE',
+  'ASPHYXIE HORS AVALANCHE',
+  'AUTRES',
+  '(DOMAINE SKIABLE) CHUTE SOLITAIRE',
+  '(DOMAINE SKIABLE) CHUTE CONTRE OBSTACLE NATUREL',
+  '(DOMAINE SKIABLE) CHUTE CONTRE OBSTACLE ARTIFICIEL',
+  '(DOMAINE SKIABLE) COLLISION ENTRE USAGERS',
+  '(DOMAINE SKIABLE) AVALANCHE DEPART SPONTANE',
+  '(DOMAINE SKIABLE) PERSONNE EGAREE',
+  '(DOMAINE SKIABLE) SAUT DE BARRES',
+  '(DOMAINE SKIABLE) GLISSADE',
+  '(DOMAINE SKIABLE) EPUISEMENT',
+  '(DOMAINE SKIABLE) HYPOTHERMIE',
+  '(DOMAINE SKIABLE) NON TRAUMATIQUE',
+  "PATHOLOGIES D'ALTITUDE",
+]
+
+// Liste vivante de l'appli Cim'Alerte (table `ref_helico`, appareils actifs
+// uniquement — SAF est désactivé, remplacé par YETI 1/YETI 2), avec Choucas
+// 69 et Dragon 69 ajoutés à la demande de l'utilisateur (absents de
+// `ref_helico` mais utilisés pour le SNOSM).
+export const OPTIONS_HELICOPTERES = [
+  'Choucas 04',
+  'Choucas 05',
+  'Choucas 09',
+  'Choucas 65',
+  'Choucas 66',
+  'Choucas 69',
+  'Choucas 73',
+  'Choucas 74',
+  'Dragon 06',
+  'Dragon 38-1',
+  'Dragon 38-2',
+  'Dragon 64',
+  'Dragon 69',
+  'Dragon 74',
+  'Moyens CODIS',
+  'YETI 1',
+  'YETI 2',
+]

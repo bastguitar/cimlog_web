@@ -1,6 +1,20 @@
 import { useState } from 'react'
 import { ChampSnosm, ChampCheckbox } from './ChampsSnosm'
 import {
+  OPTIONS_ENCADREMENT,
+  OPTIONS_DIPLOME_ENCADRANT,
+  OPTIONS_TYPE_DOMAINE,
+  OPTIONS_LOCALISATION_PISTE,
+  OPTIONS_NEIGE,
+  OPTIONS_NATURE_OPERATION,
+  OPTIONS_METEO,
+  OPTIONS_ETAT_MEDICAL,
+  OPTIONS_LOCALISATION_BLESSURE,
+  OPTIONS_TYPE_BLESSURE,
+  OPTIONS_CIRCONSTANCES_VICTIME,
+  OPTIONS_HELICOPTERES,
+} from '../../lib/optionsSnosm'
+import {
   modifierIntervention,
   modifierVictime,
   ajouterEffectifEngage,
@@ -56,17 +70,18 @@ const GROUPES_GENERAL = [
       { cle: 'alt', label: 'Altitude (m)' },
       { cle: 'tgi', label: 'TGI' },
       { cle: 'type_localisation', label: 'Précision' },
-      { cle: 'meteo', label: 'Météo' },
+      { cle: 'meteo', label: 'Météo (Cim’Alerte)' },
+      { cle: 'snosm_meteo', label: 'Météo (SNOSM)', type: 'liste', options: OPTIONS_METEO },
     ],
   },
   {
     titre: 'Domaine',
     champs: [
-      { cle: 'snosm_type_domaine', label: 'Type de domaine' },
-      { cle: 'snosm_encadrement', label: 'Encadrement' },
-      { cle: 'snosm_diplome_encadrant', label: 'Diplôme encadrant' },
-      { cle: 'snosm_localisation_piste', label: 'Localisation piste' },
-      { cle: 'snosm_neige', label: 'Neige' },
+      { cle: 'snosm_type_domaine', label: 'Type de domaine', type: 'liste', options: OPTIONS_TYPE_DOMAINE },
+      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'liste', options: OPTIONS_ENCADREMENT },
+      { cle: 'snosm_diplome_encadrant', label: 'Diplôme encadrant', type: 'liste', options: OPTIONS_DIPLOME_ENCADRANT },
+      { cle: 'snosm_localisation_piste', label: 'Localisation piste', type: 'liste', options: OPTIONS_LOCALISATION_PISTE },
+      { cle: 'snosm_neige', label: 'Neige', type: 'liste', options: OPTIONS_NEIGE },
     ],
   },
 ]
@@ -75,10 +90,12 @@ const GROUPES_MOYENS = [
   {
     titre: 'Opération',
     champs: [
+      { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'liste', options: OPTIONS_NATURE_OPERATION },
+      { cle: 'activity', label: 'Nature de l’activité (Cim’Alerte)' },
       { cle: 'snosm_type_operation_moyens', label: 'Opération (héliportée / terrestre / mixte)' },
       { cle: 'snosm_ppsm', label: 'PPSM(s)' },
       { cle: 'helicopter', label: 'Hélicoptère (Cim’Alerte)' },
-      { cle: 'snosm_helicopteres', label: 'Hélicoptère(s) (SNOSM)' },
+      { cle: 'snosm_helicopteres', label: 'Hélicoptère(s) (SNOSM)', type: 'liste', options: OPTIONS_HELICOPTERES },
       { cle: 'type_intervention', label: 'Type d’intervention' },
       { cle: 'support_units', label: 'Unités en soutien' },
       { cle: 'snosm_medicalisation', label: 'Médicalisation (SNOSM)' },
@@ -182,15 +199,15 @@ const CHAMPS_IMPLIQUE_BASE = [
 
 const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_statut', label: 'Statut (victime / témoin / encadrant)' },
-  { cle: 'snosm_etat_medical', label: 'État médical' },
+  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
   { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
   { cle: 'snosm_profession', label: 'Profession' },
   { cle: 'snosm_demeurant', label: 'Demeurant', type: 'texte-long' },
-  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure' },
-  { cle: 'snosm_type_blessure', label: 'Type de blessure' },
+  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'liste', options: OPTIONS_LOCALISATION_BLESSURE },
+  { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'liste', options: OPTIONS_TYPE_BLESSURE },
   { cle: 'snosm_commune', label: 'Commune' },
   { cle: 'snosm_pays', label: 'Pays' },
-  { cle: 'snosm_circonstances_liste', label: 'Circonstances (SNOSM)' },
+  { cle: 'snosm_circonstances_liste', label: 'Circonstances (SNOSM)', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   { cle: 'snosm_destination', label: 'Destination' },
   { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
 ]
@@ -388,7 +405,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   return (
     <div className="onglet-snosm-racine">
       <div className="entete-snosm">
-        <p className="aide">Les menus déroulants sont en texte libre pour l’instant, en attendant leur contenu officiel.</p>
         <div className="actions-entete-snosm">
           {!edition && !verrouillee && (
             <button type="button" className="bouton-secondaire" onClick={demarrerEdition}>

@@ -1,10 +1,4 @@
-/**
- * Champs de saisie réutilisables pour le formulaire SNOSM — en attendant le
- * contenu réel des menus déroulants (voir Cim'Log), tous les champs à choix
- * sont en texte libre pour l'instant : les colonnes Grist correspondantes
- * sont du texte de toute façon, convertir en vraies listes plus tard ne
- * perdra aucune donnée déjà saisie.
- */
+/** Champs de saisie réutilisables pour le formulaire SNOSM, pilotés par la description déclarative des groupes (voir FicheSnosm). */
 
 function formatDateTimeLocal(iso) {
   if (!iso) return ''
@@ -49,6 +43,22 @@ export function ChampNombre({ label, valeur, onChange, min = 0 }) {
   )
 }
 
+export function ChampListe({ label, valeur, onChange, options }) {
+  return (
+    <div className="detail-fiche-edition">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <select value={valeur ?? ''} onChange={(e) => onChange(e.target.value)}>
+        <option value="">—</option>
+        {options.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+      </select>
+    </div>
+  )
+}
+
 export function ChampCheckbox({ label, valeur, onChange }) {
   return (
     <label className="champ-checkbox-snosm">
@@ -73,10 +83,11 @@ export function ChampDateTime({ label, valeur, onChange }) {
 
 /** Rendu générique d'un champ, piloté par la description déclarative des onglets SNOSM (voir OngletSnosm). */
 export function ChampSnosm({ description, valeur, onChange }) {
-  const { label, type } = description
+  const { label, type, options } = description
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
+  if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
 }
