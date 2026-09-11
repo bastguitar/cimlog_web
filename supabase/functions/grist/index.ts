@@ -250,7 +250,7 @@ function versGristValeur(valeur: unknown, type: TypeChamp) {
 }
 
 const COLONNES_INTERVENTIONS = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, TOEnvoyeLe,
-  OrigineAlerte, AlerteLe, Massif, Departement, Commune, Lieu, TypeLocalisation, Altitude, CoordonneesGPS,
+  OrigineAlerte, AlerteLe, DepartLe, ArriveeLe, FinLe, Massif, Departement, Commune, Lieu, TypeLocalisation, Altitude, CoordonneesGPS,
   TGI, RequerantNom, RequerantTelephone, ContreAppel, Activite, AccidentType, TypeOperation, Helicopter,
   MoyensEngages, SupportUnits, Secouristes, Meteo, Medicalisation, Infirmier, CirconstancesGenerales,
   RecherchePersonne, PersonneRechercheeNom, NombreVictimes, ${CHAMPS_SNOSM_INTERVENTION.map(([, col]) => col).join(', ')}`
@@ -279,6 +279,10 @@ function versEvenementApp(
     created_at: alerteLe,
     alert_at: alerteLe,
     alert_origin: f.OrigineAlerte,
+    // Statuts terrain horodatés (main courante Cim'Alerte, premier DEPART/ASL/FIN de l'intervention) — lecture seule, jamais réécrits d'ici.
+    depart_le: depuisGrist(f.DepartLe, 'datetime'),
+    arrivee_le: depuisGrist(f.ArriveeLe, 'datetime'),
+    fin_le: depuisGrist(f.FinLe, 'datetime'),
     clotureLe: f.ClotureLe ? new Date(Number(f.ClotureLe) * 1000).toISOString() : null,
     toEnvoyeLe: f.TOEnvoyeLe ? new Date(Number(f.TOEnvoyeLe) * 1000).toISOString() : null,
     team: String(f.Secouristes ?? '')

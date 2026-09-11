@@ -264,6 +264,11 @@ function brouillonFicheDepuis(fiche) {
   bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
   // Le n° de texte SNOSM est le n° d'intervention Cim'Alerte — prérempli s'il n'a pas déjà été saisi.
   if (!bf.snosm_numero_texte && fiche.local_id) bf.snosm_numero_texte = String(fiche.local_id)
+  // Départ/Sur les lieux/Fin d'opération : préremplis depuis les statuts terrain horodatés de la
+  // main courante Cim'Alerte (premier DEPART/ASL/FIN), modifiables ensuite comme n'importe quel champ.
+  if (!bf.snosm_depart_le && fiche.depart_le) bf.snosm_depart_le = fiche.depart_le
+  if (!bf.snosm_arrivee_lieux_le && fiche.arrivee_le) bf.snosm_arrivee_lieux_le = fiche.arrivee_le
+  if (!bf.snosm_fin_operation_le && fiche.fin_le) bf.snosm_fin_operation_le = fiche.fin_le
   // Heure d'alerte Cim'Alerte, affichée à côté de Départ/Sur les lieux/Fin d'opération — lecture seule, déjà fixée à la prise d'appel.
   bf.alert_le_affichage = formatAlerteLe(fiche.created_at)
   return bf
