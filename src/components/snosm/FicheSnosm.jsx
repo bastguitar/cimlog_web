@@ -13,6 +13,7 @@ import {
   OPTIONS_TYPE_BLESSURE,
   OPTIONS_CIRCONSTANCES_VICTIME,
   OPTIONS_HELICOPTERES,
+  OPTIONS_TYPE_INTERVENTION,
 } from '../../lib/optionsSnosm'
 import {
   modifierIntervention,
@@ -94,9 +95,9 @@ const GROUPES_MOYENS = [
       { cle: 'activity', label: 'Nature de l’activité (Cim’Alerte)' },
       { cle: 'snosm_type_operation_moyens', label: 'Opération (héliportée / terrestre / mixte)' },
       { cle: 'snosm_ppsm', label: 'PPSM(s)' },
-      { cle: 'helicopter', label: 'Hélicoptère (Cim’Alerte)' },
+      { cle: 'helicopter', label: 'Hélicoptère (Cim’Alerte)', type: 'liste-si-vide', options: OPTIONS_HELICOPTERES },
       { cle: 'snosm_helicopteres', label: 'Hélicoptère(s) (SNOSM)', type: 'liste', options: OPTIONS_HELICOPTERES },
-      { cle: 'type_intervention', label: 'Type d’intervention' },
+      { cle: 'type_intervention', label: 'Type d’intervention', type: 'liste-si-vide', options: OPTIONS_TYPE_INTERVENTION },
       { cle: 'support_units', label: 'Unités en soutien' },
       { cle: 'snosm_medicalisation', label: 'Médicalisation (SNOSM)' },
       { cle: 'is_med', label: 'Médicalisée', type: 'checkbox' },
@@ -258,49 +259,58 @@ function BlocChamps({ groupes, brouillon, majChamp }) {
   ))
 }
 
+function brouillonFicheDepuis(fiche) {
+  const bf = {}
+  for (const g of TOUS_GROUPES_INTERVENTION) for (const c of g.champs) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
+  for (const c of CHAMPS_AVALANCHE_EVENEMENT) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
+  bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
+  return bf
+}
+
+function brouillonVictimesDepuis(fiche) {
+  const bv = {}
+  for (const v of fiche.victimes ?? []) {
+    bv[v.id] = {}
+    for (const c of [...CHAMPS_IMPLIQUE, ...CHAMPS_AVALANCHE_VICTIME]) bv[v.id][c.cle] = v[c.cle] ?? valeurInitiale(c.type)
+  }
+  return bv
+}
+
 /**
  * Corps entier de la fiche d'intervention — les 7 onglets du formulaire
  * IFSM réel (voir les captures fournies) sont les seuls onglets, plus de
  * niveau "Infos/Victimes/SNOSM" séparé : les champs déjà connus via
  * Cim'Alerte sont fondus directement dans les groupes SNOSM concernés.
- * Édition en bloc : un "Modifier" ouvre tous les sous-onglets en édition à
- * la fois, un seul "Enregistrer" écrit les champs d'intervention ET ceux de
+ * Édition en bloc, TOUJOURS active tant que le télégramme officiel n'est
+ * pas parti — pas de bouton "Modifier" à chercher, pas de sous-onglet à
+ * valider avant de passer au suivant : on ouvre la fiche et on rédige,
+ * "Enregistrer" écrit d'un coup les champs d'intervention ET ceux de
  * chaque victime modifiée. L'effectif CRS engagé (répétable) reste éditable
  * indépendamment — chaque ligne s'enregistre elle-même.
  */
 export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom }) {
   const [sousOnglet, setSousOnglet] = useState('general')
-  const [edition, setEdition] = useState(false)
-  const [brouillonFiche, setBrouillonFiche] = useState(null)
-  const [brouillonVictimes, setBrouillonVictimes] = useState(null)
+  const verrouillee = Boolean(fiche.toEnvoyeLe)
+  const [edition, setEdition] = useState(!verrouillee)
+  const [brouillonFiche, setBrouillonFiche] = useState(() => (verrouillee ? null : brouillonFicheDepuis(fiche)))
+  const [brouillonVictimes, setBrouillonVictimes] = useState(() => (verrouillee ? null : brouillonVictimesDepuis(fiche)))
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState(null)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
   const [generationTO, setGenerationTO] = useState(false)
 
-  const verrouillee = Boolean(fiche.toEnvoyeLe)
-
   function demarrerEdition() {
-    const bf = {}
-    for (const g of TOUS_GROUPES_INTERVENTION) for (const c of g.champs) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
-    for (const c of CHAMPS_AVALANCHE_EVENEMENT) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
-    bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
-    setBrouillonFiche(bf)
-
-    const bv = {}
-    for (const v of fiche.victimes ?? []) {
-      bv[v.id] = {}
-      for (const c of [...CHAMPS_IMPLIQUE, ...CHAMPS_AVALANCHE_VICTIME]) bv[v.id][c.cle] = v[c.cle] ?? valeurInitiale(c.type)
-    }
-    setBrouillonVictimes(bv)
+    setBrouillonFiche(brouillonFicheDepuis(fiche))
+    setBrouillonVictimes(brouillonVictimesDepuis(fiche))
     setEdition(true)
     setErreur(null)
   }
 
+  /** Abandonne les modifications non enregistrées — reste en rédaction, juste réinitialisée sur les dernières valeurs connues. */
   function annulerEdition() {
-    setEdition(false)
-    setBrouillonFiche(null)
-    setBrouillonVictimes(null)
+    setBrouillonFiche(brouillonFicheDepuis(fiche))
+    setBrouillonVictimes(brouillonVictimesDepuis(fiche))
+    setErreur(null)
   }
 
   function majChampFiche(cle, valeur) {
@@ -343,9 +353,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
           return maj ? { ...v, ...maj.champsV } : v
         }),
       }))
-      setEdition(false)
-      setBrouillonFiche(null)
-      setBrouillonVictimes(null)
       setErreur(null)
     } catch (e) {
       setErreur(e.message)
@@ -426,7 +433,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             type="button"
             className={sousOnglet === o.cle ? 'onglet-fiche actif' : 'onglet-fiche'}
             onClick={() => setSousOnglet(o.cle)}
-            disabled={edition}
           >
             {o.label}
             {o.cle === 'implique' && fiche.victimes?.length > 0 && ` (${fiche.victimes.length})`}

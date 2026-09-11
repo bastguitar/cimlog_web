@@ -179,6 +179,11 @@ export const OPTIONS_CIRCONSTANCES_VICTIME = [
   "PATHOLOGIES D'ALTITUDE",
 ]
 
+// Valeurs Cim'Alerte (pas du vocabulaire SNOSM) — reprises de
+// alerte_secours_web/src/lib/moyens.js (TYPES_INTERVENTION), pour compléter
+// ce champ ici quand une alerte a été mal renseignée à la prise d'appel.
+export const OPTIONS_TYPE_INTERVENTION = ['Héliportée', 'Terrestre', 'Mixte']
+
 // Liste vivante de l'appli Cim'Alerte (table `ref_helico`, appareils actifs
 // uniquement — SAF est désactivé, remplacé par YETI 1/YETI 2), avec Choucas
 // 69 et Dragon 69 ajoutés à la demande de l'utilisateur (absents de

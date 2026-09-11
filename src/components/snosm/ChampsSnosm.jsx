@@ -59,6 +59,18 @@ export function ChampListe({ label, valeur, onChange, options }) {
   )
 }
 
+/**
+ * Champ Cim'Alerte réutilisé tel quel (pas un vocabulaire SNOSM) : tant
+ * qu'il est vide — alerte mal renseignée à la prise d'appel — propose le
+ * menu déroulant Cim'Alerte pour le compléter correctement ici. Dès qu'une
+ * valeur existe, redevient un texte libre normal : pas de valeur déjà
+ * saisie à forcer dans une liste qui pourrait ne pas la contenir mot pour mot.
+ */
+export function ChampListeOuTexte({ label, valeur, onChange, options }) {
+  if (valeur) return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
+  return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
+}
+
 export function ChampCheckbox({ label, valeur, onChange }) {
   return (
     <label className="champ-checkbox-snosm">
@@ -89,5 +101,6 @@ export function ChampSnosm({ description, valeur, onChange }) {
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
   if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
 }
