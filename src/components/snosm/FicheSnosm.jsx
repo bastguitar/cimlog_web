@@ -53,6 +53,11 @@ const GROUPES_GENERAL = [
       { cle: 'snosm_numero_texte', label: 'N° de texte' },
       { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte', type: 'liste', options: OPTIONS_ORIGINE_ALERTE },
       { cle: 'snosm_origine_alerte_autre', label: 'Origine — précision si « Autre »' },
+    ],
+  },
+  {
+    titre: 'Horaires',
+    champs: [
       { cle: 'alert_le_affichage', label: 'Alerte', type: 'lecture' },
       { cle: 'snosm_depart_le', label: 'Départ', type: 'datetime' },
       { cle: 'snosm_arrivee_lieux_le', label: 'Sur les lieux', type: 'datetime' },

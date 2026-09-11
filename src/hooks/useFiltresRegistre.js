@@ -21,8 +21,17 @@ const FILTRES_VIDES = {
   aTraiter: false,
 }
 
-/** Clôturée mais pas encore couverte par un télégramme officiel — voir modifierIntervention/TOEnvoyeLe. */
-const estATraiter = (s) => Boolean(s.clotureLe) && !s.toEnvoyeLe
+/**
+ * Toutes les interventions closes avant la mise en place du TO/SNOSM dans
+ * Cim'Log ont déjà été traitées par ailleurs (ancien système) — leur
+ * `TOEnvoyeLe` Grist restera vide pour toujours, ce n'est pas un oubli à
+ * rattraper. Sans cette date de bascule, « à traiter » comptait plusieurs
+ * milliers d'interventions historiques au lieu des seules nouvelles.
+ */
+const DEBUT_A_TRAITER = '2026-09-11T22:12:46.865Z'
+
+/** Clôturée depuis la bascule TO/SNOSM, mais pas encore couverte par un télégramme officiel — voir modifierIntervention/TOEnvoyeLe. */
+const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.toEnvoyeLe
 
 /** Un texte se retrouve dans une intervention — numéro exact, ou sous-chaîne d'un des champs. */
 function correspond(s, mot) {
