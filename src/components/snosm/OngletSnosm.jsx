@@ -416,7 +416,7 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
               </>
             ) : fiche.snosm_avalanche ? (
               <div className="grille-details-fiche">
-                {CHAMPS_AVALANCHE_EVENEMENT.map((c) => fiche[c.cle] != null && fiche[c.cle] !== '' && <Detail key={c.cle} label={c.label}>{String(fiche[c.cle])}</Detail>)}
+                <ChampsLecture champs={CHAMPS_AVALANCHE_EVENEMENT} source={fiche} />
               </div>
             ) : (
               <p className="aide">Pas d’avalanche renseignée pour cette intervention.</p>
@@ -452,11 +452,8 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
                   </>
                 ) : (
                   <div className="grille-details-fiche" style={{ marginTop: 8 }}>
-                    {CHAMPS_IMPLIQUE.map((c) => v[c.cle] != null && v[c.cle] !== '' && <Detail key={c.cle} label={c.label}>{String(v[c.cle])}</Detail>)}
-                    {fiche.snosm_avalanche &&
-                      CHAMPS_AVALANCHE_VICTIME.map(
-                        (c) => v[c.cle] != null && v[c.cle] !== '' && <Detail key={c.cle} label={c.label}>{String(v[c.cle])}</Detail>
-                      )}
+                    <ChampsLecture champs={CHAMPS_IMPLIQUE} source={v} />
+                    {fiche.snosm_avalanche && <ChampsLecture champs={CHAMPS_AVALANCHE_VICTIME} source={v} />}
                   </div>
                 )}
               </div>
@@ -479,23 +476,28 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
   )
 }
 
-function LectureGroupes({ groupes, fiche }) {
-  return groupes.map((groupe) => {
-    const champsRenseignes = groupe.champs.filter((c) => fiche[c.cle] != null && fiche[c.cle] !== '' && fiche[c.cle] !== 0)
-    if (champsRenseignes.length === 0) return null
+/** Toujours affiché, même vide (« — ») — un onglet pas encore rempli doit montrer ses champs, pas disparaître. */
+function ChampsLecture({ champs, source }) {
+  return champs.map((c) => {
+    const valeur = source[c.cle]
+    const vide = valeur == null || valeur === ''
     return (
-      <div className="section-fiche" key={groupe.titre}>
-        <h4>{groupe.titre}</h4>
-        <div className="grille-details-fiche">
-          {champsRenseignes.map((c) => (
-            <Detail key={c.cle} label={c.label}>
-              {c.type === 'checkbox' ? (fiche[c.cle] ? 'Oui' : 'Non') : String(fiche[c.cle])}
-            </Detail>
-          ))}
-        </div>
-      </div>
+      <Detail key={c.cle} label={c.label}>
+        {c.type === 'checkbox' ? (valeur ? 'Oui' : 'Non') : vide ? '—' : String(valeur)}
+      </Detail>
     )
   })
+}
+
+function LectureGroupes({ groupes, fiche }) {
+  return groupes.map((groupe) => (
+    <div className="section-fiche" key={groupe.titre}>
+      <h4>{groupe.titre}</h4>
+      <div className="grille-details-fiche">
+        <ChampsLecture champs={groupe.champs} source={fiche} />
+      </div>
+    </div>
+  ))
 }
 
 function Detail({ label, children }) {
