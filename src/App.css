@@ -1830,6 +1830,122 @@ main > * {
   border-top: 1px solid var(--border);
 }
 
+.onglet-snosm-racine {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: 100%;
+  min-height: 0;
+}
+
+.entete-snosm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.entete-snosm .aide {
+  margin: 0;
+  flex: 1;
+  min-width: 200px;
+}
+
+.actions-entete-snosm {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.sous-onglets-snosm {
+  display: flex;
+  gap: 2px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+}
+
+.sous-onglets-snosm .onglet-fiche {
+  font-size: 12px;
+  padding: 6px 8px;
+}
+
+.corps-sous-onglet-snosm {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-right: 4px;
+}
+
+.champ-checkbox-snosm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.champ-compteur-snosm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.champ-compteur-snosm button {
+  width: 24px;
+  height: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.champ-compteur-snosm button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.champ-compteur-snosm span {
+  min-width: 20px;
+  text-align: center;
+  font-weight: 600;
+}
+
+.tableau-effectifs-snosm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ligne-effectif-snosm {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+}
+
+.ligne-effectif-snosm input[type='text'] {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-h);
+  flex: 1;
+  min-width: 140px;
+}
+
 .carte-victime {
   padding: 10px 12px;
   border: 1px solid var(--border);

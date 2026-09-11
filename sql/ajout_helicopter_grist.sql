@@ -1,25 +1,16 @@
 -- =====================================================================
 --  Ajoute le champ Helicopter à la synchronisation Grist (Cim'Log en a
---  besoin pour les Stats et le filtre « Moyen », voir useFiltresRegistre.js
---  et Stats.jsx côté cimlog_web — Grist n'avait jusqu'ici que
---  MoyensEngages, un texte libre agrégé, pas exploitable pour filtrer).
+--  besoin pour les Stats et le filtre « Moyen »). Reprend la version
+--  ACTUELLEMENT déployée (avec l'interrupteur grist_push_actif ajouté
+--  depuis côté Cim'Alerte) — la version précédente de ce fichier avait été
+--  écrasée par ce déploiement, d'où l'absence de Helicopter malgré son
+--  exécution.
 --
---  À FAIRE VALIDER PAR LA SESSION CIM'ALERTE avant exécution : c'est sa
---  fonction (pousser_intervention_grist, voir
---  alerte_secours_web/sql/grist_synchronisation_cimlog.sql) qui est ici
---  modifiée. Un seul changement réel par rapport au fichier actuel : la
---  ligne `'Helicopter', v_event.helicopter,` insérée après `'TypeOperation'`.
---  Tout le reste (EventId, Section, etc.) est préservé à l'identique,
---  caractère pour caractère.
---
---  Ce fichier vit dans cimlog_web (pas alerte_secours_web) : à copier dans
---  ce dernier une fois validé, ou à exécuter tel quel dans l'éditeur SQL
---  Supabase — le résultat est le même, `CREATE OR REPLACE FUNCTION`
---  s'applique au projet Supabase partagé, pas à un repo en particulier.
---
---  Limite à connaître : seules les clôtures APRÈS ce changement pousseront
---  Helicopter. Les enregistrements déjà backfillés dans Grist resteront
---  vides sur ce champ, sauf nouveau backfill.
+--  À FAIRE VALIDER PAR LA SESSION CIM'ALERTE avant exécution. Un seul
+--  changement réel par rapport à la version déployée : la ligne
+--  `'Helicopter', v_event.helicopter,` insérée après `'TypeOperation'`.
+--  Tout le reste (y compris l'interrupteur grist_push_actif) est préservé
+--  à l'identique.
 -- =====================================================================
 
 BEGIN;
@@ -33,10 +24,17 @@ AS $$
 DECLARE
   v_doc_id   text;
   v_cle      text;
+  v_actif    text;
   v_event    events%ROWTYPE;
   v_base     text;
   v_victimes jsonb;
 BEGIN
+  SELECT valeur INTO v_actif FROM reglages_techniques WHERE cle = 'grist_push_actif';
+  -- Absente : on n'a jamais coupé l'envoi, comportement inchangé.
+  IF v_actif = 'false' THEN
+    RETURN;
+  END IF;
+
   SELECT valeur INTO v_doc_id FROM reglages_techniques WHERE cle = 'grist_doc_id';
   SELECT valeur INTO v_cle    FROM reglages_techniques WHERE cle = 'grist_api_key';
   IF v_doc_id IS NULL OR v_cle IS NULL THEN

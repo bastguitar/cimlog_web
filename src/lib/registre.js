@@ -101,3 +101,27 @@ export async function ficheSecours(id, codesRequete) {
 export async function modifierIntervention(id, codesRequete, champs) {
   await appelerGrist('updateIntervention', { squadCodes: codesRequete, eventId: id, champs })
 }
+
+/** Modifie les champs SNOSM d'une victime déjà connue de la fiche — mêmes règles que modifierIntervention. */
+export async function modifierVictime(victimeId, eventId, codesRequete, champs) {
+  await appelerGrist('updateVictime', { squadCodes: codesRequete, eventId, victimeId, champs })
+}
+
+/** Effectif CRS engagé (rôle, personne, dépassement horaire) — répétable, propre à l'onglet SNOSM. */
+export async function listerEffectifsEngages(eventId, codesRequete) {
+  const { effectifs } = await appelerGrist('listerEffectifs', { squadCodes: codesRequete, eventId })
+  return effectifs
+}
+
+export async function ajouterEffectifEngage(eventId, codesRequete, champs) {
+  const { id } = await appelerGrist('ajouterEffectif', { squadCodes: codesRequete, eventId, champs })
+  return id
+}
+
+export async function modifierEffectifEngage(effectifId, eventId, codesRequete, champs) {
+  await appelerGrist('modifierEffectif', { squadCodes: codesRequete, eventId, effectifId, champs })
+}
+
+export async function supprimerEffectifEngage(effectifId, eventId, codesRequete) {
+  await appelerGrist('supprimerEffectif', { squadCodes: codesRequete, eventId, effectifId })
+}

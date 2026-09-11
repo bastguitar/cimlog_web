@@ -18,7 +18,8 @@
  * verifierEcritureAutorisee, qui revérifie la section ET le verrou
  * TOEnvoyeLe (une fiche dont le télégramme officiel est déjà parti ne peut
  * plus être modifiée par personne, y compris via un appel direct à cette
- * fonction).
+ * fonction) — y compris pour les victimes et l'effectif engagé, rattachés à
+ * la même intervention.
  *
  * La clé Grist elle-même n'est jamais dans ce fichier : elle est lue à
  * chaque appel dans reglages_techniques (même table que
@@ -89,7 +90,7 @@ async function requeteGrist(docId: string, apiKey: string, sql: string, args: un
   return ((records ?? []) as Array<{ fields: Record<string, unknown> }>).map((rec) => rec.fields)
 }
 
-/** Seul point de contact en ÉCRITURE avec Grist. */
+/** Modifie des lignes existantes. */
 async function patchGrist(docId: string, apiKey: string, table: string, gristId: number, champs: Record<string, unknown>) {
   const r = await fetch(`https://grist.numerique.gouv.fr/api/docs/${docId}/tables/${table}/records`, {
     method: 'PATCH',
@@ -99,20 +100,171 @@ async function patchGrist(docId: string, apiKey: string, table: string, gristId:
   if (!r.ok) throw new ErreurHttp(502, `Grist : ${r.status} ${await r.text()}`)
 }
 
+/** Ajoute une ligne — renvoie son id Grist interne. */
+async function postGrist(docId: string, apiKey: string, table: string, champs: Record<string, unknown>) {
+  const r = await fetch(`https://grist.numerique.gouv.fr/api/docs/${docId}/tables/${table}/records`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({ records: [{ fields: champs }] }),
+  })
+  if (!r.ok) throw new ErreurHttp(502, `Grist : ${r.status} ${await r.text()}`)
+  const { records } = await r.json()
+  return records[0].id as number
+}
+
+/** Supprime des lignes par id Grist interne. */
+async function deleteGrist(docId: string, apiKey: string, table: string, gristIds: number[]) {
+  const r = await fetch(`https://grist.numerique.gouv.fr/api/docs/${docId}/tables/${table}/data/delete`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify(gristIds),
+  })
+  if (!r.ok) throw new ErreurHttp(502, `Grist : ${r.status} ${await r.text()}`)
+}
+
+// ---------------------------------------------------------------------------
+// Champs SNOSM — une seule table [app-key, colonne Grist, type] par table
+// Grist, utilisée à la fois pour lire (SELECT + mapping) et écrire (liste
+// blanche + conversion) : évite que les quatre listes dérivent les unes des
+// autres sur ~90 champs. Les menus déroulants ne sont pas encore remplis
+// (voir src/lib/optionsSnosm.js côté client) — tous ces champs sont du texte
+// libre pour l'instant côté Grist de toute façon, rien à perdre à les
+// convertir en vraies listes plus tard.
+// ---------------------------------------------------------------------------
+type TypeChamp = 'text' | 'int' | 'numeric' | 'bool' | 'datetime'
+
+const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
+  ['snosm_numero_texte', 'SnosmNumeroTexte', 'text'],
+  ['snosm_origine_alerte', 'SnosmOrigineAlerte', 'text'],
+  ['snosm_origine_alerte_autre', 'SnosmOrigineAlerteAutre', 'text'],
+  ['snosm_depart_le', 'SnosmDepartLe', 'datetime'],
+  ['snosm_arrivee_lieux_le', 'SnosmArriveeLieuxLe', 'datetime'],
+  ['snosm_fin_operation_le', 'SnosmFinOperationLe', 'datetime'],
+  ['snosm_type_domaine', 'SnosmTypeDomaine', 'text'],
+  ['snosm_encadrement', 'SnosmEncadrement', 'text'],
+  ['snosm_diplome_encadrant', 'SnosmDiplomeEncadrant', 'text'],
+  ['snosm_localisation_piste', 'SnosmLocalisationPiste', 'text'],
+  ['snosm_neige', 'SnosmNeige', 'text'],
+  ['snosm_type_operation_moyens', 'SnosmTypeOperationMoyens', 'text'],
+  ['snosm_ppsm', 'SnosmPPSM', 'text'],
+  ['snosm_helicopteres', 'SnosmHelicopteres', 'text'],
+  ['snosm_medicalisation', 'SnosmMedicalisation', 'text'],
+  ['snosm_equipes_cynophiles_crs', 'SnosmEquipesCynophilesCRS', 'int'],
+  ['snosm_emploi_heli_saf', 'SnosmEmploiHeliSAFJustification', 'text'],
+  ['snosm_gestes_secourisme', 'SnosmGestesSecourisme', 'text'],
+  ['snosm_techniques_evacuation', 'SnosmTechniquesEvacuation', 'text'],
+  ['snosm_renfort_gendarmes', 'SnosmRenfortGendarmes', 'int'],
+  ['snosm_renfort_pompiers', 'SnosmRenfortPompiers', 'int'],
+  ['snosm_renfort_pisteurs', 'SnosmRenfortPisteurs', 'int'],
+  ['snosm_renfort_medecins', 'SnosmRenfortMedecins', 'int'],
+  ['snosm_renfort_autres', 'SnosmRenfortAutres', 'int'],
+  ['snosm_equipes_cynophiles_civiles', 'SnosmEquipesCynophilesCiviles', 'int'],
+  ['snosm_equipes_cynophiles_gendarmerie', 'SnosmEquipesCynophilesGendarmerie', 'int'],
+  ['snosm_equipes_cynophiles_pompiers', 'SnosmEquipesCynophilesPompiers', 'int'],
+  ['snosm_equipes_cynophiles_pisteurs', 'SnosmEquipesCynophilesPisteurs', 'int'],
+  ['snosm_suivi_judiciaire', 'SnosmSuiviJudiciaire', 'text'],
+  ['snosm_directeur_enquete', 'SnosmDirecteurEnquete', 'text'],
+  ['snosm_autre_service_enquete', 'SnosmAutreServiceEnquete', 'text'],
+  ['snosm_autorites_avisees', 'SnosmAutoritesAvisees', 'text'],
+  ['snosm_medias_informes', 'SnosmMediasInformes', 'text'],
+  ['snosm_avis_divers', 'SnosmAvisDivers', 'text'],
+  ['snosm_redacteur', 'SnosmRedacteur', 'text'],
+  ['snosm_signataire', 'SnosmSignataire', 'text'],
+  ['snosm_avalanche', 'SnosmAvalanche', 'bool'],
+  ['snosm_avalanche_type', 'SnosmAvalancheType', 'text'],
+  ['snosm_avalanche_taille', 'SnosmAvalancheTaille', 'text'],
+  ['snosm_avalanche_niveau_risque', 'SnosmAvalancheNiveauRisque', 'text'],
+  ['snosm_avalanche_declenchement_le', 'SnosmAvalancheDeclenchementLe', 'datetime'],
+  ['snosm_avalanche_point_depart_gps', 'SnosmAvalanchePointDepartGPS', 'text'],
+  ['snosm_avalanche_longueur', 'SnosmAvalancheLongueur', 'numeric'],
+  ['snosm_avalanche_largeur_cassure', 'SnosmAvalancheLargeurCassure', 'numeric'],
+  ['snosm_avalanche_hauteur_cassure', 'SnosmAvalancheHauteurCassure', 'numeric'],
+  ['snosm_avalanche_largeur_depot', 'SnosmAvalancheLargeurDepot', 'numeric'],
+  ['snosm_avalanche_altitude', 'SnosmAvalancheAltitude', 'numeric'],
+  ['snosm_avalanche_pente', 'SnosmAvalanchePente', 'numeric'],
+  ['snosm_avalanche_denivele', 'SnosmAvalancheDenivele', 'numeric'],
+  ['snosm_avalanche_orientation', 'SnosmAvalancheOrientation', 'text'],
+  ['snosm_avalanche_nb_impliques', 'SnosmAvalancheNombreImpliques', 'int'],
+  ['snosm_avalanche_nb_victimes', 'SnosmAvalancheNombreVictimes', 'int'],
+  ['snosm_avalanche_nb_blesses', 'SnosmAvalancheNombreBlesses', 'int'],
+  ['snosm_avalanche_nb_indemnes', 'SnosmAvalancheNombreIndemnes', 'int'],
+  ['snosm_avalanche_nb_decedes', 'SnosmAvalancheNombreDecedes', 'int'],
+]
+
+const CHAMPS_SNOSM_VICTIME: Array<[string, string, TypeChamp]> = [
+  ['snosm_statut', 'SnosmStatut', 'text'],
+  ['snosm_etat_medical', 'SnosmEtatMedical', 'text'],
+  ['snosm_lieu_naissance', 'SnosmLieuNaissance', 'text'],
+  ['snosm_profession', 'SnosmProfession', 'text'],
+  ['snosm_demeurant', 'SnosmDemeurant', 'text'],
+  ['snosm_localisation_blessure', 'SnosmLocalisationBlessure', 'text'],
+  ['snosm_type_blessure', 'SnosmTypeBlessure', 'text'],
+  ['snosm_commune', 'SnosmCommune', 'text'],
+  ['snosm_pays', 'SnosmPays', 'text'],
+  ['snosm_circonstances_liste', 'SnosmCirconstancesListe', 'text'],
+  ['snosm_destination', 'SnosmDestination', 'text'],
+  ['snosm_fin_prise_en_charge_le', 'SnosmFinPriseEnChargeLe', 'datetime'],
+  ['snosm_avalanche_moyens_localisation', 'SnosmAvalancheMoyensLocalisation', 'text'],
+  ['snosm_avalanche_distance_m', 'SnosmAvalancheDistanceM', 'numeric'],
+  ['snosm_avalanche_profondeur_cm', 'SnosmAvalancheProfondeurCm', 'numeric'],
+  ['snosm_avalanche_duree_mn', 'SnosmAvalancheDureeMn', 'numeric'],
+  ['snosm_avalanche_bouchon_neige', 'SnosmAvalancheBouchonNeige', 'text'],
+  ['snosm_avalanche_poche_air', 'SnosmAvalanchePocheAir', 'text'],
+  ['snosm_avalanche_position1', 'SnosmAvalanchePosition1', 'text'],
+  ['snosm_avalanche_position2', 'SnosmAvalanchePosition2', 'text'],
+  ['snosm_avalanche_durete_neige', 'SnosmAvalancheDureteNeige', 'text'],
+  ['snosm_avalanche_obstacles', 'SnosmAvalancheObstacles', 'text'],
+  ['snosm_avalanche_environnement', 'SnosmAvalancheEnvironnement', 'text'],
+  ['snosm_avalanche_dva_present', 'SnosmAvalancheDVAPresent', 'bool'],
+  ['snosm_avalanche_dva_en_marche', 'SnosmAvalancheDVAEnMarche', 'bool'],
+  ['snosm_avalanche_pelle', 'SnosmAvalanchePelle', 'bool'],
+  ['snosm_avalanche_sonde', 'SnosmAvalancheSonde', 'bool'],
+  ['snosm_avalanche_recco', 'SnosmAvalancheRECCO', 'bool'],
+  ['snosm_avalanche_sac_airbag', 'SnosmAvalancheSacAirbag', 'bool'],
+  ['snosm_avalanche_marque_modele', 'SnosmAvalancheMarqueModele', 'text'],
+  ['snosm_avalanche_alimentation', 'SnosmAvalancheAlimentation', 'text'],
+  ['snosm_avalanche_gonflage', 'SnosmAvalancheGonflage', 'text'],
+  ['snosm_avalanche_position_victime', 'SnosmAvalanchePositionVictime', 'text'],
+  ['snosm_avalanche_sac_et_victime', 'SnosmAvalancheSacEtVictime', 'text'],
+]
+
+const CHAMPS_EFFECTIF: Array<[string, string, TypeChamp]> = [
+  ['role', 'Role', 'text'],
+  ['personne', 'Personne', 'text'],
+  ['depassement_horaire', 'DepassementHoraire', 'bool'],
+  ['heure_depassement', 'HeureDepassement', 'datetime'],
+]
+
+function depuisGrist(valeur: unknown, type: TypeChamp) {
+  if (type === 'bool') return Boolean(valeur)
+  if (valeur == null || valeur === '') return null
+  if (type === 'datetime') return new Date(Number(valeur) * 1000).toISOString()
+  return valeur
+}
+
+function versGristValeur(valeur: unknown, type: TypeChamp) {
+  if (type === 'datetime') return valeur ? Math.floor(new Date(valeur as string).getTime() / 1000) : null
+  return valeur
+}
+
 const COLONNES_INTERVENTIONS = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, TOEnvoyeLe,
   OrigineAlerte, AlerteLe, Massif, Departement, Commune, Lieu, TypeLocalisation, Altitude, CoordonneesGPS,
   TGI, RequerantNom, RequerantTelephone, ContreAppel, Activite, AccidentType, TypeOperation, Helicopter,
   MoyensEngages, SupportUnits, Secouristes, Meteo, Medicalisation, Infirmier, CirconstancesGenerales,
-  RecherchePersonne, PersonneRechercheeNom, NombreVictimes`
+  RecherchePersonne, PersonneRechercheeNom, NombreVictimes, ${CHAMPS_SNOSM_INTERVENTION.map(([, col]) => col).join(', ')}`
 
 /** Même forme que l'ancien row Supabase `events` — pour ne rien changer côté Registre/CarteIGN/Stats/ModaleFiche. */
-function versEvenementApp(f: Record<string, unknown>, victimesParEvent: Map<number, unknown[]>) {
+function versEvenementApp(
+  f: Record<string, unknown>,
+  victimesParEvent: Map<number, unknown[]>,
+  effectifsParEvent: Map<number, unknown[]>
+) {
   const [lat, lon] = String(f.CoordonneesGPS ?? '')
     .split(',')
     .map((x) => Number(x.trim()))
   const alerteLe = f.AlerteLe ? new Date(Number(f.AlerteLe) * 1000).toISOString() : null
   const eventId = f.EventId as number
-  return {
+  const base: Record<string, unknown> = {
     id: eventId,
     _gristId: f.id,
     local_id: f.NumeroIntervention,
@@ -152,11 +304,14 @@ function versEvenementApp(f: Record<string, unknown>, victimesParEvent: Map<numb
     recherche_personne: f.RecherchePersonne,
     personne_recherchee_nom: f.PersonneRechercheeNom,
     victimes: victimesParEvent.get(eventId) ?? [],
+    effectifs_engages: effectifsParEvent.get(eventId) ?? [],
   }
+  for (const [appKey, gristCol, type] of CHAMPS_SNOSM_INTERVENTION) base[appKey] = depuisGrist(f[gristCol], type)
+  return base
 }
 
 function versVictimeApp(f: Record<string, unknown>) {
-  return {
+  const base: Record<string, unknown> = {
     id: f.id,
     local_id: f.NumeroVictime,
     sexe: f.Sexe,
@@ -171,14 +326,22 @@ function versVictimeApp(f: Record<string, unknown>) {
     nationalite: f.Nationalite,
     telephone: f.Telephone,
   }
+  for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) base[appKey] = depuisGrist(f[gristCol], type)
+  return base
 }
 
-function groupeParEvenement(lignesVictimes: Record<string, unknown>[]) {
-  const parEvenement = new Map<number, unknown[]>()
-  for (const f of lignesVictimes) {
-    const eventId = f.EventId as number
+function versEffectifApp(f: Record<string, unknown>) {
+  const base: Record<string, unknown> = { id: f.id }
+  for (const [appKey, gristCol, type] of CHAMPS_EFFECTIF) base[appKey] = depuisGrist(f[gristCol], type)
+  return base
+}
+
+function groupeParEvenement<T>(lignes: Array<Record<string, unknown> & { EventId: number }>, versApp: (f: Record<string, unknown>) => T) {
+  const parEvenement = new Map<number, T[]>()
+  for (const f of lignes) {
+    const eventId = f.EventId
     if (!parEvenement.has(eventId)) parEvenement.set(eventId, [])
-    parEvenement.get(eventId)!.push(versVictimeApp(f))
+    parEvenement.get(eventId)!.push(versApp(f))
   }
   return parEvenement
 }
@@ -189,7 +352,8 @@ function groupeParEvenement(lignesVictimes: Record<string, unknown>[]) {
  * résultat de la première (on filtre les victimes par un JOIN sur les mêmes
  * critères Section/date plutôt que par une liste d'EventId récupérée
  * d'abord), ce qui évite un aller-retour réseau supplémentaire vers Grist à
- * chaque chargement du Registre/Carte IGN/Stats.
+ * chaque chargement du Registre/Carte IGN/Stats. L'effectif engagé n'est PAS
+ * chargé ici (coûteux, inutile pour une liste) — seulement dans ficheEvenement.
  */
 async function listerEvenements(
   docId: string,
@@ -223,13 +387,14 @@ async function listerEvenements(
       args
     ),
   ])
-  const victimes = groupeParEvenement(lignesVictimes)
-  return lignes.map((f) => versEvenementApp(f, victimes))
+  const victimes = groupeParEvenement(lignesVictimes as Array<Record<string, unknown> & { EventId: number }>, versVictimeApp)
+  const vide = new Map<number, unknown[]>()
+  return lignes.map((f) => versEvenementApp(f, victimes, vide))
 }
 
 async function ficheEvenement(docId: string, apiKey: string, squadCodes: string[], eventId: number) {
   const placeholders = squadCodes.map(() => '?').join(', ')
-  const [lignesEvt, lignesVictimes] = await Promise.all([
+  const [lignesEvt, lignesVictimes, lignesEffectifs] = await Promise.all([
     requeteGrist(
       docId,
       apiKey,
@@ -237,37 +402,56 @@ async function ficheEvenement(docId: string, apiKey: string, squadCodes: string[
       [eventId, ...squadCodes]
     ),
     requeteGrist(docId, apiKey, `select * from Victimes where EventId = ?`, [eventId]),
+    requeteGrist(docId, apiKey, `select * from EffectifsEngages where EventId = ?`, [eventId]),
   ])
   const f = lignesEvt[0]
   if (!f) return null
-  return versEvenementApp(f, groupeParEvenement(lignesVictimes))
+  const victimes = groupeParEvenement(lignesVictimes as Array<Record<string, unknown> & { EventId: number }>, versVictimeApp)
+  const effectifs = groupeParEvenement(lignesEffectifs as Array<Record<string, unknown> & { EventId: number }>, versEffectifApp)
+  return versEvenementApp(f, victimes, effectifs)
 }
 
-/** app-key -> colonne Grist, pour les champs modifiables de l'onglet Infos (Phase 2). */
-const CHAMPS_MODIFIABLES_INTERVENTION: Record<string, string> = {
-  alert_origin: 'OrigineAlerte',
-  requerant_nom: 'RequerantNom',
-  requerant_telephone: 'RequerantTelephone',
-  contre_appel: 'ContreAppel',
-  personne_recherchee_nom: 'PersonneRechercheeNom',
-  county: 'Departement',
-  massif: 'Massif',
-  alt: 'Altitude',
-  tgi: 'TGI',
-  type_localisation: 'TypeLocalisation',
-  meteo: 'Meteo',
-  type_intervention: 'TypeOperation',
-  activity: 'Activite',
-  helicopter: 'Helicopter',
-  support_units: 'SupportUnits',
-  is_med: 'Medicalisation',
-  infirmier: 'Infirmier',
-  description: 'CirconstancesGenerales',
-  com: 'Commune',
-  lieu: 'Lieu',
+/** app-key -> colonne Grist, pour les champs modifiables de l'onglet Infos (Phase 2) + SNOSM. */
+const CHAMPS_MODIFIABLES_INTERVENTION: Record<string, [string, TypeChamp]> = {
+  alert_origin: ['OrigineAlerte', 'text'],
+  requerant_nom: ['RequerantNom', 'text'],
+  requerant_telephone: ['RequerantTelephone', 'text'],
+  contre_appel: ['ContreAppel', 'text'],
+  personne_recherchee_nom: ['PersonneRechercheeNom', 'text'],
+  county: ['Departement', 'text'],
+  massif: ['Massif', 'text'],
+  alt: ['Altitude', 'text'],
+  tgi: ['TGI', 'text'],
+  type_localisation: ['TypeLocalisation', 'text'],
+  meteo: ['Meteo', 'text'],
+  type_intervention: ['TypeOperation', 'text'],
+  activity: ['Activite', 'text'],
+  helicopter: ['Helicopter', 'text'],
+  support_units: ['SupportUnits', 'text'],
+  is_med: ['Medicalisation', 'bool'],
+  infirmier: ['Infirmier', 'bool'],
+  description: ['CirconstancesGenerales', 'text'],
+  com: ['Commune', 'text'],
+  lieu: ['Lieu', 'text'],
+}
+for (const [appKey, gristCol, type] of CHAMPS_SNOSM_INTERVENTION) CHAMPS_MODIFIABLES_INTERVENTION[appKey] = [gristCol, type]
+
+const CHAMPS_MODIFIABLES_VICTIME: Record<string, [string, TypeChamp]> = {}
+for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) CHAMPS_MODIFIABLES_VICTIME[appKey] = [gristCol, type]
+
+const CHAMPS_MODIFIABLES_EFFECTIF: Record<string, [string, TypeChamp]> = {}
+for (const [appKey, gristCol, type] of CHAMPS_EFFECTIF) CHAMPS_MODIFIABLES_EFFECTIF[appKey] = [gristCol, type]
+
+function traduireChamps(champsDemandes: Record<string, unknown>, dictionnaire: Record<string, [string, TypeChamp]>) {
+  const champs: Record<string, unknown> = {}
+  for (const [cle, valeur] of Object.entries(champsDemandes ?? {})) {
+    const entree = dictionnaire[cle]
+    if (entree) champs[entree[0]] = versGristValeur(valeur, entree[1])
+  }
+  return champs
 }
 
-/** Charge la ligne et vérifie section + verrou — jamais confié au client. */
+/** Charge la ligne d'intervention et vérifie section + verrou — jamais confié au client. Sert de garde-fou pour TOUTE écriture liée à cette intervention (elle-même, ses victimes, son effectif). */
 async function verifierEcritureAutorisee(docId: string, apiKey: string, squadCodes: string[], eventId: number) {
   const placeholders = squadCodes.map(() => '?').join(', ')
   const [f] = await requeteGrist(
@@ -289,13 +473,74 @@ async function updateIntervention(
   champsDemandes: Record<string, unknown>
 ) {
   const ligne = await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId)
-  const champs: Record<string, unknown> = {}
-  for (const [cle, valeur] of Object.entries(champsDemandes ?? {})) {
-    const colonne = CHAMPS_MODIFIABLES_INTERVENTION[cle]
-    if (colonne) champs[colonne] = valeur
-  }
+  const champs = traduireChamps(champsDemandes, CHAMPS_MODIFIABLES_INTERVENTION)
   if (Object.keys(champs).length === 0) throw new ErreurHttp(400, 'Aucun champ modifiable fourni.')
   await patchGrist(docId, apiKey, 'Interventions', ligne.id as number, champs)
+}
+
+/** Vérifie qu'une victime appartient bien à l'intervention (jamais confié au client) avant de la modifier/supprimer. */
+async function verifierVictimeDeEvenement(docId: string, apiKey: string, victimeId: number, eventId: number) {
+  const [v] = await requeteGrist(docId, apiKey, `select id from Victimes where id = ? and EventId = ?`, [victimeId, eventId])
+  if (!v) throw new ErreurHttp(403, "Cette victime n'appartient pas à cette intervention.")
+}
+
+async function updateVictime(
+  docId: string,
+  apiKey: string,
+  squadCodes: string[],
+  eventId: number,
+  victimeId: number,
+  champsDemandes: Record<string, unknown>
+) {
+  await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId)
+  await verifierVictimeDeEvenement(docId, apiKey, victimeId, eventId)
+  const champs = traduireChamps(champsDemandes, CHAMPS_MODIFIABLES_VICTIME)
+  if (Object.keys(champs).length === 0) throw new ErreurHttp(400, 'Aucun champ modifiable fourni.')
+  await patchGrist(docId, apiKey, 'Victimes', victimeId, champs)
+}
+
+async function listerEffectifs(docId: string, apiKey: string, squadCodes: string[], eventId: number) {
+  await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId).catch(() => {
+    // Lecture seule tolérée même fiche figée — seule l'écriture doit être bloquée.
+  })
+  const lignes = await requeteGrist(docId, apiKey, `select * from EffectifsEngages where EventId = ?`, [eventId])
+  return lignes.map(versEffectifApp)
+}
+
+async function ajouterEffectif(
+  docId: string,
+  apiKey: string,
+  squadCodes: string[],
+  eventId: number,
+  champsDemandes: Record<string, unknown>
+) {
+  await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId)
+  const champs = traduireChamps(champsDemandes, CHAMPS_MODIFIABLES_EFFECTIF)
+  const gristId = await postGrist(docId, apiKey, 'EffectifsEngages', { EventId: eventId, ...champs })
+  return gristId
+}
+
+async function modifierEffectif(
+  docId: string,
+  apiKey: string,
+  squadCodes: string[],
+  eventId: number,
+  effectifId: number,
+  champsDemandes: Record<string, unknown>
+) {
+  await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId)
+  const [e] = await requeteGrist(docId, apiKey, `select id from EffectifsEngages where id = ? and EventId = ?`, [effectifId, eventId])
+  if (!e) throw new ErreurHttp(403, "Cet effectif n'appartient pas à cette intervention.")
+  const champs = traduireChamps(champsDemandes, CHAMPS_MODIFIABLES_EFFECTIF)
+  if (Object.keys(champs).length === 0) throw new ErreurHttp(400, 'Aucun champ modifiable fourni.')
+  await patchGrist(docId, apiKey, 'EffectifsEngages', effectifId, champs)
+}
+
+async function supprimerEffectif(docId: string, apiKey: string, squadCodes: string[], eventId: number, effectifId: number) {
+  await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId)
+  const [e] = await requeteGrist(docId, apiKey, `select id from EffectifsEngages where id = ? and EventId = ?`, [effectifId, eventId])
+  if (!e) throw new ErreurHttp(403, "Cet effectif n'appartient pas à cette intervention.")
+  await deleteGrist(docId, apiKey, 'EffectifsEngages', [effectifId])
 }
 
 Deno.serve(async (requete) => {
@@ -326,6 +571,26 @@ Deno.serve(async (requete) => {
     }
     if (action === 'updateIntervention') {
       await updateIntervention(docId, apiKey, squadCodes, params.eventId, params.champs)
+      return reponse({ ok: true })
+    }
+    if (action === 'updateVictime') {
+      await updateVictime(docId, apiKey, squadCodes, params.eventId, params.victimeId, params.champs)
+      return reponse({ ok: true })
+    }
+    if (action === 'listerEffectifs') {
+      const effectifs = await listerEffectifs(docId, apiKey, squadCodes, params.eventId)
+      return reponse({ ok: true, effectifs })
+    }
+    if (action === 'ajouterEffectif') {
+      const id = await ajouterEffectif(docId, apiKey, squadCodes, params.eventId, params.champs)
+      return reponse({ ok: true, id })
+    }
+    if (action === 'modifierEffectif') {
+      await modifierEffectif(docId, apiKey, squadCodes, params.eventId, params.effectifId, params.champs)
+      return reponse({ ok: true })
+    }
+    if (action === 'supprimerEffectif') {
+      await supprimerEffectif(docId, apiKey, squadCodes, params.eventId, params.effectifId)
       return reponse({ ok: true })
     }
 

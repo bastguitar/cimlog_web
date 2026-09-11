@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ficheSecours, formatIdentiteVictime, modifierIntervention } from '../lib/registre'
 import { STATUTS } from '../lib/statuts'
 import { groupeDe } from '../lib/sections'
-import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
+import OngletSnosm from './snosm/OngletSnosm'
 
 /**
  * Champs de l'onglet Infos modifiables en édition — même liste (côté
@@ -88,7 +88,6 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null, fSectio
   const [edition, setEdition] = useState(false)
   const [brouillon, setBrouillon] = useState(null)
   const [enregistrement, setEnregistrement] = useState(false)
-  const [generationTO, setGenerationTO] = useState(false)
 
   // Nom de la section propriétaire de la fiche, pour l'en-tête « DE : » du TO
   // — pas forcément la section du poste connecté (fiche consultée en vue région).
@@ -127,18 +126,6 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null, fSectio
   function annulerEdition() {
     setEdition(false)
     setBrouillon(null)
-  }
-
-  async function genererTO() {
-    setGenerationTO(true)
-    try {
-      const sectionNom = nomDeSection.get(groupeDe(fiche.squad_code)) ?? fiche.squad_code
-      await telechargerTelegrammeTO(fiche, { sectionNom })
-    } catch (e) {
-      setErreur(e.message)
-    } finally {
-      setGenerationTO(false)
-    }
   }
 
   async function enregistrer() {
@@ -232,20 +219,12 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null, fSectio
                 ))}
               {onglet === 'victimes' && <OngletVictimes victimes={fiche.victimes ?? []} />}
               {onglet === 'snosm' && (
-                <div className="section-fiche">
-                  <h4>Télégramme officiel (TO)</h4>
-                  <p className="aide">
-                    Génère un brouillon PDF sur le modèle IFSM, pré-rempli avec ce que Cim’Alerte connaît déjà. Les
-                    champs pas encore saisis (rédacteur, autorités précises, bilan détaillé…) restent à compléter à
-                    la main — le formulaire SNOSM complet, à venir, les remplira automatiquement.
-                  </p>
-                  <button type="button" className="bouton-principal" onClick={genererTO} disabled={generationTO}>
-                    {generationTO ? 'Génération…' : 'Télécharger le TO (brouillon)'}
-                  </button>
-                  <p className="aide" style={{ marginTop: 14 }}>
-                    Indicateur SNOSM côté Cim’Alerte : {renduValeur(fiche.snosm) ?? 'non renseigné'}.
-                  </p>
-                </div>
+                <OngletSnosm
+                  fiche={fiche}
+                  codesRequete={codesRequete}
+                  onFicheMaj={setFiche}
+                  sectionNom={nomDeSection.get(groupeDe(fiche.squad_code)) ?? fiche.squad_code}
+                />
               )}
             </div>
 
