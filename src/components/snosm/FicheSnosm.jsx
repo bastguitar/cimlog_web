@@ -11,6 +11,14 @@ import {
 } from '../../lib/registre'
 import { telechargerTelegrammeTO } from '../../lib/telegrammeTO'
 
+/**
+ * Les 7 onglets SNOSM sont les seuls onglets de la fiche — pas d'onglet
+ * "Infos"/"Victimes" séparé : les champs déjà connus via Cim'Alerte (lieu,
+ * requérant, équipe engagée, description…) sont fondus directement dans les
+ * groupes SNOSM correspondants (Général/Localisation, Moyens engagés,
+ * Intervention), pour ne consulter qu'un seul endroit plutôt que de
+ * dupliquer la même information sous deux formes.
+ */
 const SOUS_ONGLETS = [
   { cle: 'general', label: 'Général' },
   { cle: 'moyens', label: 'Moyens engagés' },
@@ -26,11 +34,29 @@ const GROUPES_GENERAL = [
     titre: 'Alerte',
     champs: [
       { cle: 'snosm_numero_texte', label: 'N° de texte' },
-      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte' },
+      { cle: 'alert_origin', label: 'Origine (Cim’Alerte)' },
+      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte (SNOSM)' },
       { cle: 'snosm_origine_alerte_autre', label: 'Origine — précision si « Autre »' },
+      { cle: 'requerant_nom', label: 'Requérant' },
+      { cle: 'requerant_telephone', label: 'Téléphone requérant' },
+      { cle: 'contre_appel', label: 'Contre-appel' },
+      { cle: 'personne_recherchee_nom', label: 'Personne recherchée' },
       { cle: 'snosm_depart_le', label: 'Départ', type: 'datetime' },
       { cle: 'snosm_arrivee_lieux_le', label: 'Sur les lieux', type: 'datetime' },
       { cle: 'snosm_fin_operation_le', label: 'Fin d’opération', type: 'datetime' },
+    ],
+  },
+  {
+    titre: 'Localisation',
+    champs: [
+      { cle: 'com', label: 'Commune' },
+      { cle: 'lieu', label: 'Lieu' },
+      { cle: 'county', label: 'Département' },
+      { cle: 'massif', label: 'Massif' },
+      { cle: 'alt', label: 'Altitude (m)' },
+      { cle: 'tgi', label: 'TGI' },
+      { cle: 'type_localisation', label: 'Précision' },
+      { cle: 'meteo', label: 'Météo' },
     ],
   },
   {
@@ -51,8 +77,13 @@ const GROUPES_MOYENS = [
     champs: [
       { cle: 'snosm_type_operation_moyens', label: 'Opération (héliportée / terrestre / mixte)' },
       { cle: 'snosm_ppsm', label: 'PPSM(s)' },
-      { cle: 'snosm_helicopteres', label: 'Hélicoptère(s)' },
-      { cle: 'snosm_medicalisation', label: 'Médicalisation' },
+      { cle: 'helicopter', label: 'Hélicoptère (Cim’Alerte)' },
+      { cle: 'snosm_helicopteres', label: 'Hélicoptère(s) (SNOSM)' },
+      { cle: 'type_intervention', label: 'Type d’intervention' },
+      { cle: 'support_units', label: 'Unités en soutien' },
+      { cle: 'snosm_medicalisation', label: 'Médicalisation (SNOSM)' },
+      { cle: 'is_med', label: 'Médicalisée', type: 'checkbox' },
+      { cle: 'infirmier', label: 'Infirmier', type: 'checkbox' },
       { cle: 'snosm_equipes_cynophiles_crs', label: 'Équipe(s) cynophile(s) CRS', type: 'nombre' },
       { cle: 'snosm_emploi_heli_saf', label: 'Emploi hélicoptère du SAF justifié par', type: 'texte-long' },
     ],
@@ -63,6 +94,7 @@ const GROUPES_INTERVENTION = [
   {
     titre: 'Compte rendu',
     champs: [
+      { cle: 'description', label: 'Circonstances / description', type: 'texte-long' },
       { cle: 'snosm_gestes_secourisme', label: 'Geste(s) de secourisme effectué(s)', type: 'texte-long' },
       { cle: 'snosm_techniques_evacuation', label: 'Technique(s) d’évacuation mise(s) en œuvre', type: 'texte-long' },
     ],
@@ -138,6 +170,16 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
   { cle: 'snosm_avalanche_nb_decedes', label: 'Nombre de décédés', type: 'nombre' },
 ]
 
+/** Déjà connu via Cim'Alerte — toujours en lecture seule ici, pas de double saisie. */
+const CHAMPS_IMPLIQUE_BASE = [
+  { cle: 'sexe', label: 'Sexe' },
+  { cle: 'age', label: 'Âge' },
+  { cle: 'pathologie', label: 'Pathologie (Cim’Alerte)' },
+  { cle: 'circonstances', label: 'Circonstances (Cim’Alerte)' },
+  { cle: 'cinetique', label: 'Cinétique' },
+  { cle: 'douleur', label: 'Douleur (/10)' },
+]
+
 const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_statut', label: 'Statut (victime / témoin / encadrant)' },
   { cle: 'snosm_etat_medical', label: 'État médical' },
@@ -148,7 +190,7 @@ const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_type_blessure', label: 'Type de blessure' },
   { cle: 'snosm_commune', label: 'Commune' },
   { cle: 'snosm_pays', label: 'Pays' },
-  { cle: 'snosm_circonstances_liste', label: 'Circonstances' },
+  { cle: 'snosm_circonstances_liste', label: 'Circonstances (SNOSM)' },
   { cle: 'snosm_destination', label: 'Destination' },
   { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
 ]
@@ -200,15 +242,16 @@ function BlocChamps({ groupes, brouillon, majChamp }) {
 }
 
 /**
- * Onglet SNOSM — 7 sous-onglets sur le modèle du formulaire IFSM réel (voir
- * les captures fournies). Édition en bloc (comme l'onglet Infos) : un
- * "Modifier" ouvre tous les sous-onglets en édition à la fois, un seul
- * "Enregistrer" écrit les champs d'intervention ET ceux de chaque victime
- * modifiée. L'effectif CRS engagé (répétable, pas encore connu à l'ouverture
- * de la fiche) reste éditable indépendamment — chaque ligne s'enregistre
- * elle-même, pas besoin d'attendre le bouton Enregistrer général.
+ * Corps entier de la fiche d'intervention — les 7 onglets du formulaire
+ * IFSM réel (voir les captures fournies) sont les seuls onglets, plus de
+ * niveau "Infos/Victimes/SNOSM" séparé : les champs déjà connus via
+ * Cim'Alerte sont fondus directement dans les groupes SNOSM concernés.
+ * Édition en bloc : un "Modifier" ouvre tous les sous-onglets en édition à
+ * la fois, un seul "Enregistrer" écrit les champs d'intervention ET ceux de
+ * chaque victime modifiée. L'effectif CRS engagé (répétable) reste éditable
+ * indépendamment — chaque ligne s'enregistre elle-même.
  */
-export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNom }) {
+export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom }) {
   const [sousOnglet, setSousOnglet] = useState('general')
   const [edition, setEdition] = useState(false)
   const [brouillonFiche, setBrouillonFiche] = useState(null)
@@ -345,7 +388,7 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
   return (
     <div className="onglet-snosm-racine">
       <div className="entete-snosm">
-        <p className="aide">Brouillon pré-rempli avec ce que Cim’Alerte connaît déjà ; les menus déroulants sont en texte libre pour l’instant.</p>
+        <p className="aide">Les menus déroulants sont en texte libre pour l’instant, en attendant leur contenu officiel.</p>
         <div className="actions-entete-snosm">
           {!edition && !verrouillee && (
             <button type="button" className="bouton-secondaire" onClick={demarrerEdition}>
@@ -367,8 +410,10 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
             type="button"
             className={sousOnglet === o.cle ? 'onglet-fiche actif' : 'onglet-fiche'}
             onClick={() => setSousOnglet(o.cle)}
+            disabled={edition}
           >
             {o.label}
+            {o.cle === 'implique' && fiche.victimes?.length > 0 && ` (${fiche.victimes.length})`}
           </button>
         ))}
       </div>
@@ -379,6 +424,13 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
         {sousOnglet === 'moyens' && (
           <>
             {edition ? <BlocChamps groupes={GROUPES_MOYENS} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_MOYENS} fiche={fiche} />}
+            <div className="section-fiche">
+              <h4>Équipe (Cim’Alerte)</h4>
+              <div className="grille-details-fiche">
+                <Detail label="Équipe engagée">{fiche.team?.length > 0 ? fiche.team.join(', ') : '—'}</Detail>
+                <Detail label="Moyens engagés (brut)">{fiche.moyens_engages || '—'}</Detail>
+              </div>
+            </div>
             <div className="section-fiche">
               <h4>Effectif CRS engagé</h4>
               <TableauEffectifs
@@ -432,6 +484,9 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
                 <strong>
                   Victime {v.local_id ?? ''} — {formatIdentiteVictime(v) || 'identité non renseignée'}
                 </strong>
+                <div className="grille-details-fiche" style={{ marginTop: 8 }}>
+                  <ChampsLecture champs={CHAMPS_IMPLIQUE_BASE} source={v} />
+                </div>
                 {edition ? (
                   <>
                     <div className="grille-details-fiche" style={{ marginTop: 8 }}>
@@ -480,7 +535,8 @@ export default function OngletSnosm({ fiche, codesRequete, onFicheMaj, sectionNo
 function ChampsLecture({ champs, source }) {
   return champs.map((c) => {
     const valeur = source[c.cle]
-    const vide = valeur == null || valeur === ''
+    // "[]" : jsonb vide côté Cim'Alerte, sérialisé en texte tel quel par Grist — pas une vraie valeur.
+    const vide = valeur == null || valeur === '' || valeur === '[]'
     return (
       <Detail key={c.cle} label={c.label}>
         {c.type === 'checkbox' ? (valeur ? 'Oui' : 'Non') : vide ? '—' : String(valeur)}

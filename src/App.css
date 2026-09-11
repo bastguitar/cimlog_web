@@ -1723,16 +1723,6 @@ main > * {
   border-bottom-color: var(--accent);
 }
 
-.corps-fiche {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  padding-right: 4px;
-}
-
 .section-fiche h4 {
   margin: 0 0 6px;
   font-size: 11px;
@@ -1834,7 +1824,7 @@ main > * {
   display: flex;
   flex-direction: column;
   gap: 10px;
-  height: 100%;
+  flex: 1;
   min-height: 0;
 }
 
@@ -1866,8 +1856,7 @@ main > * {
 }
 
 .sous-onglets-snosm .onglet-fiche {
-  font-size: 12px;
-  padding: 6px 8px;
+  padding: 7px 10px;
 }
 
 .corps-sous-onglet-snosm {
