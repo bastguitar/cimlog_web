@@ -14,6 +14,8 @@ import {
   OPTIONS_CIRCONSTANCES_VICTIME,
   OPTIONS_HELICOPTERES,
   OPTIONS_TYPE_INTERVENTION,
+  OPTIONS_ORIGINE_ALERTE,
+  OPTIONS_ACTIVITE,
 } from '../../lib/optionsSnosm'
 import {
   modifierIntervention,
@@ -49,7 +51,7 @@ const GROUPES_GENERAL = [
     titre: 'Alerte',
     champs: [
       { cle: 'snosm_numero_texte', label: 'N° de texte' },
-      { cle: 'alert_origin', label: 'Origine (Cim’Alerte)' },
+      { cle: 'alert_origin', label: 'Origine (Cim’Alerte)', type: 'liste-si-vide', options: OPTIONS_ORIGINE_ALERTE },
       { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte (SNOSM)' },
       { cle: 'snosm_origine_alerte_autre', label: 'Origine — précision si « Autre »' },
       { cle: 'requerant_nom', label: 'Requérant' },
@@ -92,7 +94,7 @@ const GROUPES_MOYENS = [
     titre: 'Opération',
     champs: [
       { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'liste', options: OPTIONS_NATURE_OPERATION },
-      { cle: 'activity', label: 'Nature de l’activité (Cim’Alerte)' },
+      { cle: 'activity', label: 'Nature de l’activité (Cim’Alerte)', type: 'liste-si-vide', options: OPTIONS_ACTIVITE },
       { cle: 'snosm_type_operation_moyens', label: 'Opération (héliportée / terrestre / mixte)' },
       { cle: 'snosm_ppsm', label: 'PPSM(s)' },
       { cle: 'helicopter', label: 'Hélicoptère (Cim’Alerte)', type: 'liste-si-vide', options: OPTIONS_HELICOPTERES },
@@ -418,9 +420,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
               Modifier
             </button>
           )}
-          <button type="button" className="bouton-principal" onClick={genererTO} disabled={generationTO}>
-            {generationTO ? 'Génération…' : 'Télécharger le TO (brouillon)'}
-          </button>
         </div>
       </div>
 
@@ -539,16 +538,21 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         )}
       </div>
 
-      {edition && (
-        <div className="actions-edition-fiche">
-          <button type="button" className="bouton-secondaire" onClick={annulerEdition} disabled={enregistrement}>
-            Annuler
-          </button>
-          <button type="button" className="bouton-principal" onClick={enregistrer} disabled={enregistrement}>
-            {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
-          </button>
-        </div>
-      )}
+      <div className="actions-edition-fiche">
+        {edition && (
+          <>
+            <button type="button" className="bouton-secondaire" onClick={annulerEdition} disabled={enregistrement}>
+              Annuler
+            </button>
+            <button type="button" className="bouton-principal" onClick={enregistrer} disabled={enregistrement}>
+              {enregistrement ? 'Enregistrement…' : 'Enregistrer'}
+            </button>
+          </>
+        )}
+        <button type="button" className="bouton-principal" onClick={genererTO} disabled={generationTO}>
+          {generationTO ? '…' : 'TO'}
+        </button>
+      </div>
     </div>
   )
 }

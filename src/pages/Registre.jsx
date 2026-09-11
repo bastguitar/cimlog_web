@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { listerAnnee, sansCodePostal, nomSeul } from '../lib/registre'
+import { listerAnnee, sansCodePostal, nomSeul, ficheSecours } from '../lib/registre'
 import { STATUTS } from '../lib/statuts'
 import { couleurSection, groupeDe } from '../lib/sections'
 import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from '../lib/semaines'
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
 import ModaleFiche from '../components/ModaleFiche'
+import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
@@ -23,7 +24,8 @@ function colonnesRegistre(multiple) {
     { cle: 'activite', label: 'Motif / Activité', classe: 'col-activite-registre' },
     { cle: 'pathologies', label: 'Pathologies', classe: 'col-pathologies-registre' },
     { cle: 'moyen', label: 'Moyen', classe: 'col-moyen-registre' },
-    { cle: 'equipe', label: 'Équipe', classe: 'col-equipe-registre' }
+    { cle: 'equipe', label: 'Équipe', classe: 'col-equipe-registre' },
+    { cle: 'to', label: '', classe: 'col-to-registre' }
   )
   return colonnes
 }
@@ -51,6 +53,8 @@ export default function Registre({ fSections }) {
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
   const [ficheId, setFicheId] = useState(null)
+  const [genererTOId, setGenererTOId] = useState(null)
+  const [erreurTO, setErreurTO] = useState(null)
 
   useEffect(() => {
     setChargement(true)
@@ -73,6 +77,21 @@ export default function Registre({ fSections }) {
     () => new Map((fSections.toutesSections ?? []).map((s) => [s.code, s.nom])),
     [fSections.toutesSections]
   )
+
+  /** Génère et télécharge le TO d'une ligne sans ouvrir sa fiche — la fiche complète (victimes incluses) n'est chargée qu'ici, à la demande. */
+  async function telechargerTO(s, e) {
+    e.stopPropagation()
+    setGenererTOId(s.id)
+    setErreurTO(null)
+    try {
+      const fiche = await ficheSecours(s.id, fSections.codesRequete)
+      await telechargerTelegrammeTO(fiche, { sectionNom: nomDeSection.get(groupeDe(s.squad_code)) ?? s.squad_code })
+    } catch (err) {
+      setErreurTO(err.message)
+    } finally {
+      setGenererTOId(null)
+    }
+  }
 
   return (
     <section className="page page-mc">
@@ -102,6 +121,7 @@ export default function Registre({ fSections }) {
       <PanneauFiltresRegistre f={f} />
 
       {erreur && <p className="erreur">{erreur}</p>}
+      {erreurTO && <p className="erreur">TO : {erreurTO}</p>}
       {!chargement && !erreur && evenementsVisibles.length === 0 && (
         <p className="aide">Aucune intervention {f.filtresActifs ? 'ne correspond' : 'cette année'}.</p>
       )}
@@ -158,6 +178,16 @@ export default function Registre({ fSections }) {
                         <td>{pathologiesDe(s) || '—'}</td>
                         <td>{s.helicopter || '—'}</td>
                         <td>{(s.team ?? []).map(nomSeul).join(', ') || '—'}</td>
+                        <td>
+                          <button
+                            type="button"
+                            className="bouton-principal bouton-to-registre"
+                            onClick={(e) => telechargerTO(s, e)}
+                            disabled={genererTOId === s.id}
+                          >
+                            {genererTOId === s.id ? '…' : 'TO'}
+                          </button>
+                        </td>
                       </tr>
                     ))}
                   </tbody>

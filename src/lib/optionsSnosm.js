@@ -184,6 +184,104 @@ export const OPTIONS_CIRCONSTANCES_VICTIME = [
 // ce champ ici quand une alerte a été mal renseignée à la prise d'appel.
 export const OPTIONS_TYPE_INTERVENTION = ['Héliportée', 'Terrestre', 'Mixte']
 
+// Valeurs Cim'Alerte (table `ref_origines_alerte`) — dédoublonnées entre
+// sections (la table porte un nom par groupe de section, ex. CODIS74 pour
+// CRS74, dupliqué à un autre ordre pour CRS73 en renfort). Même usage que
+// OPTIONS_TYPE_INTERVENTION : compléter ici une alerte mal renseignée.
+export const OPTIONS_ORIGINE_ALERTE = [
+  'CODIS74',
+  'CODIS38',
+  'Service des pistes',
+  'CODIS05',
+  'CODIS06',
+  'CODIS65',
+  'CODIS66',
+  'CODIS73',
+  'CORG',
+  'SAMU06',
+  'SAMU66',
+  'C15',
+  'SAMU65',
+  'SAMU73',
+  'SAMU38',
+  'SAMU74',
+  'Pisteurs',
+  'Appel radio GHM',
+  'Appel radio refuge',
+  'CRS Briançon',
+  'PGHM 04',
+  'CRS Grenoble',
+  'PPSM GRENOBLE',
+  'CRS Modane',
+  'PPSM MODANE',
+  'Témoin en direct',
+  'Patrouilleurs La Grave',
+  'CODIS64',
+  'CODIS26',
+  'Refuge',
+  'Requérant en direct',
+  'Requérant',
+]
+
+// Valeurs Cim'Alerte (table `ref_activites`, actives uniquement) — pas du
+// vocabulaire SNOSM, sert seulement à compléter ici une alerte mal
+// renseignée. Pas de lien avec les 55 valeurs SNOSM CrsNatureActivite : par
+// décision de l'utilisateur, "Nature de l'activité" reste le champ Cim'Alerte
+// tel quel (le menu déroulant de l'appli est déjà tenu à jour).
+export const OPTIONS_ACTIVITE = [
+  'Aéronef',
+  'Alpinisme mixte',
+  'Alpinisme neige et glace',
+  'Alpinisme rocher',
+  'Animaux',
+  'Autres activités sportives',
+  'Autres divers',
+  'Autres sports de glisse',
+  'Baignade',
+  'Base jump',
+  'Canyon',
+  'Cascade de glace',
+  'Catastrophe naturelle',
+  'Cerf volant traction',
+  'Chasse-pêche-champignons',
+  'Cycles (autres)',
+  'Deltaplane',
+  'Escalade école',
+  'Équitation',
+  'Falaise (plusieurs longueurs)',
+  'Hydrospeed',
+  'Kayak',
+  'Luge',
+  'Parapente',
+  'Planeur',
+  'Randonnée pédestre hors sentier',
+  'Randonnée pédestre (sur sentier)',
+  'Raquettes à neige',
+  "Refuge-tente-restaurant d'altitude",
+  'Remontée mécanique',
+  'Sanitaire',
+  'Ski de fond',
+  'Ski de montagne',
+  'Ski de pente raide',
+  'Ski de piste',
+  'Ski de randonnée',
+  'Ski hors piste',
+  'Spéléologie',
+  'Suicide',
+  'Snowboard hors piste',
+  'Snowboard sur piste',
+  'Travaux agricoles',
+  'Travaux forestiers',
+  'ULM',
+  'Véhicule à moteur',
+  'Vélo de route',
+  'Via ferrata / via cordata',
+  'VTT cross country',
+  'VTT DH/enduro',
+  'Wingsuit',
+  'Rafting',
+]
+
 // Liste vivante de l'appli Cim'Alerte (table `ref_helico`, appareils actifs
 // uniquement — SAF est désactivé, remplacé par YETI 1/YETI 2), avec Choucas
 // 69 et Dragon 69 ajoutés à la demande de l'utilisateur (absents de
