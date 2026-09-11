@@ -78,7 +78,7 @@ export default function Registre({ fSections }) {
         })
 
     charger(false)
-    const intervalle = setInterval(() => charger(true), 60000)
+    const intervalle = setInterval(() => charger(true), 30000)
     return () => {
       vivant = false
       clearInterval(intervalle)
