@@ -71,6 +71,16 @@ export function ChampListeOuTexte({ label, valeur, onChange, options }) {
   return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
 }
 
+/** Affichage seul (ex. l'heure d'alerte Cim'Alerte, à côté de Départ/Sur les lieux/Fin d'opération) — rien à corriger ici. */
+export function ChampLecture({ label, valeur }) {
+  return (
+    <div className="detail-fiche-edition">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="valeur-lecture-snosm">{valeur || '—'}</div>
+    </div>
+  )
+}
+
 export function ChampCheckbox({ label, valeur, onChange }) {
   return (
     <label className="champ-checkbox-snosm">
@@ -102,5 +112,6 @@ export function ChampSnosm({ description, valeur, onChange }) {
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
   if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
 }

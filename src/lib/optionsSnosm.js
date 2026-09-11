@@ -184,44 +184,13 @@ export const OPTIONS_CIRCONSTANCES_VICTIME = [
 // ce champ ici quand une alerte a été mal renseignée à la prise d'appel.
 export const OPTIONS_TYPE_INTERVENTION = ['Héliportée', 'Terrestre', 'Mixte']
 
-// Valeurs Cim'Alerte (table `ref_origines_alerte`) — dédoublonnées entre
-// sections (la table porte un nom par groupe de section, ex. CODIS74 pour
-// CRS74, dupliqué à un autre ordre pour CRS73 en renfort). Même usage que
-// OPTIONS_TYPE_INTERVENTION : compléter ici une alerte mal renseignée.
-export const OPTIONS_ORIGINE_ALERTE = [
-  'CODIS74',
-  'CODIS38',
-  'Service des pistes',
-  'CODIS05',
-  'CODIS06',
-  'CODIS65',
-  'CODIS66',
-  'CODIS73',
-  'CORG',
-  'SAMU06',
-  'SAMU66',
-  'C15',
-  'SAMU65',
-  'SAMU73',
-  'SAMU38',
-  'SAMU74',
-  'Pisteurs',
-  'Appel radio GHM',
-  'Appel radio refuge',
-  'CRS Briançon',
-  'PGHM 04',
-  'CRS Grenoble',
-  'PPSM GRENOBLE',
-  'CRS Modane',
-  'PPSM MODANE',
-  'Témoin en direct',
-  'Patrouilleurs La Grave',
-  'CODIS64',
-  'CODIS26',
-  'Refuge',
-  'Requérant en direct',
-  'Requérant',
-]
+// Valeurs SNOSM exactes (formulaire réel, onglet Général — "Origine de
+// l'alerte :") : CODIS / SAMU / CORG / VICTIME TEMOIN / SERVICE DES PISTES /
+// AUTRE, accompagnées d'une case de précision libre à part
+// (snosm_origine_alerte_autre). Pas de lien avec le référentiel Cim'Alerte
+// (`ref_origines_alerte`, bien plus détaillé) — un seul champ SNOSM, pas de
+// correspondance à construire.
+export const OPTIONS_ORIGINE_ALERTE = ['CODIS', 'SAMU', 'CORG', 'VICTIME TEMOIN', 'SERVICE DES PISTES', 'AUTRE']
 
 // Valeurs Cim'Alerte (table `ref_activites`, actives uniquement) — pas du
 // vocabulaire SNOSM, sert seulement à compléter ici une alerte mal

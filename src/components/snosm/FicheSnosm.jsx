@@ -51,13 +51,9 @@ const GROUPES_GENERAL = [
     titre: 'Alerte',
     champs: [
       { cle: 'snosm_numero_texte', label: 'N° de texte' },
-      { cle: 'alert_origin', label: 'Origine', type: 'liste-si-vide', options: OPTIONS_ORIGINE_ALERTE },
-      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte' },
+      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte', type: 'liste', options: OPTIONS_ORIGINE_ALERTE },
       { cle: 'snosm_origine_alerte_autre', label: 'Origine — précision si « Autre »' },
-      { cle: 'requerant_nom', label: 'Requérant' },
-      { cle: 'requerant_telephone', label: 'Téléphone requérant' },
-      { cle: 'contre_appel', label: 'Contre-appel' },
-      { cle: 'personne_recherchee_nom', label: 'Personne recherchée' },
+      { cle: 'alert_le_affichage', label: 'Alerte', type: 'lecture' },
       { cle: 'snosm_depart_le', label: 'Départ', type: 'datetime' },
       { cle: 'snosm_arrivee_lieux_le', label: 'Sur les lieux', type: 'datetime' },
       { cle: 'snosm_fin_operation_le', label: 'Fin d’opération', type: 'datetime' },
@@ -66,14 +62,13 @@ const GROUPES_GENERAL = [
   {
     titre: 'Localisation',
     champs: [
+      { cle: 'massif', label: 'Massif' },
       { cle: 'com', label: 'Commune' },
       { cle: 'lieu', label: 'Lieu' },
       { cle: 'county', label: 'Département' },
-      { cle: 'massif', label: 'Massif' },
+      { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'liste', options: OPTIONS_NATURE_OPERATION },
+      { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: OPTIONS_ACTIVITE },
       { cle: 'alt', label: 'Altitude (m)' },
-      { cle: 'tgi', label: 'TGI' },
-      { cle: 'type_localisation', label: 'Précision' },
-      { cle: 'meteo', label: 'Météo' },
       { cle: 'snosm_meteo', label: 'Météo', type: 'liste', options: OPTIONS_METEO },
     ],
   },
@@ -93,8 +88,6 @@ const GROUPES_MOYENS = [
   {
     titre: 'Opération',
     champs: [
-      { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'liste', options: OPTIONS_NATURE_OPERATION },
-      { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: OPTIONS_ACTIVITE },
       { cle: 'snosm_type_operation_moyens', label: 'Opération (héliportée / terrestre / mixte)' },
       { cle: 'snosm_ppsm', label: 'PPSM(s)' },
       { cle: 'helicopter', label: 'Hélicoptère', type: 'liste-si-vide', options: OPTIONS_HELICOPTERES },
@@ -261,6 +254,9 @@ function BlocChamps({ groupes, brouillon, majChamp }) {
   ))
 }
 
+const formatAlerteLe = (iso) =>
+  iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
+
 function brouillonFicheDepuis(fiche) {
   const bf = {}
   for (const g of TOUS_GROUPES_INTERVENTION) for (const c of g.champs) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
@@ -268,6 +264,8 @@ function brouillonFicheDepuis(fiche) {
   bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
   // Le n° de texte SNOSM est le n° d'intervention Cim'Alerte — prérempli s'il n'a pas déjà été saisi.
   if (!bf.snosm_numero_texte && fiche.local_id) bf.snosm_numero_texte = String(fiche.local_id)
+  // Heure d'alerte Cim'Alerte, affichée à côté de Départ/Sur les lieux/Fin d'opération — lecture seule, déjà fixée à la prise d'appel.
+  bf.alert_le_affichage = formatAlerteLe(fiche.created_at)
   return bf
 }
 
