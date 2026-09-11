@@ -56,15 +56,33 @@ export default function Registre({ fSections }) {
   const [genererTOId, setGenererTOId] = useState(null)
   const [erreurTO, setErreurTO] = useState(null)
 
+  // Rafraîchissement périodique — pensé pour un poste laissé ouvert en
+  // continu sur un écran, qui doit voir arriver les nouvelles interventions
+  // sans qu'on ait à recharger la page. Silencieux (pas de "Chargement…" à
+  // chaque tour, seulement au premier chargement/changement d'année) pour ne
+  // pas faire clignoter l'écran ; la fiche ouverte (ModaleFiche) charge ses
+  // propres données à part, ce rafraîchissement ne la perturbe pas.
   useEffect(() => {
+    let vivant = true
     setChargement(true)
-    listerAnnee(annee, fSections.codesRequete)
-      .then((d) => {
-        setEvenements(d)
-        setErreur(null)
-      })
-      .catch((e) => setErreur(e.message))
-      .finally(() => setChargement(false))
+    const charger = (silencieux) =>
+      listerAnnee(annee, fSections.codesRequete)
+        .then((d) => {
+          if (!vivant) return
+          setEvenements(d)
+          setErreur(null)
+        })
+        .catch((e) => vivant && setErreur(e.message))
+        .finally(() => {
+          if (vivant && !silencieux) setChargement(false)
+        })
+
+    charger(false)
+    const intervalle = setInterval(() => charger(true), 60000)
+    return () => {
+      vivant = false
+      clearInterval(intervalle)
+    }
   }, [annee, fSections.codesRequete])
 
   const f = useFiltresRegistre(evenements)
