@@ -356,3 +356,55 @@ export const OPTIONS_HELICOPTERES = [
   'YETI 1',
   'YETI 2',
 ]
+
+// Vocabulaire SNOSM (tableur fourni par l'utilisateur) pour le sous-bloc
+// avalanche par victime — comptages déjà recoupés en début de chantier
+// (DURETE DE LA NEIGE/TETE : 5, OBSTACLES/ECOULEMENT : 6, ENVIRONNEMENT : 8).
+export const OPTIONS_DURETE_NEIGE = ['FAIBLE (POING)', 'FAIBLE (4 DOIGTS)', 'MOYEN (1 DOIGT)', 'FORTE (1 CRAYON)', 'FORTE (1 COUTEAU)']
+export const OPTIONS_OBSTACLES = ['ROCHER', 'ARBRE', 'BARRE ROCHEUSE', 'BARRE DE SERAC', 'COULOIR', 'AUTRE']
+export const OPTIONS_ENVIRONNEMENT_AVALANCHE = ['RAVINE', 'THALWEG', 'CREUX', 'DOLINE', 'GYPSIERE', "COURS D'EAU", 'LAC', 'CREVASSE / RIMAYE']
+
+// Valeurs reprises directement des captures du vrai formulaire (pas de
+// tableur pour celles-ci, juste Oui/Non/Non plus complexe pour certaines).
+export const OPTIONS_OUI_NON_NE_SAIS_PAS = ['Oui', 'Non', 'Ne sais pas']
+export const OPTIONS_GONFLAGE = ['Complètement', 'Partiellement', 'Non']
+export const OPTIONS_POSITION_VICTIME_AIRBAG = ['Avec ventrale', 'Sans ventrale', 'Non']
+export const OPTIONS_SAC_ET_VICTIME = ['Liés', 'Séparés']
+export const OPTIONS_ALIMENTATION_DVA = ['Cartouche', 'Électrique']
+
+// Avalanche, niveau événement (comptages déjà recoupés en début de chantier : 5/5/5).
+export const OPTIONS_TYPE_AVALANCHE = [
+  'NEIGE FRAICHE',
+  'NEIGE SOUFFLEE (NEIGE VENTEE)',
+  'NEIGE ANCIENNE(SOUS COUCHE FRAGILE PERSISTANTE)',
+  'AVALANCHE MOUILLEE (NEIGE HUMIDE)',
+  'AVALANCHE DE GLISSEMENT (AVALANCHE DE FOND)',
+]
+export const OPTIONS_TAILLE_AVALANCHE = [
+  'TAILLE 1 : PETITE AVALANCHE (COULEE)',
+  'TAILLE 2 : AVALANCHE MOYENNE',
+  'TAILLE 3 : GRANDE AVALANCHE',
+  'TAILLE 4 : TRES GRANDE AVALANCHE',
+  'TAILLE 5 : AVALANCHE EXTREMEMENT GRANDE',
+]
+export const OPTIONS_NIVEAU_RISQUE = ['1-FAIBLE', '2-LIMITE', '3-MARQUE', '4-FORT', '5-TRES FORT']
+
+// Rose des vents à 16 branches — valeurs universelles, pas du vocabulaire SNOSM propre à vérifier.
+export const OPTIONS_ORIENTATION = [
+  'NORD',
+  'NORD-NORD-EST',
+  'NORD-EST',
+  'EST-NORD-EST',
+  'EST',
+  'EST-SUD-EST',
+  'SUD-EST',
+  'SUD-SUD-EST',
+  'SUD',
+  'SUD-SUD-OUEST',
+  'SUD-OUEST',
+  'OUEST-SUD-OUEST',
+  'OUEST',
+  'OUEST-NORD-OUEST',
+  'NORD-OUEST',
+  'NORD-NORD-OUEST',
+]
