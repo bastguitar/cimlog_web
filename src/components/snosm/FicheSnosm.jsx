@@ -15,6 +15,7 @@ import {
   OPTIONS_TYPE_BLESSURE,
   OPTIONS_CIRCONSTANCES_VICTIME,
   OPTIONS_TYPE_INTERVENTION,
+  snosmTypeOperationDepuis,
   OPTIONS_ORIGINE_ALERTE,
   OPTIONS_PPSM,
   OPTIONS_MEDICALISATION,
@@ -419,8 +420,12 @@ function brouillonFicheDepuis(fiche, referentiels) {
   if (!bf.snosm_depart_le && fiche.depart_le) bf.snosm_depart_le = fiche.depart_le
   if (!bf.snosm_arrivee_lieux_le && fiche.arrivee_le) bf.snosm_arrivee_lieux_le = fiche.arrivee_le
   if (!bf.snosm_fin_operation_le && fiche.fin_le) bf.snosm_fin_operation_le = fiche.fin_le
-  // Opération (héliportée/terrestre/mixte) : reprend le type d'intervention Cim'Alerte quand il est renseigné.
-  if (!bf.snosm_type_operation_moyens && fiche.type_intervention) bf.snosm_type_operation_moyens = fiche.type_intervention
+  // Opération (héliportée/terrestre/mixte) : reprend le type d'intervention Cim'Alerte (reclassé —
+  // poussé en minuscules côté Cim'Alerte, "mixte" ≠ "Mixte" pour la comparaison stricte du radio).
+  if (!bf.snosm_type_operation_moyens) {
+    const type = snosmTypeOperationDepuis(fiche.type_intervention)
+    if (type) bf.snosm_type_operation_moyens = type
+  }
   // Hélicoptère(s) : reprend l'hélicoptère Cim'Alerte seulement s'il correspond exactement à un appareil
   // connu — le texte libre Cim'Alerte est trop hétérogène pour être fiable au-delà d'une correspondance exacte.
   if (!bf.snosm_helicopteres && referentiels.helicopteres.includes(fiche.helicopter)) bf.snosm_helicopteres = fiche.helicopter
@@ -431,8 +436,10 @@ function brouillonFicheDepuis(fiche, referentiels) {
     const ppsm = ppsmDepuisHelicoptere(premierHelico) ?? ppsmDepuisSquadCode(fiche.squad_code)
     if (ppsm) bf.snosm_ppsm = ppsm
   }
-  // Médicalisation : Cim'Alerte ne connaît que Oui/Non (is_med), jamais "Non obtenue" — devinable seulement dans ce sens-là.
-  if (!bf.snosm_medicalisation && typeof fiche.is_med === 'boolean') bf.snosm_medicalisation = fiche.is_med ? 'Oui' : 'Non'
+  // Médicalisation : Cim'Alerte ne connaît que Oui/Non (is_med), jamais "Non obtenue" — devinable seulement dans ce
+  // sens-là. `is_med` peut arriver en booléen strict ou en équivalent (chaîne/0-1) selon ce que Grist renvoie —
+  // comparaison volontairement large plutôt que `typeof … === 'boolean'`, qui ratait le préremplissage si ce n'était pas le cas.
+  if (!bf.snosm_medicalisation && fiche.is_med != null) bf.snosm_medicalisation = fiche.is_med === true || fiche.is_med === 'true' || fiche.is_med === 1 ? 'Oui' : 'Non'
   // Circonstances / description (onglet Intervention) : brouillon généré depuis les victimes (sexe/âge/circonstances/
   // cinétique) et l'activité — juste un point de départ, jamais réécrit si déjà rempli, toujours modifiable ensuite.
   if (!bf.description) {

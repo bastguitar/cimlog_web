@@ -198,6 +198,26 @@ export const OPTIONS_CIRCONSTANCES_VICTIME = [
 // ce champ ici quand une alerte a été mal renseignée à la prise d'appel.
 export const OPTIONS_TYPE_INTERVENTION = ['Héliportée', 'Terrestre', 'Mixte']
 
+const TYPE_OPERATION_PAR_CODE = { HELIPORTEE: 'Héliportée', TERRESTRE: 'Terrestre', MIXTE: 'Mixte' }
+
+/**
+ * Reclasse la valeur brute Cim'Alerte (`type_intervention`, ex. "mixte",
+ * "terrestre" — en pratique poussée en minuscules, sans accent parfois) vers
+ * l'une des 3 valeurs exactes du radio ci-dessus. Sans cette reclassification,
+ * "mixte" ≠ "Mixte" pour le radio (comparaison stricte) : le champ semblait ne
+ * jamais se préremplir alors que la valeur était bien là côté Cim'Alerte —
+ * bug remonté par l'utilisateur sur une intervention réelle.
+ */
+export function snosmTypeOperationDepuis(typeBrut) {
+  if (!typeBrut) return null
+  const t = String(typeBrut)
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .trim()
+  return TYPE_OPERATION_PAR_CODE[t] ?? null
+}
+
 // Valeurs SNOSM exactes (formulaire réel, onglet Général — "Origine de
 // l'alerte :") : CODIS / SAMU / CORG / VICTIME TEMOIN / SERVICE DES PISTES /
 // AUTRE, accompagnées d'une case de précision libre à part
