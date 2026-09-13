@@ -139,6 +139,31 @@ export function ChampAutocomplete({ label, valeur, onChange, options }) {
   )
 }
 
+/** Boutons radio + une case de précision libre sur la même ligne (ex. Origine de l'alerte / « Autre »), comme le vrai formulaire SNOSM. */
+export function ChampRadioTexte({ label, valeur, onChange, options, valeurTexte, onChangeTexte, placeholderTexte }) {
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="ligne-radio-texte-snosm">
+        <div className="champ-radio-snosm">
+          {options.map((o) => (
+            <label key={o}>
+              <input type="radio" name={label} checked={valeur === o} onChange={() => onChange(o)} />
+              {o}
+            </label>
+          ))}
+        </div>
+        <input
+          type="text"
+          placeholder={placeholderTexte}
+          value={valeurTexte ?? ''}
+          onChange={(e) => onChangeTexte(e.target.value)}
+        />
+      </div>
+    </div>
+  )
+}
+
 export function ChampCheckbox({ label, valeur, onChange }) {
   return (
     <label className="champ-checkbox-snosm">
@@ -162,14 +187,26 @@ export function ChampDateTime({ label, valeur, onChange }) {
 }
 
 /** Rendu générique d'un champ, piloté par la description déclarative des onglets SNOSM (voir OngletSnosm). */
-export function ChampSnosm({ description, valeur, onChange, secouristes }) {
-  const { label, type, options } = description
+export function ChampSnosm({ description, valeur, onChange, secouristes, valeurLiee, onChangeLiee }) {
+  const { label, type, options, placeholderLie } = description
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
   if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'radio') return <ChampRadio label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'radio-texte')
+    return (
+      <ChampRadioTexte
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        options={options}
+        valeurTexte={valeurLiee}
+        onChangeTexte={onChangeLiee}
+        placeholderTexte={placeholderLie}
+      />
+    )
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />

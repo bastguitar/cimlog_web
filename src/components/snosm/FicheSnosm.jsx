@@ -72,8 +72,14 @@ const GROUPES_GENERAL = [
     titre: 'Alerte',
     champs: [
       { cle: 'snosm_numero_texte', label: 'N° de texte' },
-      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte', type: 'radio', options: OPTIONS_ORIGINE_ALERTE },
-      { cle: 'snosm_origine_alerte_autre', label: 'Origine — précision si « Autre »' },
+      {
+        cle: 'snosm_origine_alerte',
+        label: 'Origine de l’alerte',
+        type: 'radio-texte',
+        options: OPTIONS_ORIGINE_ALERTE,
+        champLie: 'snosm_origine_alerte_autre',
+        placeholderLie: 'Précision si « Autre »',
+      },
     ],
   },
   {
@@ -280,6 +286,8 @@ function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
             valeur={brouillon[c.cle]}
             onChange={(v) => majChamp(c.cle, v)}
             secouristes={secouristes}
+            valeurLiee={c.champLie ? brouillon[c.champLie] : undefined}
+            onChangeLiee={c.champLie ? (v) => majChamp(c.champLie, v) : undefined}
           />
         ))}
       </div>
@@ -289,7 +297,11 @@ function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
 
 function brouillonFicheDepuis(fiche) {
   const bf = {}
-  for (const g of TOUS_GROUPES_INTERVENTION) for (const c of g.champs) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
+  for (const g of TOUS_GROUPES_INTERVENTION)
+    for (const c of g.champs) {
+      bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
+      if (c.champLie) bf[c.champLie] = fiche[c.champLie] ?? ''
+    }
   for (const c of CHAMPS_AVALANCHE_EVENEMENT) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
   bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
   // Le n° de texte SNOSM est le n° d'intervention Cim'Alerte — prérempli s'il n'a pas déjà été saisi.
@@ -303,6 +315,8 @@ function brouillonFicheDepuis(fiche) {
       if (bucket === 'AUTRE' && !bf.snosm_origine_alerte_autre) bf.snosm_origine_alerte_autre = fiche.alert_origin
     }
   }
+  // Nature de l'opération : quasi toujours "Secours en montagne" en pratique — précochée par défaut, modifiable.
+  if (!bf.snosm_nature_operation) bf.snosm_nature_operation = 'Secours en montagne'
   // Alerte/Départ/Sur les lieux/Fin d'opération : préremplis depuis Cim'Alerte (heure d'alerte, puis
   // statuts terrain horodatés de la main courante — premier DEPART/ASL/FIN), modifiables ensuite comme
   // n'importe quel champ, jamais réécrits sur Cim'Alerte lui-même (colonnes Snosm* dédiées côté Grist).
@@ -636,9 +650,11 @@ function ChampsLecture({ champs, source }) {
     const valeur = source[c.cle]
     // "[]" : jsonb vide côté Cim'Alerte, sérialisé en texte tel quel par Grist — pas une vraie valeur.
     const vide = valeur == null || valeur === '' || valeur === '[]'
+    const valeurLiee = c.champLie ? source[c.champLie] : null
     return (
       <Detail key={c.cle} label={c.label}>
         {c.type === 'checkbox' ? (valeur ? 'Oui' : 'Non') : vide ? '—' : String(valeur)}
+        {valeurLiee ? ` (${valeurLiee})` : ''}
       </Detail>
     )
   })

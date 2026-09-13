@@ -1969,6 +1969,18 @@ main > * {
   padding-top: 2px;
 }
 
+.ligne-radio-texte-snosm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.ligne-radio-texte-snosm input[type='text'] {
+  flex: 1;
+  min-width: 160px;
+}
+
 .champ-radio-snosm label {
   display: flex;
   align-items: center;
