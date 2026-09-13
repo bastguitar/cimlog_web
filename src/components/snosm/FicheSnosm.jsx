@@ -289,29 +289,28 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
 
 /**
  * Un seul groupe, tout modifiable (y compris nom/prénom/date de naissance/sexe/nationalité/
- * téléphone/âge, connus via Cim'Alerte mais parfois mal saisis à la prise d'appel — décision
- * utilisateur). Pathologie/Circonstances/Cinétique/Douleur (texte libre Cim'Alerte) ne sont plus
- * affichés ici : redondants avec Circonstances (liste SNOSM) et le compte-rendu généré
- * automatiquement (onglet Intervention, voir genererCirconstancesGlobales) qui les lit déjà.
- * Statut et État médical en premier (tous deux — décision utilisateur). Regroupement délibéré
- * ensuite : identité, puis naissance/profession/adresse ("à côté" les uns des autres), puis
- * blessure, puis destination/prise en charge.
+ * téléphone, connus via Cim'Alerte mais parfois mal saisis à la prise d'appel — décision
+ * utilisateur). Pathologie/Circonstances/Cinétique/Douleur (texte libre Cim'Alerte) ni Âge ne sont
+ * affichés ici : les deux premiers redondants avec Circonstances (liste SNOSM) et le compte-rendu
+ * généré automatiquement (onglet Intervention), Âge redondant avec Date de naissance.
+ * Statut, puis État médical, chacun sur sa propre ligne (décision utilisateur) ; puis le bloc
+ * identité (Nom/Prénom/Sexe/adresse/Nationalité/Téléphone/naissance/Profession, dans cet ordre) ;
+ * puis blessure, puis destination/prise en charge.
  */
 const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_statut', label: 'Statut', type: 'bulles', options: OPTIONS_STATUT_PERSONNE },
-  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
+  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL, pleineLargeur: true },
   { cle: 'nom', label: 'Nom' },
   { cle: 'prenom', label: 'Prénom' },
   { cle: 'sexe', label: 'Sexe' },
-  { cle: 'nationalite', label: 'Nationalité' },
-  { cle: 'telephone', label: 'Téléphone' },
-  { cle: 'age', label: 'Âge' },
-  { cle: 'date_naissance', label: 'Date de naissance', type: 'date' },
-  { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
-  { cle: 'snosm_profession', label: 'Profession' },
   { cle: 'snosm_demeurant', label: 'Demeurant', type: 'texte-long', rows: 2 },
   { cle: 'snosm_commune', label: 'Commune' },
   { cle: 'snosm_pays', label: 'Pays' },
+  { cle: 'nationalite', label: 'Nationalité' },
+  { cle: 'telephone', label: 'Téléphone' },
+  { cle: 'date_naissance', label: 'Date de naissance', type: 'date' },
+  { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
+  { cle: 'snosm_profession', label: 'Profession' },
   { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'liste', options: OPTIONS_LOCALISATION_BLESSURE },
   { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'liste', options: OPTIONS_TYPE_BLESSURE },
   { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },

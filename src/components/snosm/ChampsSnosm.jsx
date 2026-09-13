@@ -53,9 +53,9 @@ export function ChampNombre({ label, valeur, onChange, min = 0 }) {
   )
 }
 
-export function ChampListe({ label, valeur, onChange, options }) {
+export function ChampListe({ label, valeur, onChange, options, pleineLargeur }) {
   return (
-    <div className="detail-fiche-edition">
+    <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <select value={valeur ?? ''} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
@@ -466,7 +466,8 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
   if (type === 'date') return <ChampDate label={label} valeur={valeur} onChange={onChange} />
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} rows={description.rows} />
-  if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'liste')
+    return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} pleineLargeur={description.pleineLargeur} />
   if (type === 'liste-multiple')
     return (
       <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={description.libelleAjout} />
