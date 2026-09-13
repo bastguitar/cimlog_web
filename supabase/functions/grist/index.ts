@@ -339,6 +339,8 @@ function versVictimeApp(f: Record<string, unknown>) {
     // intervention sont parties vers des destinations différentes.
     destination_cim_alerte: f.Destination || null,
     depose_le: depuisGrist(f.DeposeLe, 'datetime'),
+    adresse_cim_alerte: f.Adresse || null,
+    lieu_naissance_cim_alerte: f.LieuNaissance || null,
   }
   for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) base[appKey] = depuisGrist(f[gristCol], type)
   return base

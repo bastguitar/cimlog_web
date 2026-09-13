@@ -111,7 +111,7 @@ const GROUPES_GENERAL = [
       // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielActivites dans Grist).
       { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: [] },
       { cle: 'alt', label: 'Altitude (m)' },
-      { cle: 'snosm_meteo', label: 'Météo', type: 'liste', options: OPTIONS_METEO },
+      { cle: 'snosm_meteo', label: 'Météo', type: 'tags', options: OPTIONS_METEO },
     ],
   },
   {
@@ -137,7 +137,7 @@ const GROUPES_GENERAL = [
         label: 'Localisation piste',
         type: 'repliable',
         options: OPTIONS_LOCALISATION_PISTE,
-        visibleSi: () => true,
+        visibleSi: visibleSiActiviteGlisse,
         optionsSi: optionsLocalisationPisteSelonDomaine,
       },
       {
@@ -316,8 +316,8 @@ const CHAMPS_IMPLIQUE = [
   { cle: 'date_naissance', label: 'Date de naissance', type: 'date' },
   { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
   { cle: 'snosm_profession', label: 'Profession' },
-  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'liste', options: OPTIONS_LOCALISATION_BLESSURE },
-  { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'liste', options: OPTIONS_TYPE_BLESSURE },
+  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'tags', options: OPTIONS_LOCALISATION_BLESSURE },
+  { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'tags', options: OPTIONS_TYPE_BLESSURE },
   { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   { cle: 'snosm_destination', label: 'Destination' },
   { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
@@ -468,6 +468,9 @@ function brouillonVictimesDepuis(fiche) {
     // victimes, à corriger à la main si elles sont parties vers des endroits différents).
     if (!bv[v.id].snosm_destination && v.destination_cim_alerte) bv[v.id].snosm_destination = v.destination_cim_alerte
     if (!bv[v.id].snosm_fin_prise_en_charge_le && v.depose_le) bv[v.id].snosm_fin_prise_en_charge_le = v.depose_le
+    // Adresse / Lieu de naissance : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
+    if (!bv[v.id].snosm_demeurant && v.adresse_cim_alerte) bv[v.id].snosm_demeurant = v.adresse_cim_alerte
+    if (!bv[v.id].snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv[v.id].snosm_lieu_naissance = v.lieu_naissance_cim_alerte
   }
   return bv
 }
