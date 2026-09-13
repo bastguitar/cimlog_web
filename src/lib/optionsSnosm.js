@@ -471,6 +471,38 @@ export const optionsLocalisationPisteSelonDomaine = (bf) => {
   return null
 }
 
+function libelleSexe(sexe) {
+  const s = (sexe ?? '').trim().toUpperCase()
+  if (s === 'F' || s === 'FEMME' || s === 'FEMININ') return 'Femme'
+  if (s === 'M' || s === 'HOMME' || s === 'MASCULIN') return 'Homme'
+  return sexe || null
+}
+
+function texteCirconstancesVictime(v) {
+  const morceaux = []
+  const sexeAge = [libelleSexe(v.sexe), v.age ? `${v.age} ans` : null].filter(Boolean).join(' ')
+  if (sexeAge) morceaux.push(sexeAge)
+  const circonstance = [v.circonstances, v.cinetique ? `à ${String(v.cinetique).toLowerCase()} cinétique` : null]
+    .filter(Boolean)
+    .join(' ')
+  if (circonstance) morceaux.push(circonstance)
+  return morceaux.join(', ')
+}
+
+/**
+ * Message de circonstances globales généré depuis les victimes (sexe, âge,
+ * circonstances, cinétique — champs Cim'Alerte déjà connus) et l'activité de
+ * l'intervention, ex. « Femme 28 ans, Chute à haute cinétique en VTT cross
+ * country ». Préremplissage du champ "Circonstances / description" (onglet
+ * Intervention) seulement s'il est vide, jamais figé — toujours réécrit à la
+ * main ensuite si le brouillon généré ne convient pas.
+ */
+export function genererCirconstancesGlobales(fiche) {
+  const phrases = (fiche.victimes ?? []).map(texteCirconstancesVictime).filter(Boolean)
+  const base = phrases.join(' ; ')
+  return [base, fiche.activity ? `en ${fiche.activity}` : null].filter(Boolean).join(' ')
+}
+
 export const OPTIONS_ORIENTATION = [
   'NORD',
   'NORD-NORD-EST',

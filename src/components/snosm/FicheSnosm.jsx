@@ -43,6 +43,7 @@ import {
   visibleSiHelicoptereSaf,
   OPTIONS_ROLE_EFFECTIF,
   roleSnosmDepuis,
+  genererCirconstancesGlobales,
   snosmStatutDepuis,
 } from '../../lib/optionsSnosm'
 import {
@@ -400,6 +401,12 @@ function brouillonFicheDepuis(fiche) {
   }
   // Médicalisation : Cim'Alerte ne connaît que Oui/Non (is_med), jamais "Non obtenue" — devinable seulement dans ce sens-là.
   if (!bf.snosm_medicalisation && typeof fiche.is_med === 'boolean') bf.snosm_medicalisation = fiche.is_med ? 'Oui' : 'Non'
+  // Circonstances / description (onglet Intervention) : brouillon généré depuis les victimes (sexe/âge/circonstances/
+  // cinétique) et l'activité — juste un point de départ, jamais réécrit si déjà rempli, toujours modifiable ensuite.
+  if (!bf.description) {
+    const genere = genererCirconstancesGlobales(fiche)
+    if (genere) bf.description = genere
+  }
   return bf
 }
 
