@@ -1780,7 +1780,8 @@ main > * {
 }
 
 .detail-fiche-edition input,
-.detail-fiche-edition textarea {
+.detail-fiche-edition textarea,
+.detail-fiche-edition select {
   font: inherit;
   font-size: 13px;
   padding: 6px 8px;
@@ -1788,10 +1789,44 @@ main > * {
   border-radius: var(--radius-sm);
   background: var(--bg-alt);
   color: var(--text-h);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.detail-fiche-edition input:hover,
+.detail-fiche-edition textarea:hover,
+.detail-fiche-edition select:hover {
+  border-color: color-mix(in srgb, var(--accent) 35%, var(--border));
+}
+
+.detail-fiche-edition input:focus,
+.detail-fiche-edition textarea:focus,
+.detail-fiche-edition select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
 }
 
 .detail-fiche-edition textarea {
   resize: vertical;
+}
+
+/* Le <select> natif est autrement blanc/gris et sans cohérence avec le
+   reste du design (aucune règle ne le stylait avant) — chevron dessiné à la
+   main (deux variantes clair/sombre) plutôt que la flèche du système. */
+.detail-fiche-edition select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23667085' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 9px center;
+}
+
+@media (prefers-color-scheme: dark) {
+  .detail-fiche-edition select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23aab4c0' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
 }
 
 .champ-bool-edition {
@@ -1898,10 +1933,40 @@ main > * {
 .champ-radio-snosm label {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 7px;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
   cursor: pointer;
   white-space: nowrap;
+}
+
+/* Rond à cocher plein + coche blanche à la sélection, plutôt que le rond
+   système — inspiré du vrai formulaire SNOSM, dans les couleurs de l'appli. */
+.champ-radio-snosm input[type='radio'] {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  margin: 0;
+  border: 2px solid var(--border);
+  border-radius: 50%;
+  background-color: var(--bg-alt);
+  background-repeat: no-repeat;
+  background-position: center;
+  cursor: pointer;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+
+.champ-radio-snosm input[type='radio']:hover {
+  border-color: color-mix(in srgb, var(--accent) 50%, var(--border));
+}
+
+.champ-radio-snosm input[type='radio']:checked {
+  border-color: var(--accent);
+  background-color: var(--accent);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3l2.3 2.3 4.9-5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
 .champ-compteur-snosm {

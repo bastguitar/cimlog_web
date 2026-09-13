@@ -16,7 +16,9 @@ import {
   OPTIONS_TYPE_INTERVENTION,
   OPTIONS_ORIGINE_ALERTE,
   OPTIONS_ACTIVITE,
+  OPTIONS_PPSM,
   snosmOrigineDepuis,
+  ppsmDepuisSquadCode,
 } from '../../lib/optionsSnosm'
 import {
   modifierIntervention,
@@ -95,10 +97,8 @@ const GROUPES_MOYENS = [
     titre: 'Opération',
     champs: [
       { cle: 'snosm_type_operation_moyens', label: 'Opération', type: 'radio', options: OPTIONS_TYPE_INTERVENTION },
-      { cle: 'snosm_ppsm', label: 'PPSM(s)' },
-      { cle: 'helicopter', label: 'Hélicoptère', type: 'liste-si-vide', options: OPTIONS_HELICOPTERES },
+      { cle: 'snosm_ppsm', label: 'PPSM(s)', type: 'liste', options: OPTIONS_PPSM },
       { cle: 'snosm_helicopteres', label: 'Hélicoptère(s)', type: 'liste', options: OPTIONS_HELICOPTERES },
-      { cle: 'type_intervention', label: 'Type d’intervention', type: 'liste-si-vide', options: OPTIONS_TYPE_INTERVENTION },
       { cle: 'support_units', label: 'Unités en soutien' },
       { cle: 'snosm_medicalisation', label: 'Médicalisation' },
       { cle: 'is_med', label: 'Médicalisée', type: 'checkbox' },
@@ -285,6 +285,14 @@ function brouillonFicheDepuis(fiche) {
   if (!bf.snosm_fin_operation_le && fiche.fin_le) bf.snosm_fin_operation_le = fiche.fin_le
   // Opération (héliportée/terrestre/mixte) : reprend le type d'intervention Cim'Alerte quand il est renseigné.
   if (!bf.snosm_type_operation_moyens && fiche.type_intervention) bf.snosm_type_operation_moyens = fiche.type_intervention
+  // Hélicoptère(s) : reprend l'hélicoptère Cim'Alerte seulement s'il correspond exactement à un appareil
+  // connu — le texte libre Cim'Alerte est trop hétérogène pour être fiable au-delà d'une correspondance exacte.
+  if (!bf.snosm_helicopteres && OPTIONS_HELICOPTERES.includes(fiche.helicopter)) bf.snosm_helicopteres = fiche.helicopter
+  // PPSM : déduit du poste précis qui a pris l'alerte (squad_code, granulaire — CRS73C, CRS38H…), jamais deviné au-delà de cette table.
+  if (!bf.snosm_ppsm) {
+    const ppsm = ppsmDepuisSquadCode(fiche.squad_code)
+    if (ppsm) bf.snosm_ppsm = ppsm
+  }
   return bf
 }
 

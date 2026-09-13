@@ -274,6 +274,56 @@ export const OPTIONS_ACTIVITE = [
   'Rafting',
 ]
 
+// Export réel Grigoletto (table CrsPpsm) — le tableur SNOSM fourni par
+// l'utilisateur n'en listait que 17, il manquait BERARDE.
+export const OPTIONS_PPSM = [
+  'BASE LALOUBERE',
+  'BERARDE',
+  'BOLQUERE',
+  'BRIANCON',
+  'GAVARNIE',
+  'GRENOBLE',
+  'HUEZ',
+  'LUCHON',
+  'ST LARY',
+  'VERSOUD',
+  'NICE',
+  'BASE CANNES',
+  'ISOLA',
+  'ST MARTIN VESUBIE',
+  'TENDE',
+  'ALBERTVILLE',
+  'COURCHEVEL',
+  'MODANE',
+  'PERPIGNAN',
+]
+
+/**
+ * squad_code Cim'Alerte (poste précis qui a pris l'alerte, pas seulement sa
+ * section mère — CRS73C pour Courchevel, CRS38H pour Huez…) -> PPSM. Vérifié
+ * en base par la session Cim'Alerte. Un code absent d'ici (poste créé depuis,
+ * ou renommé) ne bloque rien : le champ retombe simplement en sélection
+ * manuelle, à vérifier auprès de l'utilisateur le cas échéant.
+ */
+const PPSM_PAR_SQUAD_CODE = {
+  CRS05: 'BRIANCON',
+  CRS06: 'NICE',
+  CRS06V: 'ST MARTIN VESUBIE',
+  CRS38: 'GRENOBLE',
+  CRS38H: 'HUEZ',
+  CRS65: 'ST LARY',
+  CRS65L: 'LUCHON',
+  CRS65S: 'ST LARY',
+  CRS65G: 'GAVARNIE',
+  CRS66: 'PERPIGNAN',
+  CRS66B: 'BOLQUERE',
+  CRS73: 'ALBERTVILLE',
+  CRS73C: 'COURCHEVEL',
+  CRS73M: 'MODANE',
+}
+
+export const ppsmDepuisSquadCode = (squadCode) => PPSM_PAR_SQUAD_CODE[squadCode] ?? null
+
 // Liste vivante de l'appli Cim'Alerte (table `ref_helico`, appareils actifs
 // uniquement — SAF est désactivé, remplacé par YETI 1/YETI 2), avec Choucas
 // 69 et Dragon 69 ajoutés à la demande de l'utilisateur (absents de
