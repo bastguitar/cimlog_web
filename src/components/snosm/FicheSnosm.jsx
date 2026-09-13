@@ -34,6 +34,8 @@ import {
   OPTIONS_TAILLE_AVALANCHE,
   OPTIONS_NIVEAU_RISQUE,
   OPTIONS_ORIENTATION,
+  visibleSiActiviteGlisse,
+  optionsLocalisationPisteSelonDomaine,
   snosmOrigineDepuis,
   ppsmDepuisSquadCode,
   snosmStatutDepuis,
@@ -107,11 +109,36 @@ const GROUPES_GENERAL = [
   {
     titre: 'Domaine',
     champs: [
-      { cle: 'snosm_type_domaine', label: 'Type de domaine', type: 'radio', options: OPTIONS_TYPE_DOMAINE },
+      {
+        cle: 'snosm_type_domaine',
+        label: 'Type de domaine',
+        type: 'repliable',
+        options: OPTIONS_TYPE_DOMAINE,
+        visibleSi: visibleSiActiviteGlisse,
+      },
       { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT },
-      { cle: 'snosm_diplome_encadrant', label: 'Diplôme encadrant', type: 'radio', options: OPTIONS_DIPLOME_ENCADRANT },
-      { cle: 'snosm_localisation_piste', label: 'Localisation piste', type: 'radio', options: OPTIONS_LOCALISATION_PISTE },
-      { cle: 'snosm_neige', label: 'Neige', type: 'radio', options: OPTIONS_NEIGE },
+      {
+        cle: 'snosm_diplome_encadrant',
+        label: 'Diplôme encadrant',
+        type: 'repliable',
+        options: OPTIONS_DIPLOME_ENCADRANT,
+        visibleSi: (bf) => bf.snosm_encadrement === 'ENCADREMENT ASSOCIATIF' || bf.snosm_encadrement === 'ENCADREMENT PROFESSIONNEL',
+      },
+      {
+        cle: 'snosm_localisation_piste',
+        label: 'Localisation piste',
+        type: 'repliable',
+        options: OPTIONS_LOCALISATION_PISTE,
+        visibleSi: () => true,
+        optionsSi: optionsLocalisationPisteSelonDomaine,
+      },
+      {
+        cle: 'snosm_neige',
+        label: 'Neige',
+        type: 'repliable',
+        options: OPTIONS_NEIGE,
+        visibleSi: visibleSiActiviteGlisse,
+      },
     ],
   },
 ]
@@ -286,6 +313,7 @@ function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
             valeur={brouillon[c.cle]}
             onChange={(v) => majChamp(c.cle, v)}
             secouristes={secouristes}
+            brouillon={brouillon}
             valeurLiee={c.champLie ? brouillon[c.champLie] : undefined}
             onChangeLiee={c.champLie ? (v) => majChamp(c.champLie, v) : undefined}
           />

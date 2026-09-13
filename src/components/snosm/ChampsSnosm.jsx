@@ -89,10 +89,65 @@ export function ChampRadio({ label, valeur, onChange, options }) {
       <div className="champ-radio-snosm">
         {options.map((o) => (
           <label key={o}>
-            <input type="radio" name={label} checked={valeur === o} onChange={() => onChange(o)} />
+            <input
+              type="radio"
+              name={label}
+              checked={valeur === o}
+              onClick={() => valeur === o && onChange('')}
+              onChange={() => onChange(o)}
+            />
             {o}
           </label>
         ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Radio repliable : masqué derrière une flèche tant que `visible` est faux,
+ * dépliable manuellement à tout moment (état local, jamais reverrouillé
+ * ensuite). `optionsParDefaut`, si fourni, réduit la liste affichée avant
+ * dépliage manuel — dépliée, la liste complète (`options`) redevient
+ * accessible : rien de ce qui existait avant n'est jamais rendu impossible
+ * à cocher, juste replié par défaut pour ne pas encombrer l'écran.
+ */
+export function ChampRepliable({ label, valeur, onChange, options, optionsParDefaut, visible }) {
+  const [deplie, setDeplie] = useState(false)
+  const estVisible = visible || deplie
+
+  if (!estVisible) {
+    return (
+      <button type="button" className="bouton-repliable-snosm" onClick={() => setDeplie(true)}>
+        <span className="fleche-repliable-snosm">▸</span> {label}
+      </button>
+    )
+  }
+
+  const optionsAffichees = deplie ? options : (optionsParDefaut ?? options)
+  const reduit = !deplie && optionsParDefaut && optionsParDefaut.length < options.length
+
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="champ-radio-snosm">
+        {optionsAffichees.map((o) => (
+          <label key={o}>
+            <input
+              type="radio"
+              name={label}
+              checked={valeur === o}
+              onClick={() => valeur === o && onChange('')}
+              onChange={() => onChange(o)}
+            />
+            {o}
+          </label>
+        ))}
+        {reduit && (
+          <button type="button" className="lien-voir-tout-snosm" onClick={() => setDeplie(true)}>
+            Voir toutes les options
+          </button>
+        )}
       </div>
     </div>
   )
@@ -148,7 +203,13 @@ export function ChampRadioTexte({ label, valeur, onChange, options, valeurTexte,
         <div className="champ-radio-snosm">
           {options.map((o) => (
             <label key={o}>
-              <input type="radio" name={label} checked={valeur === o} onChange={() => onChange(o)} />
+              <input
+                type="radio"
+                name={label}
+                checked={valeur === o}
+                onClick={() => valeur === o && onChange('')}
+                onChange={() => onChange(o)}
+              />
               {o}
             </label>
           ))}
@@ -187,7 +248,7 @@ export function ChampDateTime({ label, valeur, onChange }) {
 }
 
 /** Rendu générique d'un champ, piloté par la description déclarative des onglets SNOSM (voir OngletSnosm). */
-export function ChampSnosm({ description, valeur, onChange, secouristes, valeurLiee, onChangeLiee }) {
+export function ChampSnosm({ description, valeur, onChange, secouristes, valeurLiee, onChangeLiee, brouillon }) {
   const { label, type, options, placeholderLie } = description
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
@@ -195,6 +256,17 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
   if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'radio') return <ChampRadio label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'repliable')
+    return (
+      <ChampRepliable
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        options={options}
+        optionsParDefaut={description.optionsSi ? description.optionsSi(brouillon ?? {}) : undefined}
+        visible={description.visibleSi ? description.visibleSi(brouillon ?? {}) : true}
+      />
+    )
   if (type === 'radio-texte')
     return (
       <ChampRadioTexte

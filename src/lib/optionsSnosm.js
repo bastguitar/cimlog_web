@@ -286,25 +286,25 @@ export const OPTIONS_ACTIVITE = [
 // Export réel Grigoletto (table CrsPpsm) — le tableur SNOSM fourni par
 // l'utilisateur n'en listait que 17, il manquait BERARDE.
 export const OPTIONS_PPSM = [
+  'ALBERTVILLE',
+  'BASE CANNES',
   'BASE LALOUBERE',
   'BERARDE',
   'BOLQUERE',
   'BRIANCON',
+  'COURCHEVEL',
   'GAVARNIE',
   'GRENOBLE',
   'HUEZ',
-  'LUCHON',
-  'ST LARY',
-  'VERSOUD',
-  'NICE',
-  'BASE CANNES',
   'ISOLA',
+  'LUCHON',
+  'MODANE',
+  'NICE',
+  'PERPIGNAN',
+  'ST LARY',
   'ST MARTIN VESUBIE',
   'TENDE',
-  'ALBERTVILLE',
-  'COURCHEVEL',
-  'MODANE',
-  'PERPIGNAN',
+  'VERSOUD',
 ]
 
 /**
@@ -390,6 +390,33 @@ export const OPTIONS_TAILLE_AVALANCHE = [
 export const OPTIONS_NIVEAU_RISQUE = ['1-FAIBLE', '2-LIMITE', '3-MARQUE', '4-FORT', '5-TRES FORT']
 
 // Rose des vents à 16 branches — valeurs universelles, pas du vocabulaire SNOSM propre à vérifier.
+// Activités pour lesquelles Type de domaine et Neige se déplient par défaut
+// (décision utilisateur) — comparaison insensible à la casse dans
+// visibleSiActiviteGlisse ci-dessous, `activity` pouvant porter de la
+// casse historique différente (vieilles données Cim'Alerte).
+const ACTIVITES_DOMAINE_SKI = [
+  'Autres sports de glisse',
+  'Luge',
+  'Ski de fond',
+  'Ski de montagne',
+  'Ski de pente raide',
+  'Ski de piste',
+  'Ski de randonnée',
+  'Ski hors piste',
+  'Snowboard sur piste',
+  'Snowboard hors piste',
+]
+export const visibleSiActiviteGlisse = (bf) =>
+  ACTIVITES_DOMAINE_SKI.some((a) => a.toLowerCase() === String(bf.activity ?? '').toLowerCase())
+
+export const optionsLocalisationPisteSelonDomaine = (bf) => {
+  if (bf.snosm_type_domaine === 'Domaine skiable sur piste') {
+    return ['COMPETITION', 'PISTE BLEUE', 'PISTE NOIRE', 'PISTE ROUGE', 'PISTE VERTE', 'SNOWPARK ET SNOWCROSS']
+  }
+  if (bf.snosm_type_domaine === 'Domaine montagne') return ['HORS PISTE GRAVITAIRE', 'MONTAGNE', 'COMPETITION']
+  return null
+}
+
 export const OPTIONS_ORIENTATION = [
   'NORD',
   'NORD-NORD-EST',
