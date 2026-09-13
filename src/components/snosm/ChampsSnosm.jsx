@@ -119,6 +119,79 @@ export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = t
   )
 }
 
+// Octogone à 8 parts (Nord/Nord-Est/Est/Sud-Est/Sud/Sud-Ouest/Ouest/Nord-Ouest), inspiré d'une rose
+// des vents fournie par l'utilisateur — sommets aux angles ±22.5° de chaque direction (arêtes plates
+// sur les cardinaux), centre (100, 110), flèche pointillée vers le nord au-dessus.
+const SOMMETS_ORIENTATION = [
+  [65.6, 26.85],
+  [134.4, 26.85],
+  [183.2, 75.6],
+  [183.2, 144.4],
+  [134.4, 193.2],
+  [65.6, 193.2],
+  [16.85, 144.4],
+  [16.85, 75.6],
+]
+const PARTS_ORIENTATION = [
+  { valeur: 'nord', sommets: [0, 1], label: null },
+  { valeur: 'nord-est', sommets: [1, 2], label: ['Nord-', 'Est'], position: [141, 69] },
+  { valeur: 'est', sommets: [2, 3], label: ['Est'], position: [158, 110] },
+  { valeur: 'sud-est', sommets: [3, 4], label: ['Sud-', 'Est'], position: [141, 151] },
+  { valeur: 'sud', sommets: [4, 5], label: ['Sud'], position: [100, 168] },
+  { valeur: 'sud-ouest', sommets: [5, 6], label: ['Sud-', 'Ouest'], position: [59, 151] },
+  { valeur: 'ouest', sommets: [6, 7], label: ['Ouest'], position: [42, 110] },
+  { valeur: 'nord-ouest', sommets: [7, 0], label: ['Nord-', 'Ouest'], position: [59, 69] },
+]
+
+/** Rose des vents cliquable à 8 directions — la part choisie se colore en noir. */
+export function ChampOrientation({ label, valeur, onChange }) {
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <svg viewBox="0 0 200 220" className="champ-orientation-snosm" role="img" aria-label="Rose des vents">
+        <line x1="100" y1="110" x2="100" y2="22" className="orientation-fleche-nord" markerEnd="url(#fleche-nord)" />
+        <text x="100" y="14" className="orientation-legende-nord" textAnchor="middle">
+          Nord
+        </text>
+        {PARTS_ORIENTATION.map((p) => {
+          const [i1, i2] = p.sommets
+          const points = `100,110 ${SOMMETS_ORIENTATION[i1].join(',')} ${SOMMETS_ORIENTATION[i2].join(',')}`
+          const selectionnee = valeur === p.valeur
+          return (
+            <polygon
+              key={p.valeur}
+              points={points}
+              className={`orientation-part-snosm${selectionnee ? ' selectionnee' : ''}`}
+              onClick={() => onChange(selectionnee ? '' : p.valeur)}
+            />
+          )
+        })}
+        {PARTS_ORIENTATION.filter((p) => p.label).map((p) => (
+          <text
+            key={p.valeur}
+            x={p.position[0]}
+            y={p.position[1]}
+            textAnchor="middle"
+            className={`orientation-texte-snosm${valeur === p.valeur ? ' selectionnee' : ''}`}
+            style={{ pointerEvents: 'none' }}
+          >
+            {p.label.map((ligne, i) => (
+              <tspan key={ligne} x={p.position[0]} dy={i === 0 ? 0 : 12}>
+                {ligne}
+              </tspan>
+            ))}
+          </text>
+        ))}
+        <defs>
+          <marker id="fleche-nord" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" className="orientation-fleche-nord-pointe" />
+          </marker>
+        </defs>
+      </svg>
+    </div>
+  )
+}
+
 /** Choix unique en boutons bulles (comme le vrai formulaire SNOSM) plutôt qu'en boutons radio — jamais replié. */
 export function ChampBulles({ label, valeur, onChange, options }) {
   return (
@@ -470,6 +543,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
       />
     )
   if (type === 'bulles') return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'orientation') return <ChampOrientation label={label} valeur={valeur} onChange={onChange} />
   if (type === 'repliable')
     return (
       <ChampRepliable

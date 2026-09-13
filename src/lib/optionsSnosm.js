@@ -496,21 +496,3 @@ export const OPTIONS_TECHNIQUES_EVACUATION = [
   'DEPLACEMENT ENCORDE',
 ]
 
-export const OPTIONS_ORIENTATION = [
-  'nord',
-  'nord-nord-est',
-  'nord-est',
-  'est-nord-est',
-  'est',
-  'est-sud-est',
-  'sud-est',
-  'sud-sud-est',
-  'sud',
-  'sud-sud-ouest',
-  'sud-ouest',
-  'ouest-sud-ouest',
-  'ouest',
-  'ouest-nord-ouest',
-  'nord-ouest',
-  'nord-nord-ouest',
-]

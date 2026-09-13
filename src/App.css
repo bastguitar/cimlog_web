@@ -2263,6 +2263,134 @@ main > * {
   text-transform: uppercase;
 }
 
+.schema-avalanche-snosm {
+  max-width: 420px;
+  margin: 4px auto 14px;
+}
+
+.schema-avalanche-snosm svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  overflow: visible;
+}
+
+.schema-avalanche-plaque {
+  fill: var(--chaleur-bg);
+  stroke: var(--chaleur-clair);
+  stroke-width: 1.5;
+}
+
+.schema-avalanche-trajectoire {
+  fill: color-mix(in srgb, var(--chaleur) 10%, var(--bg-card));
+  stroke: var(--chaleur);
+  stroke-width: 1.5;
+}
+
+.schema-avalanche-cassure {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2.5;
+  stroke-dasharray: 4 3;
+}
+
+.schema-avalanche-depot {
+  fill: color-mix(in srgb, var(--chaleur) 22%, var(--bg-card));
+  stroke: var(--chaleur);
+  stroke-width: 1.2;
+}
+
+.schema-avalanche-cote {
+  stroke: var(--text);
+  stroke-width: 1.2;
+}
+
+.schema-avalanche-pointe {
+  fill: var(--text);
+}
+
+.schema-avalanche-legende {
+  fill: var(--text-h);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.saisie-schema-avalanche {
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  text-align: center;
+  font: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 2px 4px;
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-h);
+}
+
+.saisie-schema-avalanche:disabled {
+  border-color: var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+}
+
+.saisie-schema-avalanche:focus {
+  outline: none;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+}
+
+.champ-orientation-snosm {
+  display: block;
+  width: 100%;
+  max-width: 260px;
+  margin: 4px auto 0;
+}
+
+.orientation-part-snosm {
+  fill: var(--bg-card);
+  stroke: var(--border);
+  stroke-width: 1.5;
+  cursor: pointer;
+  transition: fill 0.15s, stroke 0.15s;
+}
+
+.orientation-part-snosm:hover {
+  stroke: var(--accent);
+}
+
+.orientation-part-snosm.selectionnee {
+  fill: #000;
+  stroke: #000;
+}
+
+.orientation-texte-snosm {
+  fill: var(--text-h);
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+.orientation-texte-snosm.selectionnee {
+  fill: #fff;
+}
+
+.orientation-fleche-nord {
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-dasharray: 4 3;
+}
+
+.orientation-fleche-nord-pointe {
+  fill: var(--text);
+}
+
+.orientation-legende-nord {
+  fill: var(--text-h);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .champ-compteur-snosm {
   display: flex;
   align-items: center;

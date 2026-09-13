@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { chargerTousSecouristes } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
 import { ChampSnosm, ChampCheckbox, ChampDateTime } from './ChampsSnosm'
+import SchemaAvalanche from './SchemaAvalanche'
 import {
   OPTIONS_ENCADREMENT,
   OPTIONS_DIPLOME_ENCADRANT,
@@ -33,7 +34,6 @@ import {
   OPTIONS_TYPE_AVALANCHE,
   OPTIONS_TAILLE_AVALANCHE,
   OPTIONS_NIVEAU_RISQUE,
-  OPTIONS_ORIENTATION,
   visibleSiActiviteGlisse,
   optionsLocalisationPisteSelonDomaine,
   snosmOrigineDepuis,
@@ -279,22 +279,26 @@ const GROUPES_AVIS = [
   },
 ]
 
+// Longueur/Largeur cassure/Hauteur cassure/Largeur dépôt ne sont plus dans la liste plate ci-dessous
+// : saisies directement sur le schéma d'avalanche (SchemaAvalanche.jsx), affiché juste avant dans
+// l'onglet — toujours les 4 mêmes champs texte libre, juste une présentation différente.
+const CHAMPS_SCHEMA_AVALANCHE = [
+  'snosm_avalanche_longueur',
+  'snosm_avalanche_largeur_cassure',
+  'snosm_avalanche_hauteur_cassure',
+  'snosm_avalanche_largeur_depot',
+]
+
 const CHAMPS_AVALANCHE_EVENEMENT = [
   { cle: 'snosm_avalanche_type', label: 'Type d’avalanche', type: 'radio', options: OPTIONS_TYPE_AVALANCHE },
   { cle: 'snosm_avalanche_taille', label: 'Taille d’avalanche', type: 'radio', options: OPTIONS_TAILLE_AVALANCHE },
   { cle: 'snosm_avalanche_niveau_risque', label: 'Niveau de risque', type: 'radio', options: OPTIONS_NIVEAU_RISQUE },
   { cle: 'snosm_avalanche_declenchement_le', label: 'Déclenchement', type: 'datetime' },
   { cle: 'snosm_avalanche_point_depart_gps', label: 'Point de départ (GPS)' },
-  // Texte libre plutôt que compteur +/- (décision utilisateur) : cliquer un par un jusqu'à 150 n'est
-  // pas praticable, autant taper la valeur directement — l'unité reste précisée dans le libellé.
-  { cle: 'snosm_avalanche_longueur', label: 'Longueur (m)' },
-  { cle: 'snosm_avalanche_largeur_cassure', label: 'Largeur cassure (m)' },
-  { cle: 'snosm_avalanche_hauteur_cassure', label: 'Hauteur cassure (cm)' },
-  { cle: 'snosm_avalanche_largeur_depot', label: 'Largeur dépôt (cm)' },
   { cle: 'snosm_avalanche_altitude', label: 'Altitude (m)' },
   { cle: 'snosm_avalanche_pente', label: 'Pente' },
   { cle: 'snosm_avalanche_denivele', label: 'Dénivelé total (m)', type: 'nombre' },
-  { cle: 'snosm_avalanche_orientation', label: 'Orientation', type: 'liste', options: OPTIONS_ORIENTATION },
+  { cle: 'snosm_avalanche_orientation', label: 'Orientation', type: 'orientation' },
   { cle: 'snosm_avalanche_nb_impliques', label: 'Nombre d’impliqués', type: 'nombre' },
   { cle: 'snosm_avalanche_nb_victimes', label: 'Nombre de victimes', type: 'nombre' },
   { cle: 'snosm_avalanche_nb_blesses', label: 'Nombre de blessés', type: 'nombre' },
@@ -413,6 +417,7 @@ function brouillonFicheDepuis(fiche, referentiels) {
       if (c.champLie) bf[c.champLie] = fiche[c.champLie] ?? ''
     }
   for (const c of CHAMPS_AVALANCHE_EVENEMENT) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
+  for (const cle of CHAMPS_SCHEMA_AVALANCHE) bf[cle] = fiche[cle] ?? ''
   bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
   // Le n° de texte SNOSM est le n° d'intervention Cim'Alerte — prérempli s'il n'a pas déjà été saisi.
   if (!bf.snosm_numero_texte && fiche.local_id) bf.snosm_numero_texte = String(fiche.local_id)
@@ -794,17 +799,23 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
               <>
                 <ChampCheckbox label="Avalanche" valeur={brouillonFiche.snosm_avalanche} onChange={(v) => majChampFiche('snosm_avalanche', v)} />
                 {brouillonFiche.snosm_avalanche && (
-                  <div className="grille-details-fiche" style={{ marginTop: 10 }}>
-                    {CHAMPS_AVALANCHE_EVENEMENT.map((c) => (
-                      <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
-                    ))}
-                  </div>
+                  <>
+                    <SchemaAvalanche valeurs={brouillonFiche} onChange={majChampFiche} />
+                    <div className="grille-details-fiche" style={{ marginTop: 10 }}>
+                      {CHAMPS_AVALANCHE_EVENEMENT.map((c) => (
+                        <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
+                      ))}
+                    </div>
+                  </>
                 )}
               </>
             ) : fiche.snosm_avalanche ? (
-              <div className="grille-details-fiche">
-                <ChampsLecture champs={CHAMPS_AVALANCHE_EVENEMENT} source={fiche} />
-              </div>
+              <>
+                <SchemaAvalanche valeurs={fiche} onChange={() => {}} lecture />
+                <div className="grille-details-fiche">
+                  <ChampsLecture champs={CHAMPS_AVALANCHE_EVENEMENT} source={fiche} />
+                </div>
+              </>
             ) : (
               <p className="aide">Pas d’avalanche renseignée pour cette intervention.</p>
             )}
