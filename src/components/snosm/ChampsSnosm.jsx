@@ -229,15 +229,16 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
 
 /**
  * Plusieurs gestes/techniques peuvent avoir été mis en œuvre sur une même
- * intervention (ex. gestes de secourisme, techniques d'évacuation) — bulles
- * multi-sélection tant que le contenu correspond au vocabulaire connu
- * (valeurs jointes par ", "). Dès que la valeur contient autre chose (récit
- * libre déjà saisi, ou poussé par Cim'Alerte hors de ce vocabulaire), on
- * repasse en texte libre normal — même principe que ChampListeOuTexte : ne
- * jamais forcer une valeur déjà saisie dans une liste qui pourrait ne pas la
- * contenir mot pour mot.
+ * intervention (ex. gestes de secourisme, techniques d'évacuation) — mêmes
+ * menus déroulants "valeur principale + Ajouter un autre" que PPSM/
+ * Hélicoptère (ChampListeMultiple), plutôt que des bulles qui prenaient trop
+ * de place à l'écran. Reste en texte libre tant que la valeur contient autre
+ * chose que ce vocabulaire (récit déjà saisi, ou poussé par Cim'Alerte hors
+ * de cette liste) — même principe que ChampListeOuTexte : ne jamais forcer
+ * une valeur déjà saisie dans une liste qui pourrait ne pas la contenir mot
+ * pour mot.
  */
-export function ChampBullesOuTexte({ label, valeur, onChange, options }) {
+export function ChampListeMultipleOuTexte({ label, valeur, onChange, options, libelleAjout }) {
   const valeurs = (valeur ?? '')
     .split(',')
     .map((v) => v.trim())
@@ -245,30 +246,7 @@ export function ChampBullesOuTexte({ label, valeur, onChange, options }) {
   const optionsMaj = options.map((o) => o.toUpperCase())
   const reconnu = valeurs.every((v) => optionsMaj.includes(v.toUpperCase()))
   if (!reconnu) return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
-
-  const basculer = (o) => {
-    const deja = valeurs.some((v) => v.toUpperCase() === o.toUpperCase())
-    const nouveau = deja ? valeurs.filter((v) => v.toUpperCase() !== o.toUpperCase()) : [...valeurs, o]
-    onChange(nouveau.join(', '))
-  }
-
-  return (
-    <div className="detail-fiche-edition detail-pleine-largeur">
-      <span className="etiquette-detail-fiche">{label}</span>
-      <div className="champ-bulles-snosm">
-        {options.map((o) => (
-          <button
-            type="button"
-            key={o}
-            className={`bulle-snosm${valeurs.some((v) => v.toUpperCase() === o.toUpperCase()) ? ' selectionnee' : ''}`}
-            onClick={() => basculer(o)}
-          >
-            {o}
-          </button>
-        ))}
-      </div>
-    </div>
-  )
+  return <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={libelleAjout} />
 }
 
 /**
@@ -407,7 +385,16 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
       />
     )
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
-  if (type === 'bulles-ou-texte') return <ChampBullesOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'liste-multiple-ou-texte')
+    return (
+      <ChampListeMultipleOuTexte
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        options={options}
+        libelleAjout={description.libelleAjout}
+      />
+    )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />

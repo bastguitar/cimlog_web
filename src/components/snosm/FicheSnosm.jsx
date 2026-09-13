@@ -204,14 +204,16 @@ const GROUPES_INTERVENTION = [
       {
         cle: 'snosm_gestes_secourisme',
         label: 'Geste(s) de secourisme effectué(s)',
-        type: 'bulles-ou-texte',
+        type: 'liste-multiple-ou-texte',
         options: OPTIONS_GESTES_SECOURISME,
+        libelleAjout: 'un autre geste',
       },
       {
         cle: 'snosm_techniques_evacuation',
         label: 'Technique(s) d’évacuation mise(s) en œuvre',
-        type: 'bulles-ou-texte',
+        type: 'liste-multiple-ou-texte',
         options: OPTIONS_TECHNIQUES_EVACUATION,
+        libelleAjout: 'une autre technique',
       },
     ],
   },
@@ -484,10 +486,12 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
   const [generationTO, setGenerationTO] = useState(false)
   // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
+  // Dédoublonné sur le libellé (nom + prénom, sans la section) : une même personne peut apparaître
+  // plusieurs fois côté annuaire (affectations multiples), mais ne doit être proposée qu'une fois ici.
   const [secouristes, setSecouristes] = useState([])
   useEffect(() => {
     chargerTousSecouristes()
-      .then((liste) => setSecouristes(liste.map((s) => s.libelle)))
+      .then((liste) => setSecouristes([...new Set(liste.map((s) => s.libelle))]))
       .catch(() => {})
   }, [])
   // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
@@ -612,6 +616,12 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     await ajouterLigneEffectif(roleSnosmDepuis(entree.role), entree.nom)
   }
 
+  /** Secouristes engagés sur CETTE intervention côté Cim'Alerte (fiche.team) — pas de rôle connu, Secouriste par défaut. */
+  async function ajouterDepuisEquipe(nom) {
+    if (effectifs.some((e) => e.personne === nom)) return
+    await ajouterLigneEffectif('Secouriste', nom)
+  }
+
   async function majEffectif(id, champs) {
     try {
       await modifierEffectifEngage(id, fiche.id, codesRequete, champs)
@@ -678,14 +688,23 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
               <LectureGroupes groupes={GROUPES_MOYENS_AVANT_EFFECTIF} fiche={fiche} />
             )}
             <div className="section-fiche">
-              <h4>Équipe</h4>
-              <div className="grille-details-fiche">
-                <Detail label="Équipe engagée">{fiche.team?.length > 0 ? fiche.team.join(', ') : '—'}</Detail>
-                <Detail label="Moyens engagés (brut)">{fiche.moyens_engages || '—'}</Detail>
-              </div>
-            </div>
-            <div className="section-fiche">
               <h4>Effectif CRS engagé</h4>
+              {fiche.team?.length > 0 && (
+                <div className="effectif-jour-snosm">
+                  <span className="etiquette-effectif-jour-snosm">Secouristes engagés (Cim'Alerte) — cliquer pour ajouter :</span>
+                  {fiche.team.map((nom) => (
+                    <button
+                      type="button"
+                      key={nom}
+                      className="puce-effectif-jour-snosm"
+                      disabled={verrouillee}
+                      onClick={() => ajouterDepuisEquipe(nom)}
+                    >
+                      {nom}
+                    </button>
+                  ))}
+                </div>
+              )}
               {effectifJour.length > 0 && (
                 <div className="effectif-jour-snosm">
                   <span className="etiquette-effectif-jour-snosm">Effectif du jour — cliquer pour ajouter :</span>
@@ -942,18 +961,18 @@ function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes 
             type="checkbox"
             checked={Boolean(effectif.depassement_horaire)}
             disabled={verrouillee}
-            onChange={(e) =>
-              onMaj(effectif.id, {
-                depassement_horaire: e.target.checked,
-                ...(e.target.checked ? {} : { heure_depassement: null }),
-              })
-            }
+            onChange={(e) => {
+              const coche = e.target.checked
+              // Précoche la date du jour (modifiable) pour qu'il n'y ait plus que l'heure à ajuster.
+              const heure_depassement = coche ? (effectif.heure_depassement ?? new Date().toISOString()) : null
+              onMaj(effectif.id, { depassement_horaire: coche, heure_depassement })
+            }}
           />
           Dépassement horaire
         </label>
         {effectif.depassement_horaire && (
           <ChampDateTime
-            label="Heure de fin"
+            label="Heure de fin de service"
             valeur={effectif.heure_depassement}
             onChange={(v) => onMaj(effectif.id, { heure_depassement: v })}
             disabled={verrouillee}
