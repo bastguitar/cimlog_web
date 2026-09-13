@@ -214,7 +214,7 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
   }
 
   return (
-    <div className="detail-fiche-edition detail-pleine-largeur champ-liste-multiple-snosm">
+    <div className="detail-fiche-edition champ-liste-multiple-snosm">
       <span className="etiquette-detail-fiche">{label}</span>
       <div className="lignes-liste-multiple-snosm">
         {slots.map((v, i) => (
@@ -277,6 +277,86 @@ export function ChampListeMultipleOuTexte({ label, valeur, onChange, options, li
   const reconnu = valeurs.every((v) => optionsMaj.includes(v.toUpperCase()))
   if (!reconnu) return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
   return <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={libelleAjout} />
+}
+
+/**
+ * Champ "tags" (façon Tagify/Gmail) : les valeurs choisies s'affichent en
+ * bulles retirables dans le champ lui-même, avec des suggestions filtrées au
+ * fil de la frappe. Entrée ou virgule ajoute la valeur tapée — pas seulement
+ * celles du vocabulaire connu, plusieurs gestes/techniques pouvant avoir été
+ * mis en œuvre et le vocabulaire n'étant qu'un point de départ. Retour
+ * arrière sur un champ vide retire la dernière bulle. Valeurs stockées
+ * jointes par ", " (même format texte que les autres champs multi-valeurs).
+ */
+export function ChampTags({ label, valeur, onChange, options }) {
+  const [texte, setTexte] = useState('')
+  const [ouvert, setOuvert] = useState(false)
+  const valeurs = (valeur ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+  const filtre = texte.trim().toLowerCase()
+  const suggestions = (filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options)
+    .filter((o) => !valeurs.some((v) => v.toLowerCase() === o.toLowerCase()))
+    .slice(0, 8)
+
+  const ajouter = (v) => {
+    const nettoye = v.trim()
+    if (!nettoye || valeurs.some((existant) => existant.toLowerCase() === nettoye.toLowerCase())) {
+      setTexte('')
+      return
+    }
+    onChange([...valeurs, nettoye].join(', '))
+    setTexte('')
+  }
+
+  const retirer = (v) => onChange(valeurs.filter((existant) => existant !== v).join(', '))
+
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur champ-tags-snosm">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="zone-tags-snosm">
+        {valeurs.map((v) => (
+          <span className="tag-snosm" key={v}>
+            {v}
+            <button type="button" onClick={() => retirer(v)} aria-label={`Retirer ${v}`}>
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          type="text"
+          value={texte}
+          placeholder={valeurs.length ? '' : 'Ajouter…'}
+          onChange={(e) => {
+            setTexte(e.target.value)
+            setOuvert(true)
+          }}
+          onFocus={() => setOuvert(true)}
+          onBlur={() => setTimeout(() => setOuvert(false), 150)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ',') {
+              e.preventDefault()
+              ajouter(texte)
+            } else if (e.key === 'Backspace' && !texte && valeurs.length > 0) {
+              retirer(valeurs[valeurs.length - 1])
+            }
+          }}
+        />
+      </div>
+      {ouvert && suggestions.length > 0 && (
+        <ul className="suggestions-autocomplete-snosm">
+          {suggestions.map((o) => (
+            <li key={o}>
+              <button type="button" onMouseDown={() => ajouter(o)}>
+                {o}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 /**
@@ -427,6 +507,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
         libelleAjout={description.libelleAjout}
       />
     )
+  if (type === 'tags') return <ChampTags label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />

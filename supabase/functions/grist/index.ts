@@ -333,6 +333,12 @@ function versVictimeApp(f: Record<string, unknown>) {
     nationalite: f.Nationalite,
     telephone: f.Telephone,
     statut_personne: f.StatutPersonne,
+    // Calculées à l'échelle de l'intervention côté Cim'Alerte (pas par victime) — même valeur sur
+    // toutes les lignes Victimes d'une fiche à plusieurs victimes. Correct dans l'immense majorité
+    // des cas (une seule victime) ; à corriger à la main si plusieurs victimes d'une même
+    // intervention sont parties vers des destinations différentes.
+    destination_cim_alerte: f.Destination || null,
+    depose_le: depuisGrist(f.DeposeLe, 'datetime'),
   }
   for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) base[appKey] = depuisGrist(f[gristCol], type)
   return base

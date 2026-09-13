@@ -54,7 +54,6 @@ import {
   modifierEffectifEngage,
   supprimerEffectifEngage,
   listerEffectifsEngages,
-  formatIdentiteVictime,
   chargerReferentiels,
 } from '../../lib/registre'
 import { telechargerTelegrammeTO } from '../../lib/telegrammeTO'
@@ -205,9 +204,8 @@ const GROUPES_INTERVENTION = [
       {
         cle: 'snosm_gestes_secourisme',
         label: 'Geste(s) de secourisme effectué(s)',
-        type: 'liste-multiple-ou-texte',
+        type: 'tags',
         options: OPTIONS_GESTES_SECOURISME,
-        libelleAjout: 'un autre geste',
       },
       {
         cle: 'snosm_techniques_evacuation',
@@ -295,11 +293,13 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
  * utilisateur). Pathologie/Circonstances/Cinétique/Douleur (texte libre Cim'Alerte) ne sont plus
  * affichés ici : redondants avec Circonstances (liste SNOSM) et le compte-rendu généré
  * automatiquement (onglet Intervention, voir genererCirconstancesGlobales) qui les lit déjà.
- * Statut en premier, en bulles. Regroupement délibéré : identité, puis naissance/profession/
- * adresse ("à côté" les uns des autres), puis médical, puis destination/prise en charge.
+ * Statut et État médical en premier (tous deux — décision utilisateur). Regroupement délibéré
+ * ensuite : identité, puis naissance/profession/adresse ("à côté" les uns des autres), puis
+ * blessure, puis destination/prise en charge.
  */
 const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_statut', label: 'Statut', type: 'bulles', options: OPTIONS_STATUT_PERSONNE },
+  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
   { cle: 'nom', label: 'Nom' },
   { cle: 'prenom', label: 'Prénom' },
   { cle: 'sexe', label: 'Sexe' },
@@ -312,7 +312,6 @@ const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_demeurant', label: 'Demeurant', type: 'texte-long', rows: 2 },
   { cle: 'snosm_commune', label: 'Commune' },
   { cle: 'snosm_pays', label: 'Pays' },
-  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
   { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'liste', options: OPTIONS_LOCALISATION_BLESSURE },
   { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'liste', options: OPTIONS_TYPE_BLESSURE },
   { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
@@ -460,6 +459,11 @@ function brouillonVictimesDepuis(fiche) {
       const statut = snosmStatutDepuis(v.statut_personne)
       if (statut) bv[v.id].snosm_statut = statut
     }
+    // Destination / Heure fin de prise en charge : reprises de Cim'Alerte (calculées à l'échelle de
+    // l'intervention, pas par victime — même valeur sur toutes les victimes d'une fiche à plusieurs
+    // victimes, à corriger à la main si elles sont parties vers des endroits différents).
+    if (!bv[v.id].snosm_destination && v.destination_cim_alerte) bv[v.id].snosm_destination = v.destination_cim_alerte
+    if (!bv[v.id].snosm_fin_prise_en_charge_le && v.depose_le) bv[v.id].snosm_fin_prise_en_charge_le = v.depose_le
   }
   return bv
 }
@@ -541,7 +545,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   }
 
   function majChampVictime(victimeId, cle, valeur) {
-    setBrouillonVictimes((b) => ({ ...b, [victimeId]: { ...b[victimeId], [cle]: valeur } }))
+    setBrouillonVictimes((b) => {
+      const victime = { ...b[victimeId], [cle]: valeur }
+      // Témoin/Encadrant : présumé indemne par défaut (rarement blessé), jamais écrasé si déjà renseigné.
+      if (cle === 'snosm_statut' && (valeur === 'Témoin' || valeur === 'Encadrant') && !b[victimeId]?.snosm_etat_medical) {
+        victime.snosm_etat_medical = 'Indemne'
+      }
+      return { ...b, [victimeId]: victime }
+    })
   }
 
   async function enregistrer() {
@@ -788,9 +799,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             {(fiche.victimes ?? []).length === 0 && <p className="aide">Aucune victime enregistrée.</p>}
             {(fiche.victimes ?? []).map((v) => (
               <div className="carte-victime" key={v.id}>
-                <strong>
-                  Victime {v.local_id ?? ''} — {formatIdentiteVictime(v) || 'identité non renseignée'}
-                </strong>
+                <strong>Victime {v.local_id ?? ''}</strong>
                 {edition ? (
                   <>
                     <div className="grille-details-fiche" style={{ marginTop: 8 }}>
