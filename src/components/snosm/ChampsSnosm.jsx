@@ -105,16 +105,20 @@ export function ChampRadio({ label, valeur, onChange, options }) {
 }
 
 /**
- * Radio repliable : masqué derrière une flèche tant que `visible` est faux,
- * dépliable manuellement à tout moment (état local, jamais reverrouillé
- * ensuite). `optionsParDefaut`, si fourni, réduit la liste affichée avant
- * dépliage manuel — dépliée, la liste complète (`options`) redevient
- * accessible : rien de ce qui existait avant n'est jamais rendu impossible
- * à cocher, juste replié par défaut pour ne pas encombrer l'écran.
+ * Champ repliable : masqué derrière une flèche tant que `visible` est faux,
+ * dépliable manuellement à tout moment. `optionsParDefaut`, si fourni, réduit
+ * la liste affichée avant dépliage manuel — dépliée, la liste complète
+ * (`options`) redevient accessible : rien de ce qui existait avant n'est
+ * jamais rendu impossible à cocher, juste replié par défaut pour ne pas
+ * encombrer l'écran. Les choix sont des boutons « bulles » (comme le vrai
+ * formulaire SNOSM, ex. « Météo sur place »), pas des boutons radio.
+ * Quand `visible` n'est pas imposé par un autre champ, l'en-tête reste
+ * cliquable pour replier à nouveau.
  */
 export function ChampRepliable({ label, valeur, onChange, options, optionsParDefaut, visible }) {
   const [deplie, setDeplie] = useState(false)
   const estVisible = visible || deplie
+  const peutSeReplier = !visible
 
   if (!estVisible) {
     return (
@@ -129,19 +133,23 @@ export function ChampRepliable({ label, valeur, onChange, options, optionsParDef
 
   return (
     <div className="detail-fiche-edition detail-pleine-largeur">
-      <span className="etiquette-detail-fiche">{label}</span>
-      <div className="champ-radio-snosm">
+      {peutSeReplier ? (
+        <button type="button" className="bouton-repliable-snosm" onClick={() => setDeplie(false)}>
+          <span className="fleche-repliable-snosm">▾</span> {label}
+        </button>
+      ) : (
+        <span className="etiquette-detail-fiche">{label}</span>
+      )}
+      <div className="champ-bulles-snosm">
         {optionsAffichees.map((o) => (
-          <label key={o}>
-            <input
-              type="radio"
-              name={label}
-              checked={valeur === o}
-              onClick={() => valeur === o && onChange('')}
-              onChange={() => onChange(o)}
-            />
+          <button
+            type="button"
+            key={o}
+            className={`bulle-snosm${valeur === o ? ' selectionnee' : ''}`}
+            onClick={() => onChange(valeur === o ? '' : o)}
+          >
             {o}
-          </label>
+          </button>
         ))}
         {reduit && (
           <button type="button" className="lien-voir-tout-snosm" onClick={() => setDeplie(true)}>
