@@ -289,31 +289,32 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
   { cle: 'snosm_avalanche_nb_decedes', label: 'Nombre de décédés', type: 'nombre' },
 ]
 
-/** Déjà connu via Cim'Alerte — toujours en lecture seule ici, pas de double saisie. */
-const CHAMPS_IMPLIQUE_BASE = [
+/**
+ * Un seul groupe, tout modifiable (y compris nom/prénom/date de naissance/sexe/nationalité/
+ * téléphone/âge, connus via Cim'Alerte mais parfois mal saisis à la prise d'appel — décision
+ * utilisateur). Pathologie/Circonstances/Cinétique/Douleur (texte libre Cim'Alerte) ne sont plus
+ * affichés ici : redondants avec Circonstances (liste SNOSM) et le compte-rendu généré
+ * automatiquement (onglet Intervention, voir genererCirconstancesGlobales) qui les lit déjà.
+ * Statut en premier, en bulles. Regroupement délibéré : identité, puis naissance/profession/
+ * adresse ("à côté" les uns des autres), puis médical, puis destination/prise en charge.
+ */
+const CHAMPS_IMPLIQUE = [
+  { cle: 'snosm_statut', label: 'Statut', type: 'bulles', options: OPTIONS_STATUT_PERSONNE },
   { cle: 'nom', label: 'Nom' },
   { cle: 'prenom', label: 'Prénom' },
-  { cle: 'date_naissance', label: 'Date de naissance' },
   { cle: 'sexe', label: 'Sexe' },
   { cle: 'nationalite', label: 'Nationalité' },
   { cle: 'telephone', label: 'Téléphone' },
   { cle: 'age', label: 'Âge' },
-  { cle: 'pathologie', label: 'Pathologie' },
-  { cle: 'circonstances', label: 'Circonstances' },
-  { cle: 'cinetique', label: 'Cinétique' },
-  { cle: 'douleur', label: 'Douleur (/10)' },
-]
-
-const CHAMPS_IMPLIQUE = [
-  { cle: 'snosm_statut', label: 'Statut', type: 'radio', options: OPTIONS_STATUT_PERSONNE },
-  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
+  { cle: 'date_naissance', label: 'Date de naissance', type: 'date' },
   { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
   { cle: 'snosm_profession', label: 'Profession' },
-  { cle: 'snosm_demeurant', label: 'Demeurant', type: 'texte-long' },
-  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'liste', options: OPTIONS_LOCALISATION_BLESSURE },
-  { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'liste', options: OPTIONS_TYPE_BLESSURE },
+  { cle: 'snosm_demeurant', label: 'Demeurant', type: 'texte-long', rows: 2 },
   { cle: 'snosm_commune', label: 'Commune' },
   { cle: 'snosm_pays', label: 'Pays' },
+  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
+  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'liste', options: OPTIONS_LOCALISATION_BLESSURE },
+  { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'liste', options: OPTIONS_TYPE_BLESSURE },
   { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   { cle: 'snosm_destination', label: 'Destination' },
   { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
@@ -790,9 +791,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 <strong>
                   Victime {v.local_id ?? ''} — {formatIdentiteVictime(v) || 'identité non renseignée'}
                 </strong>
-                <div className="grille-details-fiche" style={{ marginTop: 8 }}>
-                  <ChampsLecture champs={CHAMPS_IMPLIQUE_BASE} source={v} />
-                </div>
                 {edition ? (
                   <>
                     <div className="grille-details-fiche" style={{ marginTop: 8 }}>

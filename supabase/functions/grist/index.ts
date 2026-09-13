@@ -444,7 +444,19 @@ const CHAMPS_MODIFIABLES_INTERVENTION: Record<string, [string, TypeChamp]> = {
 }
 for (const [appKey, gristCol, type] of CHAMPS_SNOSM_INTERVENTION) CHAMPS_MODIFIABLES_INTERVENTION[appKey] = [gristCol, type]
 
-const CHAMPS_MODIFIABLES_VICTIME: Record<string, [string, TypeChamp]> = {}
+// nom/prenom/date_naissance/sexe/nationalite/telephone/age : connus via Cim'Alerte mais désormais
+// modifiables aussi depuis l'onglet Impliqué (décision utilisateur — corrige une saisie erronée à
+// la prise d'appel). Volontairement PAS pathologie/circonstances/cinetique/douleur, retirés de cet
+// onglet (redondants avec Circonstances SNOSM et le compte-rendu généré automatiquement).
+const CHAMPS_MODIFIABLES_VICTIME: Record<string, [string, TypeChamp]> = {
+  nom: ['Nom', 'text'],
+  prenom: ['Prenom', 'text'],
+  date_naissance: ['DateNaissance', 'text'],
+  sexe: ['Sexe', 'text'],
+  nationalite: ['Nationalite', 'text'],
+  telephone: ['Telephone', 'text'],
+  age: ['Age', 'int'],
+}
 for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) CHAMPS_MODIFIABLES_VICTIME[appKey] = [gristCol, type]
 
 const CHAMPS_MODIFIABLES_EFFECTIF: Record<string, [string, TypeChamp]> = {}

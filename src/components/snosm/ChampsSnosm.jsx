@@ -17,11 +17,20 @@ export function ChampTexte({ label, valeur, onChange }) {
   )
 }
 
-export function ChampTexteLong({ label, valeur, onChange }) {
+export function ChampTexteLong({ label, valeur, onChange, rows = 3 }) {
   return (
     <div className="detail-fiche-edition detail-pleine-largeur">
       <span className="etiquette-detail-fiche">{label}</span>
-      <textarea value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} rows={3} />
+      <textarea value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} rows={rows} />
+    </div>
+  )
+}
+
+export function ChampDate({ label, valeur, onChange }) {
+  return (
+    <div className="detail-fiche-edition">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <input type="date" value={(valeur ?? '').slice(0, 10)} onChange={(e) => onChange(e.target.value || null)} />
     </div>
   )
 }
@@ -98,6 +107,27 @@ export function ChampRadio({ label, valeur, onChange, options }) {
             />
             {o}
           </label>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/** Choix unique en boutons bulles (comme le vrai formulaire SNOSM) plutôt qu'en boutons radio — jamais replié. */
+export function ChampBulles({ label, valeur, onChange, options }) {
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="champ-bulles-snosm">
+        {options.map((o) => (
+          <button
+            type="button"
+            key={o}
+            className={`bulle-snosm${valeur === o ? ' selectionnee' : ''}`}
+            onClick={() => onChange(valeur === o ? '' : o)}
+          >
+            {o}
+          </button>
         ))}
       </div>
     </div>
@@ -354,13 +384,15 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
-  if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
+  if (type === 'date') return <ChampDate label={label} valeur={valeur} onChange={onChange} />
+  if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} rows={description.rows} />
   if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'liste-multiple')
     return (
       <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={description.libelleAjout} />
     )
   if (type === 'radio') return <ChampRadio label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'bulles') return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'repliable')
     return (
       <ChampRepliable
