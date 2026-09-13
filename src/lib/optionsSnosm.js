@@ -400,13 +400,25 @@ function libelleSexe(sexe) {
   return sexe || null
 }
 
+/**
+ * Ajoute la cinétique à la suite des circonstances, sauf si elle y figure déjà —
+ * en pratique, "Circonstances" (Cim'Alerte) contient parfois déjà toute la phrase
+ * ("Chute à haute cinétique"), et concaténer "Cinétique" ("Haute cinétique") par-
+ * dessus donnait un texte répété ("Chute à haute cinétique à haute cinétique
+ * cinétique") — bug remonté par l'utilisateur.
+ */
+function circonstanceEtCinetique(circonstancesBrut, cinetiqueBrut) {
+  if (!cinetiqueBrut) return circonstancesBrut || null
+  if (circonstancesBrut.toLowerCase().includes(cinetiqueBrut.toLowerCase())) return circonstancesBrut || null
+  const complement = /cin[ée]tique/i.test(cinetiqueBrut) ? `à ${cinetiqueBrut.toLowerCase()}` : `à ${cinetiqueBrut.toLowerCase()} cinétique`
+  return [circonstancesBrut, complement].filter(Boolean).join(' ')
+}
+
 function texteCirconstancesVictime(v) {
   const morceaux = []
   const sexeAge = [libelleSexe(v.sexe), v.age ? `${v.age} ans` : null].filter(Boolean).join(' ')
   if (sexeAge) morceaux.push(sexeAge)
-  const circonstance = [v.circonstances, v.cinetique ? `à ${String(v.cinetique).toLowerCase()} cinétique` : null]
-    .filter(Boolean)
-    .join(' ')
+  const circonstance = circonstanceEtCinetique(String(v.circonstances ?? '').trim(), String(v.cinetique ?? '').trim())
   if (circonstance) morceaux.push(circonstance)
   return morceaux.join(', ')
 }
