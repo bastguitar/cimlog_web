@@ -115,6 +115,8 @@ const GROUPES_GENERAL = [
     ],
   },
   {
+    // Regroupe les 3 champs liés au ski (décision utilisateur) — Encadrement/Diplôme, sans rapport
+    // avec le domaine skiable en soi, est séparé dans son propre groupe juste en dessous.
     titre: 'Domaine',
     champs: [
       {
@@ -123,14 +125,6 @@ const GROUPES_GENERAL = [
         type: 'repliable',
         options: OPTIONS_TYPE_DOMAINE,
         visibleSi: visibleSiActiviteGlisse,
-      },
-      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT },
-      {
-        cle: 'snosm_diplome_encadrant',
-        label: 'Diplôme encadrant',
-        type: 'repliable',
-        options: OPTIONS_DIPLOME_ENCADRANT,
-        visibleSi: (bf) => bf.snosm_encadrement === 'ENCADREMENT ASSOCIATIF' || bf.snosm_encadrement === 'ENCADREMENT PROFESSIONNEL',
       },
       {
         cle: 'snosm_localisation_piste',
@@ -146,6 +140,19 @@ const GROUPES_GENERAL = [
         type: 'repliable',
         options: OPTIONS_NEIGE,
         visibleSi: visibleSiActiviteGlisse,
+      },
+    ],
+  },
+  {
+    titre: 'Encadrement',
+    champs: [
+      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT },
+      {
+        cle: 'snosm_diplome_encadrant',
+        label: 'Diplôme encadrant',
+        type: 'repliable',
+        options: OPTIONS_DIPLOME_ENCADRANT,
+        visibleSi: (bf) => bf.snosm_encadrement === 'ENCADREMENT ASSOCIATIF' || bf.snosm_encadrement === 'ENCADREMENT PROFESSIONNEL',
       },
     ],
   },
@@ -190,6 +197,7 @@ const GROUPES_MOYENS_APRES_EFFECTIF = [
     titre: '',
     champs: [
       { cle: 'snosm_equipes_cynophiles_crs', label: 'Équipe(s) cynophile(s) CRS', type: 'nombre' },
+      { cle: 'snosm_equipes_drones', label: 'Équipe(s) drone(s)', type: 'nombre' },
       {
         cle: 'snosm_emploi_heli_saf',
         label: 'Emploi hélicoptère du SAF justifié par',

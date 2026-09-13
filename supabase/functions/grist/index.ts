@@ -153,6 +153,7 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_helicopteres', 'SnosmHelicopteres', 'text'],
   ['snosm_medicalisation', 'SnosmMedicalisation', 'text'],
   ['snosm_equipes_cynophiles_crs', 'SnosmEquipesCynophilesCRS', 'int'],
+  ['snosm_equipes_drones', 'SnosmEquipesDrones', 'int'],
   ['snosm_emploi_heli_saf', 'SnosmEmploiHeliSAFJustification', 'text'],
   ['snosm_gestes_secourisme', 'SnosmGestesSecourisme', 'text'],
   ['snosm_techniques_evacuation', 'SnosmTechniquesEvacuation', 'text'],
