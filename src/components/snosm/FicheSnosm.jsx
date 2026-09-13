@@ -522,12 +522,27 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
   // Dédoublonné sur le libellé (nom + prénom, sans la section) : une même personne peut apparaître
   // plusieurs fois côté annuaire (affectations multiples), mais ne doit être proposée qu'une fois ici.
+  // Ceux de la section de l'intervention (sectionNom) sont mis en premier — annuaire et sections
+  // Cim'Log utilisent des casses/accents différents ("BRIANCON" vs "Briançon"), d'où la comparaison
+  // normalisée. Le reste de l'annuaire suit, rien n'est retiré de la liste.
   const [secouristes, setSecouristes] = useState([])
   useEffect(() => {
+    const normalise = (s) =>
+      (s ?? '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .toUpperCase()
+    const sectionCible = normalise(sectionNom)
     chargerTousSecouristes()
-      .then((liste) => setSecouristes([...new Set(liste.map((s) => s.libelle))]))
+      .then((liste) => {
+        const vus = new Set()
+        const dedoublonnes = liste.filter((s) => (vus.has(s.libelle) ? false : vus.add(s.libelle)))
+        const memeSection = dedoublonnes.filter((s) => normalise(s.section) === sectionCible)
+        const autres = dedoublonnes.filter((s) => normalise(s.section) !== sectionCible)
+        setSecouristes([...memeSection, ...autres].map((s) => s.libelle))
+      })
       .catch(() => {})
-  }, [])
+  }, [sectionNom])
   // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
   // pour ajouter rapidement à l'Effectif CRS Engagé sans ressaisir un nom déjà connu.
   const [effectifJour, setEffectifJour] = useState([])
