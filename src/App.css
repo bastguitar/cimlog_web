@@ -1748,15 +1748,21 @@ main > * {
   font-size: 13px;
 }
 
+/* Flex (pas grid) délibérément : chaque champ garde la largeur de son
+   contenu (un select "GRENOBLE" ne doit pas occuper la même largeur qu'un
+   textarea) plutôt que d'être étiré à la largeur uniforme d'une colonne de
+   grille — seuls les champs .detail-pleine-largeur forcent leur propre ligne. */
 .grille-details-fiche {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: 8px 16px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 10px 20px;
 }
 
 .detail-fiche {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   font-size: 13px;
 }
 
@@ -1771,6 +1777,7 @@ main > * {
 .detail-fiche-edition {
   display: flex;
   flex-direction: column;
+  flex: 0 0 auto;
   gap: 3px;
   font-size: 13px;
 }
@@ -1815,7 +1822,7 @@ main > * {
 }
 
 .detail-fiche-edition.detail-pleine-largeur {
-  grid-column: 1 / -1;
+  flex-basis: 100%;
 }
 
 .detail-fiche-edition input,
@@ -2102,7 +2109,7 @@ main > * {
 }
 
 .ligne-liste-multiple-snosm select {
-  flex: 1;
+  flex: 0 0 auto;
   min-width: 160px;
 }
 
@@ -2245,8 +2252,8 @@ main > * {
 
 .champ-personne-effectif-snosm {
   position: relative;
-  flex: 1;
-  min-width: 140px;
+  flex: 0 0 auto;
+  width: 220px;
 }
 
 .champ-personne-effectif-snosm input[type='text'] {
