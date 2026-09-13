@@ -1,4 +1,5 @@
 /** Champs de saisie réutilisables pour le formulaire SNOSM, pilotés par la description déclarative des groupes (voir FicheSnosm). */
+import { useState } from 'react'
 
 function formatDateTimeLocal(iso) {
   if (!iso) return ''
@@ -97,6 +98,47 @@ export function ChampRadio({ label, valeur, onChange, options }) {
   )
 }
 
+/**
+ * Nom d'un secouriste, filtré au fil de la saisie (Directeur d'enquête,
+ * Rédacteur, Signataire — n'importe qui de l'annuaire, pas seulement la
+ * section courante, voir chargerTousSecouristes). Reste un texte libre au
+ * fond : une personne absente de l'annuaire (départ, mutation) ne doit pas
+ * empêcher de taper son nom.
+ */
+export function ChampAutocomplete({ label, valeur, onChange, options }) {
+  const [ouvert, setOuvert] = useState(false)
+  const filtre = (valeur ?? '').trim().toLowerCase()
+  const suggestions = (filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options).slice(0, 8)
+
+  return (
+    <div className="detail-fiche-edition champ-autocomplete-snosm">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <input
+        type="text"
+        autoComplete="off"
+        value={valeur ?? ''}
+        onChange={(e) => {
+          onChange(e.target.value)
+          setOuvert(true)
+        }}
+        onFocus={() => setOuvert(true)}
+        onBlur={() => setTimeout(() => setOuvert(false), 150)}
+      />
+      {ouvert && suggestions.length > 0 && (
+        <ul className="suggestions-autocomplete-snosm">
+          {suggestions.map((o) => (
+            <li key={o}>
+              <button type="button" onMouseDown={() => onChange(o)}>
+                {o}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
 export function ChampCheckbox({ label, valeur, onChange }) {
   return (
     <label className="champ-checkbox-snosm">
@@ -120,7 +162,7 @@ export function ChampDateTime({ label, valeur, onChange }) {
 }
 
 /** Rendu générique d'un champ, piloté par la description déclarative des onglets SNOSM (voir OngletSnosm). */
-export function ChampSnosm({ description, valeur, onChange }) {
+export function ChampSnosm({ description, valeur, onChange, secouristes }) {
   const { label, type, options } = description
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
@@ -130,5 +172,6 @@ export function ChampSnosm({ description, valeur, onChange }) {
   if (type === 'radio') return <ChampRadio label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
+  if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
 }

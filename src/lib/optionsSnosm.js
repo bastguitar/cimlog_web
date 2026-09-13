@@ -81,6 +81,15 @@ export const OPTIONS_METEO = [
 
 export const OPTIONS_ETAT_MEDICAL = ['Décédé traumatique', 'Décédé non traumatique', 'Blessé', 'Disparu', 'Malade', 'Indemne']
 
+export const OPTIONS_MEDICALISATION = ['Oui', 'Non', 'Non obtenue']
+export const OPTIONS_SUIVI_JUDICIAIRE = ['Oui', 'Non', 'Indéterminé']
+export const OPTIONS_MEDIAS_INFORMES = ['Oui', 'Non']
+export const OPTIONS_STATUT_PERSONNE = ['Victime', 'Témoin', 'Encadrant']
+
+/** StatutPersonne Cim'Alerte (minuscules sans accent : victime/temoin/encadrant) -> libellé du radio SNOSM. */
+const STATUT_PERSONNE_PAR_CODE = { victime: 'Victime', temoin: 'Témoin', encadrant: 'Encadrant' }
+export const snosmStatutDepuis = (statutPersonne) => STATUT_PERSONNE_PAR_CODE[statutPersonne] ?? null
+
 export const OPTIONS_LOCALISATION_BLESSURE = [
   'ABDOMEN',
   'AVANT-BRAS',

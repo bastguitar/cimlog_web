@@ -1775,6 +1775,45 @@ main > * {
   font-size: 13px;
 }
 
+.champ-autocomplete-snosm {
+  position: relative;
+}
+
+.suggestions-autocomplete-snosm {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  list-style: none;
+  max-height: 220px;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+}
+
+.suggestions-autocomplete-snosm button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 6px 8px;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--text-h);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.suggestions-autocomplete-snosm button:hover {
+  background: var(--accent-bg);
+}
+
 .detail-fiche-edition.detail-pleine-largeur {
   grid-column: 1 / -1;
 }

@@ -1,4 +1,5 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { chargerTousSecouristes } from '../../lib/annuaire'
 import { ChampSnosm, ChampCheckbox } from './ChampsSnosm'
 import {
   OPTIONS_ENCADREMENT,
@@ -17,8 +18,13 @@ import {
   OPTIONS_ORIGINE_ALERTE,
   OPTIONS_ACTIVITE,
   OPTIONS_PPSM,
+  OPTIONS_MEDICALISATION,
+  OPTIONS_SUIVI_JUDICIAIRE,
+  OPTIONS_MEDIAS_INFORMES,
+  OPTIONS_STATUT_PERSONNE,
   snosmOrigineDepuis,
   ppsmDepuisSquadCode,
+  snosmStatutDepuis,
 } from '../../lib/optionsSnosm'
 import {
   modifierIntervention,
@@ -100,9 +106,7 @@ const GROUPES_MOYENS = [
       { cle: 'snosm_ppsm', label: 'PPSM(s)', type: 'liste', options: OPTIONS_PPSM },
       { cle: 'snosm_helicopteres', label: 'Hélicoptère(s)', type: 'liste', options: OPTIONS_HELICOPTERES },
       { cle: 'support_units', label: 'Unités en soutien' },
-      { cle: 'snosm_medicalisation', label: 'Médicalisation' },
-      { cle: 'is_med', label: 'Médicalisée', type: 'checkbox' },
-      { cle: 'infirmier', label: 'Infirmier', type: 'checkbox' },
+      { cle: 'snosm_medicalisation', label: 'Médicalisation', type: 'radio', options: OPTIONS_MEDICALISATION },
       { cle: 'snosm_equipes_cynophiles_crs', label: 'Équipe(s) cynophile(s) CRS', type: 'nombre' },
       { cle: 'snosm_emploi_heli_saf', label: 'Emploi hélicoptère du SAF justifié par', type: 'texte-long' },
     ],
@@ -146,8 +150,8 @@ const GROUPES_AVIS = [
   {
     titre: 'Procédure judiciaire',
     champs: [
-      { cle: 'snosm_suivi_judiciaire', label: 'Suivi judiciaire' },
-      { cle: 'snosm_directeur_enquete', label: 'Directeur d’enquête CRS' },
+      { cle: 'snosm_suivi_judiciaire', label: 'Suivi judiciaire', type: 'radio', options: OPTIONS_SUIVI_JUDICIAIRE },
+      { cle: 'snosm_directeur_enquete', label: 'Directeur d’enquête CRS', type: 'personnel' },
       { cle: 'snosm_autre_service_enquete', label: 'Autre service directeur d’enquête' },
     ],
   },
@@ -155,15 +159,15 @@ const GROUPES_AVIS = [
     titre: 'Autorités et médias',
     champs: [
       { cle: 'snosm_autorites_avisees', label: 'Autorités avisée(s)', type: 'texte-long' },
-      { cle: 'snosm_medias_informes', label: 'Médias informés' },
+      { cle: 'snosm_medias_informes', label: 'Médias informés', type: 'radio', options: OPTIONS_MEDIAS_INFORMES },
       { cle: 'snosm_avis_divers', label: 'Avis divers', type: 'texte-long' },
     ],
   },
   {
     titre: 'Rédaction',
     champs: [
-      { cle: 'snosm_redacteur', label: 'Rédacteur' },
-      { cle: 'snosm_signataire', label: 'Signataire' },
+      { cle: 'snosm_redacteur', label: 'Rédacteur', type: 'personnel' },
+      { cle: 'snosm_signataire', label: 'Signataire', type: 'personnel' },
     ],
   },
 ]
@@ -191,7 +195,12 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
 
 /** Déjà connu via Cim'Alerte — toujours en lecture seule ici, pas de double saisie. */
 const CHAMPS_IMPLIQUE_BASE = [
+  { cle: 'nom', label: 'Nom' },
+  { cle: 'prenom', label: 'Prénom' },
+  { cle: 'date_naissance', label: 'Date de naissance' },
   { cle: 'sexe', label: 'Sexe' },
+  { cle: 'nationalite', label: 'Nationalité' },
+  { cle: 'telephone', label: 'Téléphone' },
   { cle: 'age', label: 'Âge' },
   { cle: 'pathologie', label: 'Pathologie' },
   { cle: 'circonstances', label: 'Circonstances' },
@@ -200,7 +209,7 @@ const CHAMPS_IMPLIQUE_BASE = [
 ]
 
 const CHAMPS_IMPLIQUE = [
-  { cle: 'snosm_statut', label: 'Statut (victime / témoin / encadrant)' },
+  { cle: 'snosm_statut', label: 'Statut', type: 'radio', options: OPTIONS_STATUT_PERSONNE },
   { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL },
   { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
   { cle: 'snosm_profession', label: 'Profession' },
@@ -247,13 +256,19 @@ function valeurInitiale(type) {
   return ''
 }
 
-function BlocChamps({ groupes, brouillon, majChamp }) {
+function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
   return groupes.map((groupe) => (
     <div className="section-fiche" key={groupe.titre}>
       <h4>{groupe.titre}</h4>
       <div className="grille-details-fiche">
         {groupe.champs.map((c) => (
-          <ChampSnosm key={c.cle} description={c} valeur={brouillon[c.cle]} onChange={(v) => majChamp(c.cle, v)} />
+          <ChampSnosm
+            key={c.cle}
+            description={c}
+            valeur={brouillon[c.cle]}
+            onChange={(v) => majChamp(c.cle, v)}
+            secouristes={secouristes}
+          />
         ))}
       </div>
     </div>
@@ -293,6 +308,8 @@ function brouillonFicheDepuis(fiche) {
     const ppsm = ppsmDepuisSquadCode(fiche.squad_code)
     if (ppsm) bf.snosm_ppsm = ppsm
   }
+  // Médicalisation : Cim'Alerte ne connaît que Oui/Non (is_med), jamais "Non obtenue" — devinable seulement dans ce sens-là.
+  if (!bf.snosm_medicalisation && typeof fiche.is_med === 'boolean') bf.snosm_medicalisation = fiche.is_med ? 'Oui' : 'Non'
   return bf
 }
 
@@ -301,6 +318,11 @@ function brouillonVictimesDepuis(fiche) {
   for (const v of fiche.victimes ?? []) {
     bv[v.id] = {}
     for (const c of [...CHAMPS_IMPLIQUE, ...CHAMPS_AVALANCHE_VICTIME]) bv[v.id][c.cle] = v[c.cle] ?? valeurInitiale(c.type)
+    // Statut (victime/témoin/encadrant) : reclassé depuis StatutPersonne (Cim'Alerte, minuscules sans accent).
+    if (!bv[v.id].snosm_statut) {
+      const statut = snosmStatutDepuis(v.statut_personne)
+      if (statut) bv[v.id].snosm_statut = statut
+    }
   }
   return bv
 }
@@ -327,6 +349,13 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [erreur, setErreur] = useState(null)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
   const [generationTO, setGenerationTO] = useState(false)
+  // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
+  const [secouristes, setSecouristes] = useState([])
+  useEffect(() => {
+    chargerTousSecouristes()
+      .then((liste) => setSecouristes(liste.map((s) => s.libelle)))
+      .catch(() => {})
+  }, [])
 
   function demarrerEdition() {
     setBrouillonFiche(brouillonFicheDepuis(fiche))
@@ -498,7 +527,12 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         {sousOnglet === 'renfort' &&
           (edition ? <BlocChamps groupes={GROUPES_RENFORT} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_RENFORT} fiche={fiche} />)}
 
-        {sousOnglet === 'avis' && (edition ? <BlocChamps groupes={GROUPES_AVIS} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_AVIS} fiche={fiche} />)}
+        {sousOnglet === 'avis' &&
+          (edition ? (
+            <BlocChamps groupes={GROUPES_AVIS} brouillon={brouillonFiche} majChamp={majChampFiche} secouristes={secouristes} />
+          ) : (
+            <LectureGroupes groupes={GROUPES_AVIS} fiche={fiche} />
+          ))}
 
         {sousOnglet === 'avalanche' && (
           <div className="section-fiche">

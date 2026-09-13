@@ -332,6 +332,7 @@ function versVictimeApp(f: Record<string, unknown>) {
     date_naissance: f.DateNaissance || null,
     nationalite: f.Nationalite,
     telephone: f.Telephone,
+    statut_personne: f.StatutPersonne,
   }
   for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) base[appKey] = depuisGrist(f[gristCol], type)
   return base
