@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { chargerTousSecouristes } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
-import { ChampSnosm, ChampCheckbox } from './ChampsSnosm'
+import { ChampSnosm, ChampCheckbox, ChampDateTime } from './ChampsSnosm'
 import {
   OPTIONS_ENCADREMENT,
   OPTIONS_DIPLOME_ENCADRANT,
@@ -39,6 +39,10 @@ import {
   optionsLocalisationPisteSelonDomaine,
   snosmOrigineDepuis,
   ppsmDepuisSquadCode,
+  ppsmDepuisHelicoptere,
+  visibleSiHelicoptereSaf,
+  OPTIONS_ROLE_EFFECTIF,
+  roleSnosmDepuis,
   snosmStatutDepuis,
 } from '../../lib/optionsSnosm'
 import {
@@ -152,9 +156,20 @@ const GROUPES_MOYENS_AVANT_EFFECTIF = [
     titre: 'Opération',
     champs: [
       { cle: 'snosm_type_operation_moyens', label: 'Opération', type: 'radio', options: OPTIONS_TYPE_INTERVENTION },
-      { cle: 'snosm_ppsm', label: 'PPSM(s)', type: 'liste', options: OPTIONS_PPSM },
-      { cle: 'snosm_helicopteres', label: 'Hélicoptère(s)', type: 'liste', options: OPTIONS_HELICOPTERES },
-      { cle: 'support_units', label: 'Unités en soutien' },
+      {
+        cle: 'snosm_ppsm',
+        label: 'PPSM(s)',
+        type: 'liste-multiple',
+        options: OPTIONS_PPSM,
+        libelleAjout: 'un autre PPSM',
+      },
+      {
+        cle: 'snosm_helicopteres',
+        label: 'Hélicoptère(s)',
+        type: 'liste-multiple',
+        options: OPTIONS_HELICOPTERES,
+        libelleAjout: 'un autre hélicoptère',
+      },
       { cle: 'snosm_medicalisation', label: 'Médicalisation', type: 'radio', options: OPTIONS_MEDICALISATION },
     ],
   },
@@ -165,7 +180,12 @@ const GROUPES_MOYENS_APRES_EFFECTIF = [
     titre: '',
     champs: [
       { cle: 'snosm_equipes_cynophiles_crs', label: 'Équipe(s) cynophile(s) CRS', type: 'nombre' },
-      { cle: 'snosm_emploi_heli_saf', label: 'Emploi hélicoptère du SAF justifié par', type: 'texte-long' },
+      {
+        cle: 'snosm_emploi_heli_saf',
+        label: 'Emploi hélicoptère du SAF justifié par',
+        type: 'texte-long',
+        visibleSi: visibleSiHelicoptereSaf,
+      },
     ],
   },
 ]
@@ -371,9 +391,11 @@ function brouillonFicheDepuis(fiche) {
   // Hélicoptère(s) : reprend l'hélicoptère Cim'Alerte seulement s'il correspond exactement à un appareil
   // connu — le texte libre Cim'Alerte est trop hétérogène pour être fiable au-delà d'une correspondance exacte.
   if (!bf.snosm_helicopteres && OPTIONS_HELICOPTERES.includes(fiche.helicopter)) bf.snosm_helicopteres = fiche.helicopter
-  // PPSM : déduit du poste précis qui a pris l'alerte (squad_code, granulaire — CRS73C, CRS38H…), jamais deviné au-delà de cette table.
+  // PPSM : déduit en priorité de l'hélicoptère engagé (c'est lui qui détermine le PPSM sur le terrain, pas
+  // le poste qui a pris l'alerte) ; à défaut retombe sur le squad_code (poste précis — CRS73C, CRS38H…).
   if (!bf.snosm_ppsm) {
-    const ppsm = ppsmDepuisSquadCode(fiche.squad_code)
+    const premierHelico = (bf.snosm_helicopteres ?? '').split(',')[0].trim()
+    const ppsm = ppsmDepuisHelicoptere(premierHelico) ?? ppsmDepuisSquadCode(fiche.squad_code)
     if (ppsm) bf.snosm_ppsm = ppsm
   }
   // Médicalisation : Cim'Alerte ne connaît que Oui/Non (is_med), jamais "Non obtenue" — devinable seulement dans ce sens-là.
@@ -523,10 +545,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     }
   }
 
-  /** Ajoute une personne de l'effectif du jour tel quel — jamais deux fois la même. */
+  /**
+   * Ajoute une personne de l'effectif du jour — jamais deux fois la même. Le rôle
+   * libre de l'effectif du jour (COS, SOM OPJ, PERMANENCIER…) est reclassé dans l'une
+   * des 3 valeurs du tableau SNOSM, toujours modifiable ensuite si le classement ne convient pas.
+   */
   async function ajouterDepuisEffectifJour(entree) {
-    if (effectifs.some((e) => e.personne === entree.nom && e.role === entree.role)) return
-    await ajouterLigneEffectif(entree.role, entree.nom)
+    if (effectifs.some((e) => e.personne === entree.nom)) return
+    await ajouterLigneEffectif(roleSnosmDepuis(entree.role), entree.nom)
   }
 
   async function majEffectif(id, champs) {
@@ -616,6 +642,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 onAjouter={() => ajouterLigneEffectif()}
                 onMaj={majEffectif}
                 onSupprimer={supprimerLigneEffectif}
+                secouristes={secouristes}
               />
             </div>
             {edition ? (
@@ -725,7 +752,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
 /** Toujours affiché, même vide (« — ») — un onglet pas encore rempli doit montrer ses champs, pas disparaître. */
 function ChampsLecture({ champs, source }) {
-  return champs.map((c) => {
+  return champs
+    .filter((c) => !c.visibleSi || c.visibleSi(source))
+    .map((c) => {
     const valeur = source[c.cle]
     // "[]" : jsonb vide côté Cim'Alerte, sérialisé en texte tel quel par Grist — pas une vraie valeur.
     const vide = valeur == null || valeur === '' || valeur === '[]'
@@ -759,12 +788,12 @@ function Detail({ label, children }) {
   )
 }
 
-function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprimer }) {
+function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprimer, secouristes }) {
   return (
     <div className="tableau-effectifs-snosm">
       {effectifs.length === 0 && <p className="aide">Aucun effectif renseigné.</p>}
       {effectifs.map((e) => (
-        <LigneEffectif key={e.id} effectif={e} verrouillee={verrouillee} onMaj={onMaj} onSupprimer={onSupprimer} />
+        <LigneEffectif key={e.id} effectif={e} verrouillee={verrouillee} onMaj={onMaj} onSupprimer={onSupprimer} secouristes={secouristes} />
       ))}
       {!verrouillee && (
         <button type="button" className="bouton-secondaire" onClick={onAjouter}>
@@ -775,37 +804,96 @@ function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprime
   )
 }
 
-function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer }) {
-  const [role, setRole] = useState(effectif.role ?? '')
+/**
+ * Ordre Personne (avec suggestions au fil de la saisie, tout l'annuaire) puis Rôle
+ * (3 valeurs fixes, jamais de texte libre) — décision utilisateur, dans cet ordre-là
+ * précisément. Dépassement horaire déplie une heure de fin quand coché.
+ */
+function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes }) {
   const [personne, setPersonne] = useState(effectif.personne ?? '')
+  const [ouvert, setOuvert] = useState(false)
+  // Le clic sur une suggestion (onMouseDown) enregistre déjà la valeur choisie ; sans
+  // ce drapeau, le blur qui suit immédiatement après relirait "personne" tel qu'il
+  // était avant le clic (fermeture de closure figée sur l'ancien rendu) et écraserait
+  // la sélection avec le texte tapé juste avant — une vraie régression déjà observée.
+  const selectionViaSuggestionRef = useRef(false)
+  const filtre = personne.trim().toLowerCase()
+  const suggestions = (filtre ? (secouristes ?? []).filter((s) => s.toLowerCase().includes(filtre)) : secouristes ?? []).slice(0, 8)
 
   return (
     <div className="ligne-effectif-snosm">
-      <input
-        type="text"
-        placeholder="Rôle (secouriste, téléphoniste, COS…)"
-        value={role}
-        disabled={verrouillee}
-        onChange={(e) => setRole(e.target.value)}
-        onBlur={() => role !== effectif.role && onMaj(effectif.id, { role })}
-      />
-      <input
-        type="text"
-        placeholder="Personne"
-        value={personne}
-        disabled={verrouillee}
-        onChange={(e) => setPersonne(e.target.value)}
-        onBlur={() => personne !== effectif.personne && onMaj(effectif.id, { personne })}
-      />
-      <label className="champ-checkbox-snosm">
+      <div className="champ-personne-effectif-snosm">
         <input
-          type="checkbox"
-          checked={Boolean(effectif.depassement_horaire)}
+          type="text"
+          placeholder="Personne"
+          value={personne}
           disabled={verrouillee}
-          onChange={(e) => onMaj(effectif.id, { depassement_horaire: e.target.checked })}
+          autoComplete="off"
+          onChange={(e) => {
+            setPersonne(e.target.value)
+            setOuvert(true)
+          }}
+          onFocus={() => setOuvert(true)}
+          onBlur={() => {
+            setTimeout(() => setOuvert(false), 150)
+            if (selectionViaSuggestionRef.current) {
+              selectionViaSuggestionRef.current = false
+              return
+            }
+            if (personne !== effectif.personne) onMaj(effectif.id, { personne })
+          }}
         />
-        Dépassement horaire
-      </label>
+        {ouvert && suggestions.length > 0 && (
+          <ul className="suggestions-autocomplete-snosm">
+            {suggestions.map((s) => (
+              <li key={s}>
+                <button
+                  type="button"
+                  onMouseDown={() => {
+                    selectionViaSuggestionRef.current = true
+                    setPersonne(s)
+                    onMaj(effectif.id, { personne: s })
+                  }}
+                >
+                  {s}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+      <select value={effectif.role ?? ''} disabled={verrouillee} onChange={(e) => onMaj(effectif.id, { role: e.target.value })}>
+        <option value="">Rôle —</option>
+        {OPTIONS_ROLE_EFFECTIF.map((r) => (
+          <option key={r} value={r}>
+            {r}
+          </option>
+        ))}
+      </select>
+      <div className="depassement-effectif-snosm">
+        <label className="champ-checkbox-snosm">
+          <input
+            type="checkbox"
+            checked={Boolean(effectif.depassement_horaire)}
+            disabled={verrouillee}
+            onChange={(e) =>
+              onMaj(effectif.id, {
+                depassement_horaire: e.target.checked,
+                ...(e.target.checked ? {} : { heure_depassement: null }),
+              })
+            }
+          />
+          Dépassement horaire
+        </label>
+        {effectif.depassement_horaire && (
+          <ChampDateTime
+            label="Heure de fin"
+            valeur={effectif.heure_depassement}
+            onChange={(v) => onMaj(effectif.id, { heure_depassement: v })}
+            disabled={verrouillee}
+          />
+        )}
+      </div>
       {!verrouillee && (
         <button type="button" className="fermer-modale" onClick={() => onSupprimer(effectif.id)} aria-label="Supprimer cet effectif">
           ×

@@ -2089,6 +2089,54 @@ main > * {
   color: #fff;
 }
 
+.lignes-liste-multiple-snosm {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ligne-liste-multiple-snosm {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.ligne-liste-multiple-snosm select {
+  flex: 1;
+  min-width: 160px;
+}
+
+.bouton-retirer-liste-multiple-snosm {
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--bg-alt);
+  color: var(--text-h);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bouton-retirer-liste-multiple-snosm:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.lien-ajouter-liste-multiple-snosm {
+  align-self: flex-start;
+  margin-top: 4px;
+  border: none;
+  background: none;
+  padding: 2px 0;
+  color: var(--accent);
+  font: inherit;
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 .effectif-jour-snosm {
   display: flex;
   align-items: center;
@@ -2180,7 +2228,8 @@ main > * {
   background: var(--bg-alt);
 }
 
-.ligne-effectif-snosm input[type='text'] {
+.ligne-effectif-snosm input[type='text'],
+.ligne-effectif-snosm select {
   font: inherit;
   font-size: 13px;
   padding: 5px 8px;
@@ -2188,8 +2237,45 @@ main > * {
   border-radius: var(--radius-sm);
   background: var(--bg-card);
   color: var(--text-h);
+}
+
+.ligne-effectif-snosm select {
+  cursor: pointer;
+}
+
+.champ-personne-effectif-snosm {
+  position: relative;
   flex: 1;
   min-width: 140px;
+}
+
+.champ-personne-effectif-snosm input[type='text'] {
+  width: 100%;
+}
+
+.depassement-effectif-snosm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.depassement-effectif-snosm .detail-fiche-edition {
+  gap: 0;
+}
+
+.depassement-effectif-snosm .etiquette-detail-fiche {
+  display: none;
+}
+
+.depassement-effectif-snosm input[type='datetime-local'] {
+  font: inherit;
+  font-size: 13px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  color: var(--text-h);
 }
 
 .carte-victime {

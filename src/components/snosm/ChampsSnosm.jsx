@@ -162,6 +162,72 @@ export function ChampRepliable({ label, valeur, onChange, options, optionsParDef
 }
 
 /**
+ * Une valeur principale (généralement préremplie automatiquement, ex.
+ * l'hélicoptère/le PPSM déduits de l'alerte) + d'autres valeurs ajoutables au
+ * besoin (intervention avec plusieurs hélicos/PPSM engagés) — stockées
+ * ensemble dans le même champ texte Grist, séparées par ", ". La valeur
+ * préremplie reste modifiable comme les autres. Le nombre de lignes
+ * supplémentaires est un état local (pas dans le brouillon) : une ligne
+ * ajoutée mais laissée vide n'est jamais écrite, seulement retirée si vidée
+ * explicitement pour ne pas décaler les lignes suivantes.
+ */
+export function ChampListeMultiple({ label, valeur, onChange, options, libelleAjout }) {
+  const slotsValeur = (valeur ?? '').split(',').map((v) => v.trim())
+  const [nbSupplementaires, setNbSupplementaires] = useState(Math.max(0, slotsValeur.length - 1))
+  const total = Math.max(1, nbSupplementaires + 1, slotsValeur.length)
+  const slots = Array.from({ length: total }, (_, i) => slotsValeur[i] ?? '')
+
+  const enregistrer = (nouveauxSlots) => {
+    const copie = [...nouveauxSlots]
+    while (copie.length > 1 && !copie[copie.length - 1]) copie.pop()
+    onChange(copie.join(', '))
+  }
+
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur champ-liste-multiple-snosm">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="lignes-liste-multiple-snosm">
+        {slots.map((v, i) => (
+          <div className="ligne-liste-multiple-snosm" key={i}>
+            <select
+              value={v}
+              onChange={(e) => {
+                const copie = [...slots]
+                copie[i] = e.target.value
+                enregistrer(copie)
+              }}
+            >
+              <option value="">—</option>
+              {options.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+            {i > 0 && (
+              <button
+                type="button"
+                className="bouton-retirer-liste-multiple-snosm"
+                onClick={() => {
+                  setNbSupplementaires((n) => Math.max(0, n - 1))
+                  enregistrer(slots.filter((_, idx) => idx !== i))
+                }}
+                aria-label={`Retirer ${label}`}
+              >
+                ×
+              </button>
+            )}
+          </div>
+        ))}
+      </div>
+      <button type="button" className="lien-ajouter-liste-multiple-snosm" onClick={() => setNbSupplementaires((n) => n + 1)}>
+        + Ajouter {libelleAjout ?? 'une valeur'}
+      </button>
+    </div>
+  )
+}
+
+/**
  * Nom d'un secouriste, filtré au fil de la saisie (Directeur d'enquête,
  * Rédacteur, Signataire — n'importe qui de l'annuaire, pas seulement la
  * section courante, voir chargerTousSecouristes). Reste un texte libre au
@@ -242,13 +308,14 @@ export function ChampCheckbox({ label, valeur, onChange }) {
   )
 }
 
-export function ChampDateTime({ label, valeur, onChange }) {
+export function ChampDateTime({ label, valeur, onChange, disabled }) {
   return (
     <div className="detail-fiche-edition">
       <span className="etiquette-detail-fiche">{label}</span>
       <input
         type="datetime-local"
         value={formatDateTimeLocal(valeur)}
+        disabled={disabled}
         onChange={(e) => onChange(e.target.value ? new Date(e.target.value).toISOString() : null)}
       />
     </div>
@@ -258,11 +325,19 @@ export function ChampDateTime({ label, valeur, onChange }) {
 /** Rendu générique d'un champ, piloté par la description déclarative des onglets SNOSM (voir OngletSnosm). */
 export function ChampSnosm({ description, valeur, onChange, secouristes, valeurLiee, onChangeLiee, brouillon }) {
   const { label, type, options, placeholderLie } = description
+  // Champ conditionnel simple (pas repliable — masqué complètement, pas de flèche) : ex. "Emploi
+  // hélicoptère du SAF" qui ne concerne que YETI 1/YETI 2. Le type 'repliable' gère sa propre
+  // visibilité (bouton flèche) et n'est jamais concerné par ce masquage complet.
+  if (type !== 'repliable' && description.visibleSi && !description.visibleSi(brouillon ?? {})) return null
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
   if (type === 'liste') return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'liste-multiple')
+    return (
+      <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={description.libelleAjout} />
+    )
   if (type === 'radio') return <ChampRadio label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'repliable')
     return (

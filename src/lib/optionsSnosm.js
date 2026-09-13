@@ -335,8 +335,8 @@ export const ppsmDepuisSquadCode = (squadCode) => PPSM_PAR_SQUAD_CODE[squadCode]
 
 // Liste vivante de l'appli Cim'Alerte (table `ref_helico`, appareils actifs
 // uniquement — SAF est désactivé, remplacé par YETI 1/YETI 2), avec Choucas
-// 69 et Dragon 69 ajoutés à la demande de l'utilisateur (absents de
-// `ref_helico` mais utilisés pour le SNOSM).
+// 69, Dragon 69 et Dragon 66 ajoutés à la demande de l'utilisateur (absents
+// de `ref_helico` mais utilisés pour le SNOSM).
 export const OPTIONS_HELICOPTERES = [
   'Choucas 04',
   'Choucas 05',
@@ -350,12 +350,66 @@ export const OPTIONS_HELICOPTERES = [
   'Dragon 38-1',
   'Dragon 38-2',
   'Dragon 64',
+  'Dragon 66',
   'Dragon 69',
   'Dragon 74',
   'Moyens CODIS',
   'YETI 1',
   'YETI 2',
 ]
+
+/**
+ * Hélicoptère engagé (valeur Cim'Alerte exacte, voir OPTIONS_HELICOPTERES)
+ * -> PPSM. Table fournie directement par l'utilisateur (couvre Savoie,
+ * Isère, Hautes-Alpes, Alpes-Maritimes, Pyrénées-Orientales, section de
+ * Lannemezan) — prioritaire sur la déduction par squad_code
+ * (ppsmDepuisSquadCode ci-dessus) puisque c'est l'hélicoptère réellement
+ * engagé, pas le poste qui a pris l'alerte, qui détermine le PPSM. Un
+ * hélicoptère absent d'ici (secteurs non couverts, appareil renommé) ne
+ * bloque rien : le champ retombe en sélection manuelle.
+ */
+const PPSM_PAR_HELICOPTERE = {
+  'Choucas 73': 'MODANE',
+  'YETI 1': 'COURCHEVEL',
+  'YETI 2': 'COURCHEVEL',
+  'Dragon 74': 'COURCHEVEL',
+  'Dragon 38-1': 'VERSOUD',
+  'Dragon 38-2': 'HUEZ',
+  'Choucas 05': 'BRIANCON',
+  'Dragon 06': 'BASE CANNES',
+  'Dragon 66': 'PERPIGNAN',
+  'Choucas 65': 'BASE LALOUBERE',
+  'Dragon 64': 'GAVARNIE',
+}
+
+export const ppsmDepuisHelicoptere = (helicoptere) => PPSM_PAR_HELICOPTERE[helicoptere] ?? null
+
+// "Emploi hélicoptère du SAF justifié par" ne concerne que le SAF (YETI 1/YETI 2,
+// les seuls appareils SAF de la liste) — masqué tant qu'aucun des deux n'est parmi
+// les hélicoptères engagés (snosm_helicopteres, plusieurs valeurs possibles séparées par ", ").
+export const visibleSiHelicoptereSaf = (bf) => {
+  const valeurs = (bf.snosm_helicopteres ?? '').split(',').map((v) => v.trim().toUpperCase())
+  return valeurs.includes('YETI 1') || valeurs.includes('YETI 2')
+}
+
+// Rôle dans le tableau "Effectif CRS Engagé" du SNOSM — volontairement réduit à 3
+// valeurs fixes (décision utilisateur), à ne pas confondre avec les rôles libres de
+// l'effectif du jour Cim'Alerte (COS, SOM, SOM OPJ, PERMANENCIER, RADIO… propres à
+// chaque section, voir effectifs_mc) que roleSnosmDepuis() reclasse ci-dessous.
+export const OPTIONS_ROLE_EFFECTIF = ['COS', 'Secouriste', 'Téléphoniste']
+
+/**
+ * Reclasse un rôle libre de l'effectif du jour dans l'une des 3 valeurs SNOSM —
+ * préremplissage seulement à l'ajout depuis une puce "Effectif du jour", toujours
+ * modifiable ensuite. Tout ce qui n'est ni COS ni un rôle radio/permanence tombe en
+ * Secouriste par défaut (le cas le plus fréquent sur le terrain).
+ */
+export function roleSnosmDepuis(roleBrut) {
+  const r = (roleBrut ?? '').toUpperCase()
+  if (r.includes('COS')) return 'COS'
+  if (r.includes('PERMANENCIER') || r.includes('RADIO') || r.includes('TELEPHONISTE')) return 'Téléphoniste'
+  return 'Secouriste'
+}
 
 // Vocabulaire SNOSM (tableur fourni par l'utilisateur) pour le sous-bloc
 // avalanche par victime — comptages déjà recoupés en début de chantier
