@@ -1888,6 +1888,22 @@ main > * {
   cursor: pointer;
 }
 
+.champ-radio-snosm {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  padding-top: 2px;
+}
+
+.champ-radio-snosm label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
 .champ-compteur-snosm {
   display: flex;
   align-items: center;

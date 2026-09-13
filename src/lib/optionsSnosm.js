@@ -192,6 +192,29 @@ export const OPTIONS_TYPE_INTERVENTION = ['Héliportée', 'Terrestre', 'Mixte']
 // correspondance à construire.
 export const OPTIONS_ORIGINE_ALERTE = ['CODIS', 'SAMU', 'CORG', 'VICTIME TEMOIN', 'SERVICE DES PISTES', 'AUTRE']
 
+/**
+ * Reclasse la valeur brute Cim'Alerte (`ref_origines_alerte` : CODIS74,
+ * SAMU38, PPSM Versoud, Pisteurs, Témoin en direct…) dans une des 6 cases
+ * SNOSM ci-dessus — préremplissage seulement, jamais figé : la valeur reste
+ * modifiable ensuite. Ce qui ne rentre dans aucune case reconnue tombe en
+ * AUTRE, avec l'intitulé Cim'Alerte reporté tel quel dans la précision plutôt
+ * que perdu.
+ */
+export function snosmOrigineDepuis(origineCimAlerte) {
+  if (!origineCimAlerte) return null
+  // Accents normalisés : "Témoin"/"Requérant" doivent matcher malgré la casse et les accents variables selon la saisie.
+  const o = origineCimAlerte
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+  if (o.startsWith('CODIS')) return 'CODIS'
+  if (o.startsWith('SAMU') || o === 'C15') return 'SAMU'
+  if (o === 'CORG') return 'CORG'
+  if (o.includes('TEMOIN') || o.includes('REQUERANT')) return 'VICTIME TEMOIN'
+  if (o.includes('PISTE')) return 'SERVICE DES PISTES'
+  return 'AUTRE'
+}
+
 // Valeurs Cim'Alerte (table `ref_activites`, actives uniquement) — pas du
 // vocabulaire SNOSM, sert seulement à compléter ici une alerte mal
 // renseignée. Pas de lien avec les 55 valeurs SNOSM CrsNatureActivite : par

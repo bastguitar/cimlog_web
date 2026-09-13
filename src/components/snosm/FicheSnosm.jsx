@@ -16,6 +16,7 @@ import {
   OPTIONS_TYPE_INTERVENTION,
   OPTIONS_ORIGINE_ALERTE,
   OPTIONS_ACTIVITE,
+  snosmOrigineDepuis,
 } from '../../lib/optionsSnosm'
 import {
   modifierIntervention,
@@ -51,14 +52,14 @@ const GROUPES_GENERAL = [
     titre: 'Alerte',
     champs: [
       { cle: 'snosm_numero_texte', label: 'N° de texte' },
-      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte', type: 'liste', options: OPTIONS_ORIGINE_ALERTE },
+      { cle: 'snosm_origine_alerte', label: 'Origine de l’alerte', type: 'radio', options: OPTIONS_ORIGINE_ALERTE },
       { cle: 'snosm_origine_alerte_autre', label: 'Origine — précision si « Autre »' },
     ],
   },
   {
     titre: 'Horaires',
     champs: [
-      { cle: 'alert_le_affichage', label: 'Alerte', type: 'lecture' },
+      { cle: 'snosm_alerte_le', label: 'Alerte', type: 'datetime' },
       { cle: 'snosm_depart_le', label: 'Départ', type: 'datetime' },
       { cle: 'snosm_arrivee_lieux_le', label: 'Sur les lieux', type: 'datetime' },
       { cle: 'snosm_fin_operation_le', label: 'Fin d’opération', type: 'datetime' },
@@ -71,7 +72,7 @@ const GROUPES_GENERAL = [
       { cle: 'com', label: 'Commune' },
       { cle: 'lieu', label: 'Lieu' },
       { cle: 'county', label: 'Département' },
-      { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'liste', options: OPTIONS_NATURE_OPERATION },
+      { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'radio', options: OPTIONS_NATURE_OPERATION },
       { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: OPTIONS_ACTIVITE },
       { cle: 'alt', label: 'Altitude (m)' },
       { cle: 'snosm_meteo', label: 'Météo', type: 'liste', options: OPTIONS_METEO },
@@ -80,11 +81,11 @@ const GROUPES_GENERAL = [
   {
     titre: 'Domaine',
     champs: [
-      { cle: 'snosm_type_domaine', label: 'Type de domaine', type: 'liste', options: OPTIONS_TYPE_DOMAINE },
-      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'liste', options: OPTIONS_ENCADREMENT },
-      { cle: 'snosm_diplome_encadrant', label: 'Diplôme encadrant', type: 'liste', options: OPTIONS_DIPLOME_ENCADRANT },
-      { cle: 'snosm_localisation_piste', label: 'Localisation piste', type: 'liste', options: OPTIONS_LOCALISATION_PISTE },
-      { cle: 'snosm_neige', label: 'Neige', type: 'liste', options: OPTIONS_NEIGE },
+      { cle: 'snosm_type_domaine', label: 'Type de domaine', type: 'radio', options: OPTIONS_TYPE_DOMAINE },
+      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT },
+      { cle: 'snosm_diplome_encadrant', label: 'Diplôme encadrant', type: 'radio', options: OPTIONS_DIPLOME_ENCADRANT },
+      { cle: 'snosm_localisation_piste', label: 'Localisation piste', type: 'radio', options: OPTIONS_LOCALISATION_PISTE },
+      { cle: 'snosm_neige', label: 'Neige', type: 'radio', options: OPTIONS_NEIGE },
     ],
   },
 ]
@@ -259,9 +260,6 @@ function BlocChamps({ groupes, brouillon, majChamp }) {
   ))
 }
 
-const formatAlerteLe = (iso) =>
-  iso ? new Date(iso).toLocaleString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : ''
-
 function brouillonFicheDepuis(fiche) {
   const bf = {}
   for (const g of TOUS_GROUPES_INTERVENTION) for (const c of g.champs) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
@@ -269,13 +267,22 @@ function brouillonFicheDepuis(fiche) {
   bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
   // Le n° de texte SNOSM est le n° d'intervention Cim'Alerte — prérempli s'il n'a pas déjà été saisi.
   if (!bf.snosm_numero_texte && fiche.local_id) bf.snosm_numero_texte = String(fiche.local_id)
-  // Départ/Sur les lieux/Fin d'opération : préremplis depuis les statuts terrain horodatés de la
-  // main courante Cim'Alerte (premier DEPART/ASL/FIN), modifiables ensuite comme n'importe quel champ.
+  // Origine de l'alerte : reclassée depuis la valeur Cim'Alerte (CODIS74, SAMU38…) dans une des 6 cases
+  // du radio SNOSM — ce qui ne rentre dans aucune case connue est reporté en AUTRE avec le texte d'origine en précision.
+  if (!bf.snosm_origine_alerte && fiche.alert_origin) {
+    const bucket = snosmOrigineDepuis(fiche.alert_origin)
+    if (bucket) {
+      bf.snosm_origine_alerte = bucket
+      if (bucket === 'AUTRE' && !bf.snosm_origine_alerte_autre) bf.snosm_origine_alerte_autre = fiche.alert_origin
+    }
+  }
+  // Alerte/Départ/Sur les lieux/Fin d'opération : préremplis depuis Cim'Alerte (heure d'alerte, puis
+  // statuts terrain horodatés de la main courante — premier DEPART/ASL/FIN), modifiables ensuite comme
+  // n'importe quel champ, jamais réécrits sur Cim'Alerte lui-même (colonnes Snosm* dédiées côté Grist).
+  if (!bf.snosm_alerte_le && fiche.created_at) bf.snosm_alerte_le = fiche.created_at
   if (!bf.snosm_depart_le && fiche.depart_le) bf.snosm_depart_le = fiche.depart_le
   if (!bf.snosm_arrivee_lieux_le && fiche.arrivee_le) bf.snosm_arrivee_lieux_le = fiche.arrivee_le
   if (!bf.snosm_fin_operation_le && fiche.fin_le) bf.snosm_fin_operation_le = fiche.fin_le
-  // Heure d'alerte Cim'Alerte, affichée à côté de Départ/Sur les lieux/Fin d'opération — lecture seule, déjà fixée à la prise d'appel.
-  bf.alert_le_affichage = formatAlerteLe(fiche.created_at)
   return bf
 }
 

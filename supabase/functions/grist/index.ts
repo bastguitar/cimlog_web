@@ -137,6 +137,7 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_numero_texte', 'SnosmNumeroTexte', 'text'],
   ['snosm_origine_alerte', 'SnosmOrigineAlerte', 'text'],
   ['snosm_origine_alerte_autre', 'SnosmOrigineAlerteAutre', 'text'],
+  ['snosm_alerte_le', 'SnosmAlerteLe', 'datetime'],
   ['snosm_depart_le', 'SnosmDepartLe', 'datetime'],
   ['snosm_arrivee_lieux_le', 'SnosmArriveeLieuxLe', 'datetime'],
   ['snosm_fin_operation_le', 'SnosmFinOperationLe', 'datetime'],
