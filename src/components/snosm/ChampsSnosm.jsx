@@ -91,9 +91,9 @@ export function ChampLecture({ label, valeur }) {
   )
 }
 
-export function ChampRadio({ label, valeur, onChange, options }) {
+export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true }) {
   return (
-    <div className="detail-fiche-edition detail-pleine-largeur">
+    <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className="champ-radio-snosm">
         {options.map((o) => (
@@ -255,28 +255,6 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
       </button>
     </div>
   )
-}
-
-/**
- * Plusieurs gestes/techniques peuvent avoir été mis en œuvre sur une même
- * intervention (ex. gestes de secourisme, techniques d'évacuation) — mêmes
- * menus déroulants "valeur principale + Ajouter un autre" que PPSM/
- * Hélicoptère (ChampListeMultiple), plutôt que des bulles qui prenaient trop
- * de place à l'écran. Reste en texte libre tant que la valeur contient autre
- * chose que ce vocabulaire (récit déjà saisi, ou poussé par Cim'Alerte hors
- * de cette liste) — même principe que ChampListeOuTexte : ne jamais forcer
- * une valeur déjà saisie dans une liste qui pourrait ne pas la contenir mot
- * pour mot.
- */
-export function ChampListeMultipleOuTexte({ label, valeur, onChange, options, libelleAjout }) {
-  const valeurs = (valeur ?? '')
-    .split(',')
-    .map((v) => v.trim())
-    .filter(Boolean)
-  const optionsMaj = options.map((o) => o.toUpperCase())
-  const reconnu = valeurs.every((v) => optionsMaj.includes(v.toUpperCase()))
-  if (!reconnu) return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} />
-  return <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={libelleAjout} />
 }
 
 /**
@@ -472,7 +450,16 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
     return (
       <ChampListeMultiple label={label} valeur={valeur} onChange={onChange} options={options} libelleAjout={description.libelleAjout} />
     )
-  if (type === 'radio') return <ChampRadio label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'radio')
+    return (
+      <ChampRadio
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        options={options}
+        pleineLargeur={description.pleineLargeur ?? true}
+      />
+    )
   if (type === 'bulles') return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'repliable')
     return (
@@ -498,16 +485,6 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
       />
     )
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
-  if (type === 'liste-multiple-ou-texte')
-    return (
-      <ChampListeMultipleOuTexte
-        label={label}
-        valeur={valeur}
-        onChange={onChange}
-        options={options}
-        libelleAjout={description.libelleAjout}
-      />
-    )
   if (type === 'tags') return <ChampTags label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />

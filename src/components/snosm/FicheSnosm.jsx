@@ -174,7 +174,13 @@ const GROUPES_MOYENS_AVANT_EFFECTIF = [
         options: [],
         libelleAjout: 'un autre hélicoptère',
       },
-      { cle: 'snosm_medicalisation', label: 'Médicalisation', type: 'radio', options: OPTIONS_MEDICALISATION },
+      {
+        cle: 'snosm_medicalisation',
+        label: 'Médicalisation',
+        type: 'radio',
+        options: OPTIONS_MEDICALISATION,
+        pleineLargeur: false,
+      },
     ],
   },
 ]
@@ -210,9 +216,8 @@ const GROUPES_INTERVENTION = [
       {
         cle: 'snosm_techniques_evacuation',
         label: 'Technique(s) d’évacuation mise(s) en œuvre',
-        type: 'liste-multiple-ou-texte',
+        type: 'tags',
         options: OPTIONS_TECHNIQUES_EVACUATION,
-        libelleAjout: 'une autre technique',
       },
     ],
   },
