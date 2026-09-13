@@ -2058,6 +2058,51 @@ main > * {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath d='M2.4 6.3l2.3 2.3 4.9-5' fill='none' stroke='white' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
 }
 
+.effectif-jour-snosm {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.etiquette-effectif-jour-snosm {
+  font-size: 12.5px;
+  color: var(--text);
+  font-weight: 600;
+}
+
+.puce-effectif-jour-snosm {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--bg-alt);
+  color: var(--text-h);
+  font: inherit;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.puce-effectif-jour-snosm:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+
+.puce-effectif-jour-snosm:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.role-effectif-jour-snosm {
+  color: var(--text);
+  font-size: 11px;
+  text-transform: uppercase;
+}
+
 .champ-compteur-snosm {
   display: flex;
   align-items: center;

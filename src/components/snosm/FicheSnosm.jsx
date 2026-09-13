@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { chargerTousSecouristes } from '../../lib/annuaire'
+import { effectifsDuJour } from '../../lib/effectifsDuJour'
 import { ChampSnosm, ChampCheckbox } from './ChampsSnosm'
 import {
   OPTIONS_ENCADREMENT,
@@ -143,7 +144,10 @@ const GROUPES_GENERAL = [
   },
 ]
 
-const GROUPES_MOYENS = [
+// Scindé en deux : "Effectif CRS Engagé" (rendu à part, tableau répétable)
+// s'intercale entre les deux sur le vrai formulaire — juste après
+// Médicalisation, avant Équipe(s) cynophile(s) CRS.
+const GROUPES_MOYENS_AVANT_EFFECTIF = [
   {
     titre: 'Opération',
     champs: [
@@ -152,11 +156,21 @@ const GROUPES_MOYENS = [
       { cle: 'snosm_helicopteres', label: 'Hélicoptère(s)', type: 'liste', options: OPTIONS_HELICOPTERES },
       { cle: 'support_units', label: 'Unités en soutien' },
       { cle: 'snosm_medicalisation', label: 'Médicalisation', type: 'radio', options: OPTIONS_MEDICALISATION },
+    ],
+  },
+]
+
+const GROUPES_MOYENS_APRES_EFFECTIF = [
+  {
+    titre: '',
+    champs: [
       { cle: 'snosm_equipes_cynophiles_crs', label: 'Équipe(s) cynophile(s) CRS', type: 'nombre' },
       { cle: 'snosm_emploi_heli_saf', label: 'Emploi hélicoptère du SAF justifié par', type: 'texte-long' },
     ],
   },
 ]
+
+const GROUPES_MOYENS = [...GROUPES_MOYENS_AVANT_EFFECTIF, ...GROUPES_MOYENS_APRES_EFFECTIF]
 
 const GROUPES_INTERVENTION = [
   {
@@ -302,9 +316,9 @@ function valeurInitiale(type) {
 }
 
 function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
-  return groupes.map((groupe) => (
-    <div className="section-fiche" key={groupe.titre}>
-      <h4>{groupe.titre}</h4>
+  return groupes.map((groupe, i) => (
+    <div className="section-fiche" key={groupe.titre || i}>
+      {groupe.titre && <h4>{groupe.titre}</h4>}
       <div className="grille-details-fiche">
         {groupe.champs.map((c) => (
           <ChampSnosm
@@ -410,6 +424,12 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       .then((liste) => setSecouristes(liste.map((s) => s.libelle)))
       .catch(() => {})
   }, [])
+  // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
+  // pour ajouter rapidement à l'Effectif CRS Engagé sans ressaisir un nom déjà connu.
+  const [effectifJour, setEffectifJour] = useState([])
+  useEffect(() => {
+    effectifsDuJour(fiche.squad_code, fiche.created_at).then(setEffectifJour).catch(() => {})
+  }, [fiche.squad_code, fiche.created_at])
 
   function demarrerEdition() {
     setBrouillonFiche(brouillonFicheDepuis(fiche))
@@ -494,13 +514,19 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     setEffectifs(liste)
   }
 
-  async function ajouterLigneEffectif() {
+  async function ajouterLigneEffectif(role = '', personne = '') {
     try {
-      await ajouterEffectifEngage(fiche.id, codesRequete, { role: '', personne: '', depassement_horaire: false, heure_depassement: null })
+      await ajouterEffectifEngage(fiche.id, codesRequete, { role, personne, depassement_horaire: false, heure_depassement: null })
       await rafraichirEffectifs()
     } catch (e) {
       setErreur(e.message)
     }
+  }
+
+  /** Ajoute une personne de l'effectif du jour tel quel — jamais deux fois la même. */
+  async function ajouterDepuisEffectifJour(entree) {
+    if (effectifs.some((e) => e.personne === entree.nom && e.role === entree.role)) return
+    await ajouterLigneEffectif(entree.role, entree.nom)
   }
 
   async function majEffectif(id, champs) {
@@ -554,9 +580,13 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
         {sousOnglet === 'moyens' && (
           <>
-            {edition ? <BlocChamps groupes={GROUPES_MOYENS} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_MOYENS} fiche={fiche} />}
+            {edition ? (
+              <BlocChamps groupes={GROUPES_MOYENS_AVANT_EFFECTIF} brouillon={brouillonFiche} majChamp={majChampFiche} />
+            ) : (
+              <LectureGroupes groupes={GROUPES_MOYENS_AVANT_EFFECTIF} fiche={fiche} />
+            )}
             <div className="section-fiche">
-              <h4>Équipe (Cim’Alerte)</h4>
+              <h4>Équipe</h4>
               <div className="grille-details-fiche">
                 <Detail label="Équipe engagée">{fiche.team?.length > 0 ? fiche.team.join(', ') : '—'}</Detail>
                 <Detail label="Moyens engagés (brut)">{fiche.moyens_engages || '—'}</Detail>
@@ -564,14 +594,35 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             </div>
             <div className="section-fiche">
               <h4>Effectif CRS engagé</h4>
+              {effectifJour.length > 0 && (
+                <div className="effectif-jour-snosm">
+                  <span className="etiquette-effectif-jour-snosm">Effectif du jour — cliquer pour ajouter :</span>
+                  {effectifJour.map((e) => (
+                    <button
+                      type="button"
+                      key={e.id}
+                      className="puce-effectif-jour-snosm"
+                      disabled={verrouillee}
+                      onClick={() => ajouterDepuisEffectifJour(e)}
+                    >
+                      {e.nom} <span className="role-effectif-jour-snosm">{e.role}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
               <TableauEffectifs
                 effectifs={effectifs}
                 verrouillee={verrouillee}
-                onAjouter={ajouterLigneEffectif}
+                onAjouter={() => ajouterLigneEffectif()}
                 onMaj={majEffectif}
                 onSupprimer={supprimerLigneEffectif}
               />
             </div>
+            {edition ? (
+              <BlocChamps groupes={GROUPES_MOYENS_APRES_EFFECTIF} brouillon={brouillonFiche} majChamp={majChampFiche} />
+            ) : (
+              <LectureGroupes groupes={GROUPES_MOYENS_APRES_EFFECTIF} fiche={fiche} />
+            )}
           </>
         )}
 
@@ -689,9 +740,9 @@ function ChampsLecture({ champs, source }) {
 }
 
 function LectureGroupes({ groupes, fiche }) {
-  return groupes.map((groupe) => (
-    <div className="section-fiche" key={groupe.titre}>
-      <h4>{groupe.titre}</h4>
+  return groupes.map((groupe, i) => (
+    <div className="section-fiche" key={groupe.titre || i}>
+      {groupe.titre && <h4>{groupe.titre}</h4>}
       <div className="grille-details-fiche">
         <ChampsLecture champs={groupe.champs} source={fiche} />
       </div>
