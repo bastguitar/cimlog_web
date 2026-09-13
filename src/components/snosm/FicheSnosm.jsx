@@ -94,7 +94,7 @@ const GROUPES_MOYENS = [
   {
     titre: 'Opération',
     champs: [
-      { cle: 'snosm_type_operation_moyens', label: 'Opération (héliportée / terrestre / mixte)' },
+      { cle: 'snosm_type_operation_moyens', label: 'Opération', type: 'radio', options: OPTIONS_TYPE_INTERVENTION },
       { cle: 'snosm_ppsm', label: 'PPSM(s)' },
       { cle: 'helicopter', label: 'Hélicoptère', type: 'liste-si-vide', options: OPTIONS_HELICOPTERES },
       { cle: 'snosm_helicopteres', label: 'Hélicoptère(s)', type: 'liste', options: OPTIONS_HELICOPTERES },
@@ -283,6 +283,8 @@ function brouillonFicheDepuis(fiche) {
   if (!bf.snosm_depart_le && fiche.depart_le) bf.snosm_depart_le = fiche.depart_le
   if (!bf.snosm_arrivee_lieux_le && fiche.arrivee_le) bf.snosm_arrivee_lieux_le = fiche.arrivee_le
   if (!bf.snosm_fin_operation_le && fiche.fin_le) bf.snosm_fin_operation_le = fiche.fin_le
+  // Opération (héliportée/terrestre/mixte) : reprend le type d'intervention Cim'Alerte quand il est renseigné.
+  if (!bf.snosm_type_operation_moyens && fiche.type_intervention) bf.snosm_type_operation_moyens = fiche.type_intervention
   return bf
 }
 
