@@ -356,33 +356,36 @@ export function roleSnosmDepuis(roleBrut) {
 // Vocabulaire SNOSM (tableur fourni par l'utilisateur) pour le sous-bloc
 // avalanche par victime — comptages déjà recoupés en début de chantier
 // (DURETE DE LA NEIGE/TETE : 5, OBSTACLES/ECOULEMENT : 6, ENVIRONNEMENT : 8).
-export const OPTIONS_DURETE_NEIGE = ['FAIBLE (POING)', 'FAIBLE (4 DOIGTS)', 'MOYEN (1 DOIGT)', 'FORTE (1 CRAYON)', 'FORTE (1 COUTEAU)']
-export const OPTIONS_OBSTACLES = ['ROCHER', 'ARBRE', 'BARRE ROCHEUSE', 'BARRE DE SERAC', 'COULOIR', 'AUTRE']
-export const OPTIONS_ENVIRONNEMENT_AVALANCHE = ['RAVINE', 'THALWEG', 'CREUX', 'DOLINE', 'GYPSIERE', "COURS D'EAU", 'LAC', 'CREVASSE / RIMAYE']
+// En minuscules (décision utilisateur — sauf Niveau de risque, gardé tel quel) : Cim'Log ne change
+// que sa propre présentation, jamais le format d'échange avec le SNOSM.
+export const OPTIONS_DURETE_NEIGE = ['faible (poing)', 'faible (4 doigts)', 'moyen (1 doigt)', 'forte (1 crayon)', 'forte (1 couteau)']
+export const OPTIONS_OBSTACLES = ['rocher', 'arbre', 'barre rocheuse', 'barre de serac', 'couloir', 'autre']
+export const OPTIONS_ENVIRONNEMENT_AVALANCHE = ['ravine', 'thalweg', 'creux', 'doline', 'gypsiere', "cours d'eau", 'lac', 'crevasse / rimaye']
 
 // Valeurs reprises directement des captures du vrai formulaire (pas de
 // tableur pour celles-ci, juste Oui/Non/Non plus complexe pour certaines).
-export const OPTIONS_OUI_NON_NE_SAIS_PAS = ['Oui', 'Non', 'Ne sais pas']
-export const OPTIONS_GONFLAGE = ['Complètement', 'Partiellement', 'Non']
-export const OPTIONS_POSITION_VICTIME_AIRBAG = ['Avec ventrale', 'Sans ventrale', 'Non']
-export const OPTIONS_SAC_ET_VICTIME = ['Liés', 'Séparés']
-export const OPTIONS_ALIMENTATION_DVA = ['Cartouche', 'Électrique']
+export const OPTIONS_OUI_NON_NE_SAIS_PAS = ['oui', 'non', 'ne sais pas']
+export const OPTIONS_GONFLAGE = ['complètement', 'partiellement', 'non']
+export const OPTIONS_POSITION_VICTIME_AIRBAG = ['avec ventrale', 'sans ventrale', 'non']
+export const OPTIONS_SAC_ET_VICTIME = ['liés', 'séparés']
+export const OPTIONS_ALIMENTATION_DVA = ['cartouche', 'électrique']
 
 // Avalanche, niveau événement (comptages déjà recoupés en début de chantier : 5/5/5).
 export const OPTIONS_TYPE_AVALANCHE = [
-  'NEIGE FRAICHE',
-  'NEIGE SOUFFLEE (NEIGE VENTEE)',
-  'NEIGE ANCIENNE(SOUS COUCHE FRAGILE PERSISTANTE)',
-  'AVALANCHE MOUILLEE (NEIGE HUMIDE)',
-  'AVALANCHE DE GLISSEMENT (AVALANCHE DE FOND)',
+  'neige fraiche',
+  'neige soufflee (neige ventee)',
+  'neige ancienne(sous couche fragile persistante)',
+  'avalanche mouillee (neige humide)',
+  'avalanche de glissement (avalanche de fond)',
 ]
 export const OPTIONS_TAILLE_AVALANCHE = [
-  'TAILLE 1 : PETITE AVALANCHE (COULEE)',
-  'TAILLE 2 : AVALANCHE MOYENNE',
-  'TAILLE 3 : GRANDE AVALANCHE',
-  'TAILLE 4 : TRES GRANDE AVALANCHE',
-  'TAILLE 5 : AVALANCHE EXTREMEMENT GRANDE',
+  'taille 1 : petite avalanche (coulee)',
+  'taille 2 : avalanche moyenne',
+  'taille 3 : grande avalanche',
+  'taille 4 : tres grande avalanche',
+  'taille 5 : avalanche extrememement grande',
 ]
+// Seul champ de l'onglet Avalanche resté en majuscules (décision utilisateur explicite).
 export const OPTIONS_NIVEAU_RISQUE = ['1-FAIBLE', '2-LIMITE', '3-MARQUE', '4-FORT', '5-TRES FORT']
 
 // Rose des vents à 16 branches — valeurs universelles, pas du vocabulaire SNOSM propre à vérifier.
@@ -494,20 +497,20 @@ export const OPTIONS_TECHNIQUES_EVACUATION = [
 ]
 
 export const OPTIONS_ORIENTATION = [
-  'NORD',
-  'NORD-NORD-EST',
-  'NORD-EST',
-  'EST-NORD-EST',
-  'EST',
-  'EST-SUD-EST',
-  'SUD-EST',
-  'SUD-SUD-EST',
-  'SUD',
-  'SUD-SUD-OUEST',
-  'SUD-OUEST',
-  'OUEST-SUD-OUEST',
-  'OUEST',
-  'OUEST-NORD-OUEST',
-  'NORD-OUEST',
-  'NORD-NORD-OUEST',
+  'nord',
+  'nord-nord-est',
+  'nord-est',
+  'est-nord-est',
+  'est',
+  'est-sud-est',
+  'sud-est',
+  'sud-sud-est',
+  'sud',
+  'sud-sud-ouest',
+  'sud-ouest',
+  'ouest-sud-ouest',
+  'ouest',
+  'ouest-nord-ouest',
+  'nord-ouest',
+  'nord-nord-ouest',
 ]

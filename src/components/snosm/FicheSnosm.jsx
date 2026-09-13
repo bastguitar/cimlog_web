@@ -146,7 +146,7 @@ const GROUPES_GENERAL = [
   {
     titre: 'Encadrement',
     champs: [
-      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT },
+      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT, avecFleche: true },
       {
         cle: 'snosm_diplome_encadrant',
         label: 'Diplôme encadrant',
@@ -285,11 +285,13 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
   { cle: 'snosm_avalanche_niveau_risque', label: 'Niveau de risque', type: 'radio', options: OPTIONS_NIVEAU_RISQUE },
   { cle: 'snosm_avalanche_declenchement_le', label: 'Déclenchement', type: 'datetime' },
   { cle: 'snosm_avalanche_point_depart_gps', label: 'Point de départ (GPS)' },
-  { cle: 'snosm_avalanche_longueur', label: 'Longueur (m)', type: 'nombre' },
-  { cle: 'snosm_avalanche_largeur_cassure', label: 'Largeur cassure (m)', type: 'nombre' },
-  { cle: 'snosm_avalanche_hauteur_cassure', label: 'Hauteur cassure (cm)', type: 'nombre' },
-  { cle: 'snosm_avalanche_largeur_depot', label: 'Largeur dépôt (cm)', type: 'nombre' },
-  { cle: 'snosm_avalanche_altitude', label: 'Altitude (m)', type: 'nombre' },
+  // Texte libre plutôt que compteur +/- (décision utilisateur) : cliquer un par un jusqu'à 150 n'est
+  // pas praticable, autant taper la valeur directement — l'unité reste précisée dans le libellé.
+  { cle: 'snosm_avalanche_longueur', label: 'Longueur (m)' },
+  { cle: 'snosm_avalanche_largeur_cassure', label: 'Largeur cassure (m)' },
+  { cle: 'snosm_avalanche_hauteur_cassure', label: 'Hauteur cassure (cm)' },
+  { cle: 'snosm_avalanche_largeur_depot', label: 'Largeur dépôt (cm)' },
+  { cle: 'snosm_avalanche_altitude', label: 'Altitude (m)' },
   { cle: 'snosm_avalanche_pente', label: 'Pente' },
   { cle: 'snosm_avalanche_denivele', label: 'Dénivelé total (m)', type: 'nombre' },
   { cle: 'snosm_avalanche_orientation', label: 'Orientation', type: 'liste', options: OPTIONS_ORIENTATION },

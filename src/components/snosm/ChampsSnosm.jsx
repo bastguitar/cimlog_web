@@ -91,10 +91,16 @@ export function ChampLecture({ label, valeur }) {
   )
 }
 
-export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true }) {
+export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true, avecFleche = false }) {
   return (
     <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
-      <span className="etiquette-detail-fiche">{label}</span>
+      {avecFleche ? (
+        <span className="bouton-repliable-snosm bouton-repliable-snosm-fixe">
+          <span className="fleche-repliable-snosm">▾</span> {label}
+        </span>
+      ) : (
+        <span className="etiquette-detail-fiche">{label}</span>
+      )}
       <div className="champ-radio-snosm">
         {options.map((o) => (
           <label key={o}>
@@ -168,7 +174,9 @@ export function ChampRepliable({ label, valeur, onChange, options, optionsParDef
           <span className="fleche-repliable-snosm">▾</span> {label}
         </button>
       ) : (
-        <span className="etiquette-detail-fiche">{label}</span>
+        <span className="bouton-repliable-snosm bouton-repliable-snosm-fixe">
+          <span className="fleche-repliable-snosm">▾</span> {label}
+        </span>
       )}
       <div className="champ-bulles-snosm">
         {optionsAffichees.map((o) => (
@@ -458,6 +466,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
         onChange={onChange}
         options={options}
         pleineLargeur={description.pleineLargeur ?? true}
+        avecFleche={description.avecFleche}
       />
     )
   if (type === 'bulles') return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} />

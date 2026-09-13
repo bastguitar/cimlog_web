@@ -1996,6 +1996,17 @@ main > * {
   color: var(--accent);
 }
 
+/* Même style que le bouton repliable, mais purement décoratif : le champ est déjà déplié en
+   permanence (ex. Encadrement, Localisation piste quand l'activité l'impose) — cohérence visuelle
+   avec Type de domaine/Diplôme encadrant/Neige, sans affordance de clic trompeuse. */
+.bouton-repliable-snosm-fixe {
+  cursor: default;
+}
+
+.bouton-repliable-snosm-fixe:hover {
+  color: var(--text);
+}
+
 .fleche-repliable-snosm {
   display: inline-block;
   font-size: 10px;

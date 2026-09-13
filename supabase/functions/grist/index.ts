@@ -180,11 +180,13 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_avalanche_niveau_risque', 'SnosmAvalancheNiveauRisque', 'text'],
   ['snosm_avalanche_declenchement_le', 'SnosmAvalancheDeclenchementLe', 'datetime'],
   ['snosm_avalanche_point_depart_gps', 'SnosmAvalanchePointDepartGPS', 'text'],
-  ['snosm_avalanche_longueur', 'SnosmAvalancheLongueur', 'numeric'],
-  ['snosm_avalanche_largeur_cassure', 'SnosmAvalancheLargeurCassure', 'numeric'],
-  ['snosm_avalanche_hauteur_cassure', 'SnosmAvalancheHauteurCassure', 'numeric'],
-  ['snosm_avalanche_largeur_depot', 'SnosmAvalancheLargeurDepot', 'numeric'],
-  ['snosm_avalanche_altitude', 'SnosmAvalancheAltitude', 'numeric'],
+  // Passées en texte libre côté Grist aussi (colonnes Numeric -> Text) : cliquer un par un jusqu'à
+  // 150 avec le compteur +/- n'était pas praticable, décision utilisateur de taper la valeur.
+  ['snosm_avalanche_longueur', 'SnosmAvalancheLongueur', 'text'],
+  ['snosm_avalanche_largeur_cassure', 'SnosmAvalancheLargeurCassure', 'text'],
+  ['snosm_avalanche_hauteur_cassure', 'SnosmAvalancheHauteurCassure', 'text'],
+  ['snosm_avalanche_largeur_depot', 'SnosmAvalancheLargeurDepot', 'text'],
+  ['snosm_avalanche_altitude', 'SnosmAvalancheAltitude', 'text'],
   ['snosm_avalanche_pente', 'SnosmAvalanchePente', 'numeric'],
   ['snosm_avalanche_denivele', 'SnosmAvalancheDenivele', 'numeric'],
   ['snosm_avalanche_orientation', 'SnosmAvalancheOrientation', 'text'],
