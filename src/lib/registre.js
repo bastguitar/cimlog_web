@@ -125,3 +125,14 @@ export async function modifierEffectifEngage(effectifId, eventId, codesRequete, 
 export async function supprimerEffectifEngage(effectifId, eventId, codesRequete) {
   await appelerGrist('supprimerEffectif', { squadCodes: codesRequete, eventId, effectifId })
 }
+
+/**
+ * Référentiels hélicoptères/activités — Cim'Alerte fait foi, poussés
+ * automatiquement dans ReferentielHelicos/ReferentielActivites (Grist) à
+ * chaque changement côté ref_helico/ref_activites. Plus aucune copie en dur
+ * de ces deux listes dans Cim'Log (voir optionsSnosm.js).
+ */
+export async function chargerReferentiels(codesRequete) {
+  const { referentiels } = await appelerGrist('referentiels', { squadCodes: codesRequete })
+  return referentiels
+}

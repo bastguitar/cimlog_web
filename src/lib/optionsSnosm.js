@@ -6,6 +6,11 @@
  * l'utilisateur. Toute cette correspondance vit ici, pas dans l'Edge
  * Function Grist ni dans Supabase : Cim'Log ne change que sa propre
  * présentation, jamais le format d'échange.
+ *
+ * Exception : hélicoptères et activités ne sont PAS codés en dur ici —
+ * Cim'Alerte fait foi sur ces deux vocabulaires (poussés automatiquement dans
+ * ReferentielHelicos/ReferentielActivites, voir chargerReferentiels dans
+ * src/lib/registre.js et l'action `referentiels` de l'Edge Function grist).
  */
 
 export const OPTIONS_ENCADREMENT = ['ENCADREMENT ASSOCIATIF', 'ENCADREMENT PROFESSIONNEL', 'NON ENCADRE']
@@ -224,65 +229,6 @@ export function snosmOrigineDepuis(origineCimAlerte) {
   return 'AUTRE'
 }
 
-// Valeurs Cim'Alerte (table `ref_activites`, actives uniquement) — pas du
-// vocabulaire SNOSM, sert seulement à compléter ici une alerte mal
-// renseignée. Pas de lien avec les 55 valeurs SNOSM CrsNatureActivite : par
-// décision de l'utilisateur, "Nature de l'activité" reste le champ Cim'Alerte
-// tel quel (le menu déroulant de l'appli est déjà tenu à jour).
-export const OPTIONS_ACTIVITE = [
-  'Aéronef',
-  'Alpinisme mixte',
-  'Alpinisme neige et glace',
-  'Alpinisme rocher',
-  'Animaux',
-  'Autres activités sportives',
-  'Autres divers',
-  'Autres sports de glisse',
-  'Baignade',
-  'Base jump',
-  'Canyon',
-  'Cascade de glace',
-  'Catastrophe naturelle',
-  'Cerf volant traction',
-  'Chasse-pêche-champignons',
-  'Cycles (autres)',
-  'Deltaplane',
-  'Escalade école',
-  'Équitation',
-  'Falaise (plusieurs longueurs)',
-  'Hydrospeed',
-  'Kayak',
-  'Luge',
-  'Parapente',
-  'Planeur',
-  'Randonnée pédestre hors sentier',
-  'Randonnée pédestre (sur sentier)',
-  'Raquettes à neige',
-  "Refuge-tente-restaurant d'altitude",
-  'Remontée mécanique',
-  'Sanitaire',
-  'Ski de fond',
-  'Ski de montagne',
-  'Ski de pente raide',
-  'Ski de piste',
-  'Ski de randonnée',
-  'Ski hors piste',
-  'Spéléologie',
-  'Suicide',
-  'Snowboard hors piste',
-  'Snowboard sur piste',
-  'Travaux agricoles',
-  'Travaux forestiers',
-  'ULM',
-  'Véhicule à moteur',
-  'Vélo de route',
-  'Via ferrata / via cordata',
-  'VTT cross country',
-  'VTT DH/enduro',
-  'Wingsuit',
-  'Rafting',
-]
-
 // Export réel Grigoletto (table CrsPpsm) — le tableur SNOSM fourni par
 // l'utilisateur n'en listait que 17, il manquait BERARDE.
 export const OPTIONS_PPSM = [
@@ -333,34 +279,10 @@ const PPSM_PAR_SQUAD_CODE = {
 
 export const ppsmDepuisSquadCode = (squadCode) => PPSM_PAR_SQUAD_CODE[squadCode] ?? null
 
-// Liste vivante de l'appli Cim'Alerte (table `ref_helico`, appareils actifs
-// uniquement — SAF est désactivé, remplacé par YETI 1/YETI 2), avec Choucas
-// 69, Dragon 69 et Dragon 66 ajoutés à la demande de l'utilisateur (absents
-// de `ref_helico` mais utilisés pour le SNOSM).
-export const OPTIONS_HELICOPTERES = [
-  'Choucas 04',
-  'Choucas 05',
-  'Choucas 09',
-  'Choucas 65',
-  'Choucas 66',
-  'Choucas 69',
-  'Choucas 73',
-  'Choucas 74',
-  'Dragon 06',
-  'Dragon 38-1',
-  'Dragon 38-2',
-  'Dragon 64',
-  'Dragon 66',
-  'Dragon 69',
-  'Dragon 74',
-  'Moyens CODIS',
-  'YETI 1',
-  'YETI 2',
-]
-
 /**
- * Hélicoptère engagé (valeur Cim'Alerte exacte, voir OPTIONS_HELICOPTERES)
- * -> PPSM. Table fournie directement par l'utilisateur (couvre Savoie,
+ * Hélicoptère engagé (valeur Cim'Alerte exacte, voir ReferentielHelicos dans
+ * Grist, chargée par chargerReferentiels — src/lib/registre.js) -> PPSM.
+ * Table fournie directement par l'utilisateur (couvre Savoie,
  * Isère, Hautes-Alpes, Alpes-Maritimes, Pyrénées-Orientales, section de
  * Lannemezan) — prioritaire sur la déduction par squad_code
  * (ppsmDepuisSquadCode ci-dessus) puisque c'est l'hélicoptère réellement

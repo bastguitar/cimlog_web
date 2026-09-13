@@ -14,10 +14,8 @@ import {
   OPTIONS_LOCALISATION_BLESSURE,
   OPTIONS_TYPE_BLESSURE,
   OPTIONS_CIRCONSTANCES_VICTIME,
-  OPTIONS_HELICOPTERES,
   OPTIONS_TYPE_INTERVENTION,
   OPTIONS_ORIGINE_ALERTE,
-  OPTIONS_ACTIVITE,
   OPTIONS_PPSM,
   OPTIONS_MEDICALISATION,
   OPTIONS_SUIVI_JUDICIAIRE,
@@ -56,6 +54,7 @@ import {
   supprimerEffectifEngage,
   listerEffectifsEngages,
   formatIdentiteVictime,
+  chargerReferentiels,
 } from '../../lib/registre'
 import { telechargerTelegrammeTO } from '../../lib/telegrammeTO'
 
@@ -109,7 +108,8 @@ const GROUPES_GENERAL = [
       { cle: 'lieu', label: 'Lieu' },
       { cle: 'county', label: 'Département' },
       { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'radio', options: OPTIONS_NATURE_OPERATION },
-      { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: OPTIONS_ACTIVITE },
+      // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielActivites dans Grist).
+      { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: [] },
       { cle: 'alt', label: 'Altitude (m)' },
       { cle: 'snosm_meteo', label: 'Météo', type: 'liste', options: OPTIONS_METEO },
     ],
@@ -167,10 +167,11 @@ const GROUPES_MOYENS_AVANT_EFFECTIF = [
         libelleAjout: 'un autre PPSM',
       },
       {
+        // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielHelicos dans Grist).
         cle: 'snosm_helicopteres',
         label: 'Hélicoptère(s)',
         type: 'liste-multiple',
-        options: OPTIONS_HELICOPTERES,
+        options: [],
         libelleAjout: 'un autre hélicoptère',
       },
       { cle: 'snosm_medicalisation', label: 'Médicalisation', type: 'radio', options: OPTIONS_MEDICALISATION },
@@ -342,6 +343,23 @@ const CHAMPS_AVALANCHE_VICTIME = [
 
 const TOUS_GROUPES_INTERVENTION = [...GROUPES_GENERAL, ...GROUPES_MOYENS, ...GROUPES_INTERVENTION, ...GROUPES_RENFORT, ...GROUPES_AVIS]
 
+/**
+ * Injecte les options des 2 champs dont Cim'Alerte fait foi (activité,
+ * hélicoptère(s)) au moment du rendu — plutôt que de les coder en dur dans
+ * les groupes déclaratifs ci-dessus, qui restent une source unique partagée
+ * entre lecture et édition.
+ */
+function groupesAvecReferentiels(groupes, referentiels) {
+  return groupes.map((g) => ({
+    ...g,
+    champs: g.champs.map((c) => {
+      if (c.cle === 'activity') return { ...c, options: referentiels.activites }
+      if (c.cle === 'snosm_helicopteres') return { ...c, options: referentiels.helicopteres }
+      return c
+    }),
+  }))
+}
+
 function valeurInitiale(type) {
   if (type === 'checkbox') return false
   if (type === 'nombre') return 0
@@ -370,7 +388,7 @@ function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
   ))
 }
 
-function brouillonFicheDepuis(fiche) {
+function brouillonFicheDepuis(fiche, referentiels) {
   const bf = {}
   for (const g of TOUS_GROUPES_INTERVENTION)
     for (const c of g.champs) {
@@ -403,7 +421,7 @@ function brouillonFicheDepuis(fiche) {
   if (!bf.snosm_type_operation_moyens && fiche.type_intervention) bf.snosm_type_operation_moyens = fiche.type_intervention
   // Hélicoptère(s) : reprend l'hélicoptère Cim'Alerte seulement s'il correspond exactement à un appareil
   // connu — le texte libre Cim'Alerte est trop hétérogène pour être fiable au-delà d'une correspondance exacte.
-  if (!bf.snosm_helicopteres && OPTIONS_HELICOPTERES.includes(fiche.helicopter)) bf.snosm_helicopteres = fiche.helicopter
+  if (!bf.snosm_helicopteres && referentiels.helicopteres.includes(fiche.helicopter)) bf.snosm_helicopteres = fiche.helicopter
   // PPSM : déduit en priorité de l'hélicoptère engagé (c'est lui qui détermine le PPSM sur le terrain, pas
   // le poste qui a pris l'alerte) ; à défaut retombe sur le squad_code (poste précis — CRS73C, CRS38H…).
   if (!bf.snosm_ppsm) {
@@ -452,7 +470,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [sousOnglet, setSousOnglet] = useState('general')
   const verrouillee = Boolean(fiche.toEnvoyeLe)
   const [edition, setEdition] = useState(!verrouillee)
-  const [brouillonFiche, setBrouillonFiche] = useState(() => (verrouillee ? null : brouillonFicheDepuis(fiche)))
+  // Référentiels hélicoptères/activités : Cim'Alerte fait foi (voir optionsSnosm.js), plus aucune
+  // copie en dur ici — déclaré avant brouillonFiche pour que son préremplissage hélicoptère/PPSM
+  // (ci-dessous) puisse s'appuyer dessus dès le premier rendu.
+  const [referentiels, setReferentiels] = useState({ helicopteres: [], activites: [] })
+  useEffect(() => {
+    chargerReferentiels(codesRequete).then(setReferentiels).catch(() => {})
+  }, [codesRequete])
+  const [brouillonFiche, setBrouillonFiche] = useState(() => (verrouillee ? null : brouillonFicheDepuis(fiche, referentiels)))
   const [brouillonVictimes, setBrouillonVictimes] = useState(() => (verrouillee ? null : brouillonVictimesDepuis(fiche)))
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState(null)
@@ -471,9 +496,22 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   useEffect(() => {
     effectifsDuJour(fiche.squad_code, fiche.created_at).then(setEffectifJour).catch(() => {})
   }, [fiche.squad_code, fiche.created_at])
+  // Rattrapage : le tout premier rendu calcule brouillonFiche avant que chargerReferentiels() ait pu
+  // revenir (referentiels vaut encore {helicopteres: [], activites: []}) — dès que la liste arrive,
+  // retente le préremplissage hélicoptère/PPSM une seule fois, sans jamais écraser une valeur déjà saisie.
+  useEffect(() => {
+    if (referentiels.helicopteres.length === 0) return
+    if (!referentiels.helicopteres.includes(fiche.helicopter)) return
+    setBrouillonFiche((bf) => {
+      if (!bf || bf.snosm_helicopteres) return bf
+      const ppsm = bf.snosm_ppsm || ppsmDepuisHelicoptere(fiche.helicopter) || ppsmDepuisSquadCode(fiche.squad_code)
+      return { ...bf, snosm_helicopteres: fiche.helicopter, ...(ppsm ? { snosm_ppsm: ppsm } : {}) }
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [referentiels])
 
   function demarrerEdition() {
-    setBrouillonFiche(brouillonFicheDepuis(fiche))
+    setBrouillonFiche(brouillonFicheDepuis(fiche, referentiels))
     setBrouillonVictimes(brouillonVictimesDepuis(fiche))
     setEdition(true)
     setErreur(null)
@@ -481,7 +519,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
   /** Abandonne les modifications non enregistrées — reste en rédaction, juste réinitialisée sur les dernières valeurs connues. */
   function annulerEdition() {
-    setBrouillonFiche(brouillonFicheDepuis(fiche))
+    setBrouillonFiche(brouillonFicheDepuis(fiche, referentiels))
     setBrouillonVictimes(brouillonVictimesDepuis(fiche))
     setErreur(null)
   }
@@ -621,12 +659,21 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       </div>
 
       <div className="corps-sous-onglet-snosm">
-        {sousOnglet === 'general' && (edition ? <BlocChamps groupes={GROUPES_GENERAL} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_GENERAL} fiche={fiche} />)}
+        {sousOnglet === 'general' &&
+          (edition ? (
+            <BlocChamps groupes={groupesAvecReferentiels(GROUPES_GENERAL, referentiels)} brouillon={brouillonFiche} majChamp={majChampFiche} />
+          ) : (
+            <LectureGroupes groupes={GROUPES_GENERAL} fiche={fiche} />
+          ))}
 
         {sousOnglet === 'moyens' && (
           <>
             {edition ? (
-              <BlocChamps groupes={GROUPES_MOYENS_AVANT_EFFECTIF} brouillon={brouillonFiche} majChamp={majChampFiche} />
+              <BlocChamps
+                groupes={groupesAvecReferentiels(GROUPES_MOYENS_AVANT_EFFECTIF, referentiels)}
+                brouillon={brouillonFiche}
+                majChamp={majChampFiche}
+              />
             ) : (
               <LectureGroupes groupes={GROUPES_MOYENS_AVANT_EFFECTIF} fiche={fiche} />
             )}

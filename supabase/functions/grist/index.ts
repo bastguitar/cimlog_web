@@ -551,6 +551,25 @@ async function supprimerEffectif(docId: string, apiKey: string, squadCodes: stri
   await deleteGrist(docId, apiKey, 'EffectifsEngages', [effectifId])
 }
 
+/**
+ * Référentiels hélicoptères/activités — poussés automatiquement par Cim'Alerte
+ * (déclencheur Postgres sur ref_helico/ref_activites + fonction Edge dédiée,
+ * voir pousser_referentiel.js côté alerte_secours_web) dans ReferentielHelicos/
+ * ReferentielActivites. Cim'Alerte fait foi : Cim'Log ne garde plus aucune copie
+ * en dur de ces deux listes, juste ce miroir, filtré sur les lignes actives et
+ * trié dans l'ordre attendu par l'appli d'origine.
+ */
+async function listerReferentiels(docId: string, apiKey: string) {
+  const [helicos, activites] = await Promise.all([
+    requeteGrist(docId, apiKey, `select Nom from ReferentielHelicos where Actif = ? order by Ordre`, [true]),
+    requeteGrist(docId, apiKey, `select Nom from ReferentielActivites where Actif = ? order by Ordre`, [true]),
+  ])
+  return {
+    helicopteres: helicos.map((r) => r.Nom as string),
+    activites: activites.map((r) => r.Nom as string),
+  }
+}
+
 Deno.serve(async (requete) => {
   if (requete.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
@@ -600,6 +619,10 @@ Deno.serve(async (requete) => {
     if (action === 'supprimerEffectif') {
       await supprimerEffectif(docId, apiKey, squadCodes, params.eventId, params.effectifId)
       return reponse({ ok: true })
+    }
+    if (action === 'referentiels') {
+      const referentiels = await listerReferentiels(docId, apiKey)
+      return reponse({ ok: true, referentiels })
     }
 
     throw new ErreurHttp(400, 'Action inconnue.')
