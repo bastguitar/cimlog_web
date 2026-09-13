@@ -503,6 +503,42 @@ export function genererCirconstancesGlobales(fiche) {
   return [base, fiche.activity ? `en ${fiche.activity}` : null].filter(Boolean).join(' ')
 }
 
+// Vocabulaire du vrai formulaire SNOSM (tableur fourni par l'utilisateur). Ces deux
+// champs sont désormais aussi alimentés directement par Cim'Alerte (saisis en direct
+// pendant l'intervention, poussés dans les mêmes colonnes Grist SnosmGestesSecourisme/
+// SnosmTechniquesEvacuation) — les menus ci-dessous ne servent qu'à défaut, quand rien
+// n'a été renseigné côté Cim'Alerte ni ici.
+export const OPTIONS_GESTES_SECOURISME = [
+  'POSE ATTELLE DE BRAS',
+  'POSE ATTELLE JAMBE',
+  'POSE ATTELLE EPAULE',
+  'POSE ATTELLE CERVICO-THORACIQUE',
+  'POSE COLLIER CERVICAL',
+  'POSE CEINTURE PELVIENNE',
+  'CONDITIONNEMENT MATELAS COQUILLE',
+  'RELEVAGE / CONDITIONNEMENT PERCHE',
+  'AIDE A LA MEDICALISATION',
+  'MISE EN POSITION LATERALE DE SECURITE',
+  'REANIMATION CARDIO-PULMONAIRE',
+  'POSE PANSEMENT COMPRESSIF / GARROT',
+  'REALISATION PANSEMENT',
+  'BILAN SECOURISME',
+  'NEANT',
+]
+
+export const OPTIONS_TECHNIQUES_EVACUATION = [
+  "HELITREUILLAGE CULOTTE/SANGLE D'EVACUATION",
+  'HELITREUILLAGE PERCHE',
+  'HELITREUILLAGE SUR RELAIS',
+  'RECUPERATION EN APPUI PATIN',
+  'MISE EN OEUVRE MAIN COURANTE',
+  'MISE EN OEUVRE TYROLIENNE / BALANCIER',
+  'EVACUATION EN PAROI / CACOLET',
+  'DESCENTE TRAINEAU',
+  'PORTAGE / BRANCARDAGE',
+  'DEPLACEMENT ENCORDE',
+]
+
 export const OPTIONS_ORIENTATION = [
   'NORD',
   'NORD-NORD-EST',

@@ -44,6 +44,8 @@ import {
   OPTIONS_ROLE_EFFECTIF,
   roleSnosmDepuis,
   genererCirconstancesGlobales,
+  OPTIONS_GESTES_SECOURISME,
+  OPTIONS_TECHNIQUES_EVACUATION,
   snosmStatutDepuis,
 } from '../../lib/optionsSnosm'
 import {
@@ -198,8 +200,18 @@ const GROUPES_INTERVENTION = [
     titre: 'Compte rendu',
     champs: [
       { cle: 'description', label: 'Circonstances / description', type: 'texte-long' },
-      { cle: 'snosm_gestes_secourisme', label: 'Geste(s) de secourisme effectué(s)', type: 'texte-long' },
-      { cle: 'snosm_techniques_evacuation', label: 'Technique(s) d’évacuation mise(s) en œuvre', type: 'texte-long' },
+      {
+        cle: 'snosm_gestes_secourisme',
+        label: 'Geste(s) de secourisme effectué(s)',
+        type: 'bulles-ou-texte',
+        options: OPTIONS_GESTES_SECOURISME,
+      },
+      {
+        cle: 'snosm_techniques_evacuation',
+        label: 'Technique(s) d’évacuation mise(s) en œuvre',
+        type: 'bulles-ou-texte',
+        options: OPTIONS_TECHNIQUES_EVACUATION,
+      },
     ],
   },
 ]
