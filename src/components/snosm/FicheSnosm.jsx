@@ -3,6 +3,7 @@ import { chargerTousSecouristes } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
 import { ChampSnosm, ChampCheckbox, ChampDateTime } from './ChampsSnosm'
 import SchemaAvalanche from './SchemaAvalanche'
+import { ICONES_TYPE_AVALANCHE, ICONES_NIVEAU_RISQUE } from './IconesAvalanche'
 import {
   OPTIONS_ENCADREMENT,
   OPTIONS_DIPLOME_ENCADRANT,
@@ -290,9 +291,9 @@ const CHAMPS_SCHEMA_AVALANCHE = [
 ]
 
 const CHAMPS_AVALANCHE_EVENEMENT = [
-  { cle: 'snosm_avalanche_type', label: 'Type d’avalanche', type: 'radio', options: OPTIONS_TYPE_AVALANCHE },
+  { cle: 'snosm_avalanche_type', label: 'Type d’avalanche', type: 'radio', options: OPTIONS_TYPE_AVALANCHE, icones: ICONES_TYPE_AVALANCHE },
   { cle: 'snosm_avalanche_taille', label: 'Taille d’avalanche', type: 'radio', options: OPTIONS_TAILLE_AVALANCHE },
-  { cle: 'snosm_avalanche_niveau_risque', label: 'Niveau de risque', type: 'radio', options: OPTIONS_NIVEAU_RISQUE },
+  { cle: 'snosm_avalanche_niveau_risque', label: 'Niveau de risque', type: 'radio', options: OPTIONS_NIVEAU_RISQUE, icones: ICONES_NIVEAU_RISQUE },
   { cle: 'snosm_avalanche_declenchement_le', label: 'Déclenchement', type: 'datetime' },
   { cle: 'snosm_avalanche_point_depart_gps', label: 'Point de départ (GPS)' },
   { cle: 'snosm_avalanche_altitude', label: 'Altitude (m)' },

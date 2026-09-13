@@ -91,7 +91,7 @@ export function ChampLecture({ label, valeur }) {
   )
 }
 
-export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true, avecFleche = false }) {
+export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true, avecFleche = false, icones }) {
   return (
     <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
       {avecFleche ? (
@@ -111,6 +111,7 @@ export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = t
               onClick={() => valeur === o && onChange('')}
               onChange={() => onChange(o)}
             />
+            {icones?.[o]}
             {o}
           </label>
         ))}
@@ -121,7 +122,8 @@ export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = t
 
 // Octogone à 8 parts (Nord/Nord-Est/Est/Sud-Est/Sud/Sud-Ouest/Ouest/Nord-Ouest), inspiré d'une rose
 // des vents fournie par l'utilisateur — sommets aux angles ±22.5° de chaque direction (arêtes plates
-// sur les cardinaux), centre (100, 110), flèche pointillée vers le nord au-dessus.
+// sur les cardinaux), centre (100, 110). Nord porte son libellé à l'intérieur de sa part, exactement
+// comme les 7 autres (pas d'exception à l'extérieur — remarqué par l'utilisateur sur la 1ère version).
 const SOMMETS_ORIENTATION = [
   [65.6, 26.85],
   [134.4, 26.85],
@@ -133,7 +135,7 @@ const SOMMETS_ORIENTATION = [
   [16.85, 75.6],
 ]
 const PARTS_ORIENTATION = [
-  { valeur: 'nord', sommets: [0, 1], label: null },
+  { valeur: 'nord', sommets: [0, 1], label: ['Nord'], position: [100, 54] },
   { valeur: 'nord-est', sommets: [1, 2], label: ['Nord-', 'Est'], position: [141, 69] },
   { valeur: 'est', sommets: [2, 3], label: ['Est'], position: [158, 110] },
   { valeur: 'sud-est', sommets: [3, 4], label: ['Sud-', 'Est'], position: [141, 151] },
@@ -148,11 +150,7 @@ export function ChampOrientation({ label, valeur, onChange }) {
   return (
     <div className="detail-fiche-edition detail-pleine-largeur">
       <span className="etiquette-detail-fiche">{label}</span>
-      <svg viewBox="0 0 200 220" className="champ-orientation-snosm" role="img" aria-label="Rose des vents">
-        <line x1="100" y1="110" x2="100" y2="22" className="orientation-fleche-nord" markerEnd="url(#fleche-nord)" />
-        <text x="100" y="14" className="orientation-legende-nord" textAnchor="middle">
-          Nord
-        </text>
+      <svg viewBox="0 0 200 200" className="champ-orientation-snosm" role="img" aria-label="Rose des vents">
         {PARTS_ORIENTATION.map((p) => {
           const [i1, i2] = p.sommets
           const points = `100,110 ${SOMMETS_ORIENTATION[i1].join(',')} ${SOMMETS_ORIENTATION[i2].join(',')}`
@@ -540,6 +538,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
         options={options}
         pleineLargeur={description.pleineLargeur ?? true}
         avecFleche={description.avecFleche}
+        icones={description.icones}
       />
     )
   if (type === 'bulles') return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} />

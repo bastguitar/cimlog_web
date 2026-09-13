@@ -2037,6 +2037,11 @@ main > * {
   min-width: 160px;
 }
 
+.icone-avalanche-snosm {
+  flex-shrink: 0;
+  color: var(--text);
+}
+
 .champ-radio-snosm label {
   display: flex;
   align-items: center;
