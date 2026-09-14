@@ -266,9 +266,9 @@ const GROUPES_AVIS = [
   {
     titre: 'Autorités et médias',
     champs: [
-      { cle: 'snosm_autorites_avisees', label: 'Autorités avisée(s)', type: 'texte-long' },
+      { cle: 'snosm_autorites_avisees', label: 'Autorités avisée(s)', type: 'texte-long', rows: 2 },
       { cle: 'snosm_medias_informes', label: 'Médias informés', type: 'radio', options: OPTIONS_MEDIAS_INFORMES },
-      { cle: 'snosm_avis_divers', label: 'Avis divers', type: 'texte-long' },
+      { cle: 'snosm_avis_divers', label: 'Avis divers', type: 'texte-long', rows: 2 },
     ],
   },
   {
@@ -484,9 +484,10 @@ function brouillonVictimesDepuis(fiche) {
     // victimes, à corriger à la main si elles sont parties vers des endroits différents).
     if (!bv[v.id].snosm_destination && v.destination_cim_alerte) bv[v.id].snosm_destination = v.destination_cim_alerte
     if (!bv[v.id].snosm_fin_prise_en_charge_le && v.depose_le) bv[v.id].snosm_fin_prise_en_charge_le = v.depose_le
-    // Adresse / Lieu de naissance : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
+    // Adresse / Lieu de naissance / Commune : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
     if (!bv[v.id].snosm_demeurant && v.adresse_cim_alerte) bv[v.id].snosm_demeurant = v.adresse_cim_alerte
     if (!bv[v.id].snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv[v.id].snosm_lieu_naissance = v.lieu_naissance_cim_alerte
+    if (!bv[v.id].snosm_commune && v.commune_cim_alerte) bv[v.id].snosm_commune = v.commune_cim_alerte
   }
   return bv
 }

@@ -344,6 +344,7 @@ function versVictimeApp(f: Record<string, unknown>) {
     depose_le: depuisGrist(f.DeposeLe, 'datetime'),
     adresse_cim_alerte: f.Adresse || null,
     lieu_naissance_cim_alerte: f.LieuNaissance || null,
+    commune_cim_alerte: f.Commune || null,
   }
   for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) base[appKey] = depuisGrist(f[gristCol], type)
   return base

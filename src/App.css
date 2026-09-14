@@ -2436,7 +2436,7 @@ main > * {
 }
 
 .grille-renfort-snosm {
-  justify-content: space-between;
+  gap: 10px 56px;
 }
 
 .ligne-effectif-snosm {

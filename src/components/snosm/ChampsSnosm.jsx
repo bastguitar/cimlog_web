@@ -219,42 +219,37 @@ export function ChampBulles({ label, valeur, onChange, options, avecFleche = fal
 
 /**
  * Champ repliable : masqué derrière une flèche tant que `visible` est faux,
- * dépliable manuellement à tout moment. `optionsParDefaut`, si fourni, réduit
- * la liste affichée avant dépliage manuel — dépliée, la liste complète
- * (`options`) redevient accessible : rien de ce qui existait avant n'est
- * jamais rendu impossible à cocher, juste replié par défaut pour ne pas
- * encombrer l'écran. Les choix sont des boutons « bulles » (comme le vrai
- * formulaire SNOSM, ex. « Météo sur place »), pas des boutons radio.
- * Quand `visible` n'est pas imposé par un autre champ, l'en-tête reste
- * cliquable pour replier à nouveau.
+ * dépliable manuellement à tout moment — et repliable à nouveau d'un clic sur
+ * l'en-tête, même quand c'est `visible` (ex. l'activité) qui l'a ouvert au
+ * départ : un clic sur l'en-tête prime toujours sur `visible` une fois que
+ * l'utilisateur a explicitement choisi un état (ouvertManuel), jusqu'au
+ * prochain clic. `optionsParDefaut`, si fourni, réduit la liste affichée tant
+ * qu'on n'a pas cliqué « Voir toutes les options » — la liste complète
+ * (`options`) reste toujours accessible d'un clic, rien n'est perdu, juste
+ * replié par défaut pour ne pas encombrer l'écran. Choix en boutons « bulles »
+ * (comme le vrai formulaire SNOSM, ex. « Météo sur place »), pas radio.
  */
 export function ChampRepliable({ label, valeur, onChange, options, optionsParDefaut, visible }) {
-  const [deplie, setDeplie] = useState(false)
-  const estVisible = visible || deplie
-  const peutSeReplier = !visible
+  const [ouvertManuel, setOuvertManuel] = useState(null)
+  const [toutAffiche, setToutAffiche] = useState(false)
+  const estVisible = ouvertManuel ?? visible
 
   if (!estVisible) {
     return (
-      <button type="button" className="bouton-repliable-snosm" onClick={() => setDeplie(true)}>
+      <button type="button" className="bouton-repliable-snosm" onClick={() => setOuvertManuel(true)}>
         <span className="fleche-repliable-snosm">▸</span> {label}
       </button>
     )
   }
 
-  const optionsAffichees = deplie ? options : (optionsParDefaut ?? options)
-  const reduit = !deplie && optionsParDefaut && optionsParDefaut.length < options.length
+  const optionsAffichees = toutAffiche ? options : (optionsParDefaut ?? options)
+  const reduit = !toutAffiche && optionsParDefaut && optionsParDefaut.length < options.length
 
   return (
     <div className="detail-fiche-edition detail-pleine-largeur">
-      {peutSeReplier ? (
-        <button type="button" className="bouton-repliable-snosm" onClick={() => setDeplie(false)}>
-          <span className="fleche-repliable-snosm">▾</span> {label}
-        </button>
-      ) : (
-        <span className="bouton-repliable-snosm bouton-repliable-snosm-fixe">
-          <span className="fleche-repliable-snosm">▾</span> {label}
-        </span>
-      )}
+      <button type="button" className="bouton-repliable-snosm" onClick={() => setOuvertManuel(false)}>
+        <span className="fleche-repliable-snosm">▾</span> {label}
+      </button>
       <div className="champ-bulles-snosm">
         {optionsAffichees.map((o) => (
           <button
@@ -267,7 +262,7 @@ export function ChampRepliable({ label, valeur, onChange, options, optionsParDef
           </button>
         ))}
         {reduit && (
-          <button type="button" className="lien-voir-tout-snosm" onClick={() => setDeplie(true)}>
+          <button type="button" className="lien-voir-tout-snosm" onClick={() => setToutAffiche(true)}>
             Voir toutes les options
           </button>
         )}
