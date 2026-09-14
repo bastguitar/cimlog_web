@@ -13,15 +13,19 @@
  * src/lib/registre.js et l'action `referentiels` de l'Edge Function grist).
  */
 
-export const OPTIONS_ENCADREMENT = ['ENCADREMENT ASSOCIATIF', 'ENCADREMENT PROFESSIONNEL', 'NON ENCADRE']
+// En minuscules (décision utilisateur), sans accent ajouté — même convention que le reste du
+// vocabulaire SNOSM déjà passé en minuscules (onglet Avalanche) : lettre pour lettre, pas de
+// normalisation orthographique. Cim'Log ne change que sa propre présentation, jamais le format
+// d'échange avec le SNOSM.
+export const OPTIONS_ENCADREMENT = ['encadrement associatif', 'encadrement professionnel', 'non encadre']
 
 export const OPTIONS_DIPLOME_ENCADRANT = [
-  'GUIDE DE HAUTE MONTAGNE',
-  'MONITEUR / MONITRICE DE SKI',
-  'AMM',
-  'DEJEPS CANYONISME',
-  'DEJEPS ESCALADE',
-  'AUTRE',
+  'guide de haute montagne',
+  'moniteur / monitrice de ski',
+  'amm',
+  'dejeps canyonisme',
+  'dejeps escalade',
+  'autre',
 ]
 
 // Confirmé directement par l'utilisateur sur le formulaire SNOSM (le
@@ -36,26 +40,26 @@ export const OPTIONS_TYPE_DOMAINE = [
 ]
 
 export const OPTIONS_LOCALISATION_PISTE = [
-  'COMPETITION',
-  'HORS PISTE GRAVITAIRE',
-  'MONTAGNE',
-  'PISTE BLEUE',
-  'PISTE NOIRE',
-  'PISTE ROUGE',
-  'PISTE VERTE',
-  'SNOWPARK ET SNOWCROSS',
-  'VILLAGE',
+  'competition',
+  'hors piste gravitaire',
+  'montagne',
+  'piste bleue',
+  'piste noire',
+  'piste rouge',
+  'piste verte',
+  'snowpark et snowcross',
+  'village',
 ]
 
 export const OPTIONS_NEIGE = [
-  'DURE',
-  'DOUCE',
-  'VERGLACEE',
-  'HUMIDE / DE PRINTEMPS',
-  'POUDREUSE / FRAICHE',
-  'CROUTEE',
-  'BOSSELEE',
-  'FAIBLE ENNEIGEMENT',
+  'dure',
+  'douce',
+  'verglacee',
+  'humide / de printemps',
+  'poudreuse / fraiche',
+  'croutee',
+  'bosselee',
+  'faible enneigement',
 ]
 
 // Confirmé directement par l'utilisateur — nouveau menu déroulant dédié
@@ -410,9 +414,9 @@ export const visibleSiActiviteGlisse = (bf) =>
 
 export const optionsLocalisationPisteSelonDomaine = (bf) => {
   if (bf.snosm_type_domaine === 'Domaine skiable sur piste') {
-    return ['COMPETITION', 'PISTE BLEUE', 'PISTE NOIRE', 'PISTE ROUGE', 'PISTE VERTE', 'SNOWPARK ET SNOWCROSS']
+    return ['competition', 'piste bleue', 'piste noire', 'piste rouge', 'piste verte', 'snowpark et snowcross']
   }
-  if (bf.snosm_type_domaine === 'Domaine montagne') return ['HORS PISTE GRAVITAIRE', 'MONTAGNE', 'COMPETITION']
+  if (bf.snosm_type_domaine === 'Domaine montagne') return ['hors piste gravitaire', 'montagne', 'competition']
   return null
 }
 

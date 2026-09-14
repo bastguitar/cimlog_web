@@ -147,13 +147,13 @@ const GROUPES_GENERAL = [
   {
     titre: 'Encadrement',
     champs: [
-      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'radio', options: OPTIONS_ENCADREMENT, avecFleche: true },
+      { cle: 'snosm_encadrement', label: 'Encadrement', type: 'bulles', options: OPTIONS_ENCADREMENT, avecFleche: true },
       {
         cle: 'snosm_diplome_encadrant',
         label: 'Diplôme encadrant',
         type: 'repliable',
         options: OPTIONS_DIPLOME_ENCADRANT,
-        visibleSi: (bf) => bf.snosm_encadrement === 'ENCADREMENT ASSOCIATIF' || bf.snosm_encadrement === 'ENCADREMENT PROFESSIONNEL',
+        visibleSi: (bf) => bf.snosm_encadrement === 'encadrement associatif' || bf.snosm_encadrement === 'encadrement professionnel',
       },
     ],
   },
@@ -388,11 +388,11 @@ function valeurInitiale(type) {
   return ''
 }
 
-function BlocChamps({ groupes, brouillon, majChamp, secouristes }) {
+function BlocChamps({ groupes, brouillon, majChamp, secouristes, classeGrille = '' }) {
   return groupes.map((groupe, i) => (
     <div className="section-fiche" key={groupe.titre || i}>
       {groupe.titre && <h4>{groupe.titre}</h4>}
-      <div className="grille-details-fiche">
+      <div className={`grille-details-fiche${classeGrille ? ' ' + classeGrille : ''}`}>
         {groupe.champs.map((c) => (
           <ChampSnosm
             key={c.cle}
@@ -799,7 +799,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
           (edition ? <BlocChamps groupes={GROUPES_INTERVENTION} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_INTERVENTION} fiche={fiche} />)}
 
         {sousOnglet === 'renfort' &&
-          (edition ? <BlocChamps groupes={GROUPES_RENFORT} brouillon={brouillonFiche} majChamp={majChampFiche} /> : <LectureGroupes groupes={GROUPES_RENFORT} fiche={fiche} />)}
+          (edition ? (
+            <BlocChamps groupes={GROUPES_RENFORT} brouillon={brouillonFiche} majChamp={majChampFiche} classeGrille="grille-renfort-snosm" />
+          ) : (
+            <LectureGroupes groupes={GROUPES_RENFORT} fiche={fiche} classeGrille="grille-renfort-snosm" />
+          ))}
 
         {sousOnglet === 'avis' &&
           (edition ? (
@@ -911,11 +915,11 @@ function ChampsLecture({ champs, source }) {
   })
 }
 
-function LectureGroupes({ groupes, fiche }) {
+function LectureGroupes({ groupes, fiche, classeGrille = '' }) {
   return groupes.map((groupe, i) => (
     <div className="section-fiche" key={groupe.titre || i}>
       {groupe.titre && <h4>{groupe.titre}</h4>}
-      <div className="grille-details-fiche">
+      <div className={`grille-details-fiche${classeGrille ? ' ' + classeGrille : ''}`}>
         <ChampsLecture champs={groupe.champs} source={fiche} />
       </div>
     </div>

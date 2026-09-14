@@ -2431,6 +2431,14 @@ main > * {
   gap: 8px;
 }
 
+.tableau-effectifs-snosm > button {
+  align-self: flex-start;
+}
+
+.grille-renfort-snosm {
+  justify-content: space-between;
+}
+
 .ligne-effectif-snosm {
   display: flex;
   align-items: center;

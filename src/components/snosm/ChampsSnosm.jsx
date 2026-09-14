@@ -191,10 +191,16 @@ export function ChampOrientation({ label, valeur, onChange }) {
 }
 
 /** Choix unique en boutons bulles (comme le vrai formulaire SNOSM) plutôt qu'en boutons radio — jamais replié. */
-export function ChampBulles({ label, valeur, onChange, options }) {
+export function ChampBulles({ label, valeur, onChange, options, avecFleche = false }) {
   return (
     <div className="detail-fiche-edition detail-pleine-largeur">
-      <span className="etiquette-detail-fiche">{label}</span>
+      {avecFleche ? (
+        <span className="bouton-repliable-snosm bouton-repliable-snosm-fixe">
+          <span className="fleche-repliable-snosm">▾</span> {label}
+        </span>
+      ) : (
+        <span className="etiquette-detail-fiche">{label}</span>
+      )}
       <div className="champ-bulles-snosm">
         {options.map((o) => (
           <button
@@ -345,7 +351,7 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
  * arrière sur un champ vide retire la dernière bulle. Valeurs stockées
  * jointes par ", " (même format texte que les autres champs multi-valeurs).
  */
-export function ChampTags({ label, valeur, onChange, options }) {
+export function ChampTags({ label, valeur, onChange, options, pleineLargeur = false }) {
   const [texte, setTexte] = useState('')
   const [ouvert, setOuvert] = useState(false)
   const valeurs = (valeur ?? '')
@@ -370,7 +376,7 @@ export function ChampTags({ label, valeur, onChange, options }) {
   const retirer = (v) => onChange(valeurs.filter((existant) => existant !== v).join(', '))
 
   return (
-    <div className="detail-fiche-edition detail-pleine-largeur champ-tags-snosm">
+    <div className={`detail-fiche-edition champ-tags-snosm${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className="zone-tags-snosm">
         {valeurs.map((v) => (
@@ -541,7 +547,8 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
         icones={description.icones}
       />
     )
-  if (type === 'bulles') return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'bulles')
+    return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} avecFleche={description.avecFleche} />
   if (type === 'orientation') return <ChampOrientation label={label} valeur={valeur} onChange={onChange} />
   if (type === 'repliable')
     return (
@@ -567,7 +574,10 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
       />
     )
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
-  if (type === 'tags') return <ChampTags label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'tags')
+    return (
+      <ChampTags label={label} valeur={valeur} onChange={onChange} options={options} pleineLargeur={description.pleineLargeur} />
+    )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
