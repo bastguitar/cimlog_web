@@ -420,14 +420,14 @@ main > * {
    (échelle de risque avalanche, dégradé jaune->rouge de la taille) ne sont volontairement pas
    concernées : ce sont des signaux de gravité, pas une couleur de marque. */
 .onglet-snosm-racine {
-  --accent: #4552a6;
-  --accent-bg: rgba(69, 82, 166, 0.08);
+  --accent: #2668a3;
+  --accent-bg: rgba(38, 104, 163, 0.08);
 }
 
 @media (prefers-color-scheme: dark) {
   .onglet-snosm-racine {
-    --accent: #8f9be0;
-    --accent-bg: rgba(143, 155, 224, 0.14);
+    --accent: #6cabe0;
+    --accent-bg: rgba(108, 171, 224, 0.14);
   }
 }
 

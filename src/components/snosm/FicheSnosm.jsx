@@ -66,6 +66,7 @@ import {
   supprimerEffectifEngage,
   listerEffectifsEngages,
   chargerReferentiels,
+  chargerCosTelephonisteDuJour,
 } from '../../lib/registre'
 import { telechargerTelegrammeTO } from '../../lib/telegrammeTO'
 
@@ -706,6 +707,20 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   useEffect(() => {
     effectifsDuJour(fiche.squad_code, fiche.created_at).then(setEffectifJour).catch(() => {})
   }, [fiche.squad_code, fiche.created_at])
+  // COS/Téléphoniste du jour côté Grist (poussés par Cim'Alerte seulement sur le premier secours
+  // clôturé du jour) — déjà sur la fiche si c'est elle la première de la journée, sinon on va les
+  // chercher sur la plus ancienne intervention du jour pour cette section.
+  const [cosTelephoniste, setCosTelephoniste] = useState({ cos: null, telephoniste: null })
+  useEffect(() => {
+    if (fiche.cos_du_jour || fiche.telephoniste_du_jour) {
+      setCosTelephoniste({ cos: fiche.cos_du_jour, telephoniste: fiche.telephoniste_du_jour })
+      return
+    }
+    chargerCosTelephonisteDuJour(fiche.squad_code, fiche.created_at, codesRequete)
+      .then(setCosTelephoniste)
+      .catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fiche.squad_code, fiche.created_at, fiche.cos_du_jour, fiche.telephoniste_du_jour])
   // Rattrapage : le tout premier rendu calcule brouillonFiche avant que chargerReferentiels() ait pu
   // revenir (referentiels vaut encore {helicopteres: [], activites: []}) — dès que la liste arrive,
   // retente le préremplissage hélicoptère/PPSM une seule fois, sans jamais écraser une valeur déjà saisie.
@@ -956,6 +971,35 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                   ))}
                 </div>
               )}
+              {/* COS/Téléphoniste du jour (Grist, poussés par Cim'Alerte) — même valeur toute la
+                  journée pour cette section, proposée tant qu'elle n'a pas déjà été ajoutée ici. */}
+              {(() => {
+                const cosDejaAjoute = effectifs.some((e) => e.role === 'COS')
+                const telephonisteDejaAjoute = effectifs.some((e) => e.role === 'Téléphoniste')
+                const puces = [
+                  cosTelephoniste.cos && !cosDejaAjoute ? { role: 'COS', personne: cosTelephoniste.cos } : null,
+                  cosTelephoniste.telephoniste && !telephonisteDejaAjoute
+                    ? { role: 'Téléphoniste', personne: cosTelephoniste.telephoniste }
+                    : null,
+                ].filter(Boolean)
+                if (puces.length === 0) return null
+                return (
+                  <div className="effectif-jour-snosm">
+                    <span className="etiquette-effectif-jour-snosm">COS/Téléphoniste du jour — cliquer pour ajouter :</span>
+                    {puces.map((p) => (
+                      <button
+                        type="button"
+                        key={p.role}
+                        className="puce-effectif-jour-snosm"
+                        disabled={verrouillee}
+                        onClick={() => ajouterLigneEffectif(p.role, p.personne)}
+                      >
+                        {p.personne} <span className="role-effectif-jour-snosm">{p.role}</span>
+                      </button>
+                    ))}
+                  </div>
+                )
+              })()}
               <TableauEffectifs
                 effectifs={effectifs}
                 verrouillee={verrouillee}

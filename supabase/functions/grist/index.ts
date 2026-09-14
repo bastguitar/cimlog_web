@@ -268,7 +268,7 @@ const COLONNES_INTERVENTIONS = `id, EventId, Section, NumeroIntervention, Statut
   OrigineAlerte, AlerteLe, DepartLe, ArriveeLe, FinLe, Massif, Departement, Commune, Lieu, TypeLocalisation, Altitude, CoordonneesGPS,
   TGI, RequerantNom, RequerantTelephone, ContreAppel, Activite, AccidentType, TypeOperation, Helicopter,
   MoyensEngages, SupportUnits, Secouristes, Meteo, Medicalisation, Infirmier, CirconstancesGenerales,
-  RecherchePersonne, PersonneRechercheeNom, NombreVictimes, ${CHAMPS_SNOSM_INTERVENTION.map(([, col]) => col).join(', ')}`
+  RecherchePersonne, PersonneRechercheeNom, NombreVictimes, CosDuJour, TelephonisteDuJour, ${CHAMPS_SNOSM_INTERVENTION.map(([, col]) => col).join(', ')}`
 
 /** Même forme que l'ancien row Supabase `events` — pour ne rien changer côté Registre/CarteIGN/Stats/ModaleFiche. */
 function versEvenementApp(
@@ -324,6 +324,11 @@ function versEvenementApp(
     moyens_engages: f.MoyensEngages,
     recherche_personne: f.RecherchePersonne,
     personne_recherchee_nom: f.PersonneRechercheeNom,
+    // Renseignés par Cim'Alerte seulement sur le premier secours clôturé de la journée pour cette
+    // section (les suivants du même jour les laissent vides exprès) — voir cosTelephonisteDuJour
+    // pour retrouver la valeur du jour quand elle est vide sur CETTE intervention précise.
+    cos_du_jour: f.CosDuJour || null,
+    telephoniste_du_jour: f.TelephonisteDuJour || null,
     victimes: victimesParEvent.get(eventId) ?? [],
     effectifs_engages: effectifsParEvent.get(eventId) ?? [],
   }
@@ -615,6 +620,27 @@ async function listerReferentiels(docId: string, apiKey: string) {
   }
 }
 
+/**
+ * COS/Téléphoniste du jour pour une section — Cim'Alerte ne remplit CosDuJour/TelephonisteDuJour
+ * QUE sur le premier secours clôturé de la journée pour cette section (les suivants du même jour
+ * les laissent vides exprès, pour ne pas répéter la même valeur sur chaque ligne). Utilisé quand
+ * l'intervention consultée n'est pas la première du jour : on va chercher la ligne la plus
+ * ancienne du jour pour cette section, `Section` déjà vérifiée contre `squadCodes` par l'appelant.
+ */
+async function cosTelephonisteDuJour(docId: string, apiKey: string, section: string, debut: number, fin: number) {
+  // "is not null" ne suffit pas : Cim'Alerte pousse une CHAÎNE VIDE (pas un vrai NULL) sur les
+  // interventions qui ne sont pas la première du jour — sans l'exclure explicitement, la ligne
+  // vide (souvent plus proche dans le tri) gagnait sur la vraie valeur (bug trouvé en testant
+  // avant déploiement, jamais vu par l'utilisateur).
+  const [f] = await requeteGrist(
+    docId,
+    apiKey,
+    `select CosDuJour, TelephonisteDuJour from Interventions where Section = ? and AlerteLe >= ? and AlerteLe < ? and ((CosDuJour is not null and CosDuJour != '') or (TelephonisteDuJour is not null and TelephonisteDuJour != '')) order by AlerteLe asc limit 1`,
+    [section, debut, fin]
+  )
+  return { cos: (f?.CosDuJour as string) || null, telephoniste: (f?.TelephonisteDuJour as string) || null }
+}
+
 Deno.serve(async (requete) => {
   if (requete.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
@@ -672,6 +698,13 @@ Deno.serve(async (requete) => {
     if (action === 'referentiels') {
       const referentiels = await listerReferentiels(docId, apiKey)
       return reponse({ ok: true, referentiels })
+    }
+    if (action === 'cosTelephonisteDuJour') {
+      if (!squadCodes.includes(params.section)) throw new ErreurHttp(403, 'Hors de votre région.')
+      const debut = Math.floor(new Date(params.debut).getTime() / 1000)
+      const fin = Math.floor(new Date(params.fin).getTime() / 1000)
+      const resultat = await cosTelephonisteDuJour(docId, apiKey, params.section, debut, fin)
+      return reponse({ ok: true, ...resultat })
     }
 
     throw new ErreurHttp(400, 'Action inconnue.')

@@ -142,3 +142,23 @@ export async function chargerReferentiels(codesRequete) {
   const { referentiels } = await appelerGrist('referentiels', { squadCodes: codesRequete })
   return referentiels
 }
+
+/**
+ * COS/Téléphoniste du jour pour une section — Cim'Alerte ne les pousse que sur le premier secours
+ * clôturé de la journée (voir cos_du_jour/telephoniste_du_jour sur la fiche elle-même) ; pour une
+ * intervention qui n'est pas la première du jour, cette fonction va chercher la valeur sur la ligne
+ * la plus ancienne du jour pour cette section.
+ */
+export async function chargerCosTelephonisteDuJour(squadCode, jourReference, codesRequete) {
+  if (!squadCode || !jourReference) return { cos: null, telephoniste: null }
+  const jour = new Date(jourReference)
+  const debut = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate()).toISOString()
+  const fin = new Date(jour.getFullYear(), jour.getMonth(), jour.getDate() + 1).toISOString()
+  const { cos, telephoniste } = await appelerGrist('cosTelephonisteDuJour', {
+    squadCodes: codesRequete,
+    section: squadCode,
+    debut,
+    fin,
+  })
+  return { cos, telephoniste }
+}
