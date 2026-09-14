@@ -174,6 +174,12 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_avis_divers', 'SnosmAvisDivers', 'text'],
   ['snosm_redacteur', 'SnosmRedacteur', 'text'],
   ['snosm_signataire', 'SnosmSignataire', 'text'],
+  // Contenu édité du TO (JSON) et date de dernière validation — posés par "Valider et créer le TO"
+  // (voir telegrammeTO.js/ModaleTO.jsx). Pas de verrou associé : la fiche reste modifiable après
+  // création du TO (décision utilisateur — la vraie synchronisation SNOSM vers Chamonix se fait
+  // plusieurs jours après, on peut régénérer un TO à jour entre-temps).
+  ['snosm_to_texte', 'SnosmTOTexte', 'text'],
+  ['snosm_to_cree_le', 'SnosmTOCreeLe', 'datetime'],
   ['snosm_avalanche', 'SnosmAvalanche', 'bool'],
   ['snosm_avalanche_type', 'SnosmAvalancheType', 'text'],
   ['snosm_avalanche_taille', 'SnosmAvalancheTaille', 'text'],

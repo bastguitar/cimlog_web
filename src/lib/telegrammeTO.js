@@ -4,18 +4,21 @@ import { groupeDe } from './sections'
 
 /**
  * Génère le « TO » (télégramme officiel, IFSM — Intervention des Formations
- * Spécialisées Montagne) d'une intervention, sur le modèle d'un exemplaire
- * réel fourni par l'utilisateur. Beaucoup de champs de ce document (gestes
- * de secourisme, bilan détaillé, autorités avisées, rédacteur/signataire…)
- * viennent du futur formulaire SNOSM, pas encore construit côté Cim'Log —
- * ils sont donc laissés en blanc ici, à compléter à la main. Ce générateur
- * n'a pas besoin d'attendre ce formulaire pour être utile : il pré-remplit
- * déjà tout ce que Cim'Alerte connaît (lieu, moyens, victimes de base…), le
- * reste se complète au fur et à mesure que le formulaire SNOSM arrive.
+ * Spécialisées Montagne) d'une intervention. Deux étapes distinctes :
+ *   1. construireModeleTO(fiche, options) — données pures, lues sur les
+ *      champs SNOSM réels (formulaire aujourd'hui complet — ce fichier
+ *      datait d'avant sa construction, beaucoup de champs restaient
+ *      volontairement vides). Consommé par ModaleTO.jsx (formulaire éditable)
+ *      ET par genererPdfDepuisModele ci-dessous (même mise en page).
+ *   2. genererPdfDepuisModele(modele, fiche) — construit le PDF à partir de
+ *      ce modèle (édité ou non par l'utilisateur dans ModaleTO).
  *
- * Ne pose PAS TOEnvoyeLe (la fiche ne se fige pas au simple téléchargement
- * d'un brouillon) — ce verrou reste réservé à un futur envoi réel du TO,
- * mécanisme d'envoi pas encore décidé (voir ModaleFiche/registre.js).
+ * Le modèle validé (JSON) est sauvegardé sur la fiche (snosm_to_texte,
+ * snosm_to_cree_le) — ces retouches ne modifient QUE le texte du PDF, jamais
+ * les champs SNOSM d'origine (décision utilisateur). La fiche SNOSM reste
+ * modifiable après validation du TO : la vraie synchronisation vers la base
+ * SNOSM (Chamonix) se fait plusieurs jours après, on peut donc régénérer un
+ * TO à jour entre-temps — pas de verrou associé à snosm_to_cree_le.
  */
 
 const NOIR = [23, 23, 28]
@@ -82,15 +85,109 @@ function formatCommuneTO(com) {
   return `${m[2]} ${m[1].toUpperCase()}`
 }
 
-/** Best-effort : la colonne pathologie de Cim'Alerte sert parfois de note libre ("retard", "indemne"…), pas toujours une vraie blessure. */
-function etatMedical(pathologie) {
-  if (!pathologie) return null
-  return /indemne/i.test(pathologie) ? 'Indemne' : 'Blessé'
+/** « HAUTES-ALPES » -> « Hautes-Alpes » — pour le nom de fichier, pas le PDF (qui reste en majuscules). */
+function versTitreCase(texteMajuscule) {
+  return texteMajuscule
+    .toLowerCase()
+    .split(/([\s-])/)
+    .map((partie) => (/[\s-]/.test(partie) ? partie : partie.charAt(0).toUpperCase() + partie.slice(1)))
+    .join('')
 }
 
-function typeOperation(helicopter) {
-  if (!helicopter || helicopter === 'Pas de moyens engagés' || helicopter === 'SDIS') return null
-  return helicopter === 'TERRESTRE' ? 'Terrestre' : 'Héliportée'
+function departementNom(fiche) {
+  if (!fiche.county) return ''
+  return PREFECTURE_PAR_DEPARTEMENT[fiche.county] ?? fiche.county
+}
+
+/**
+ * Modèle éditable du TO — fonction pure, pas de PDF ici. Chaque champ vient
+ * maintenant du vrai formulaire SNOSM (voir FicheSnosm.jsx) plutôt que d'un
+ * champ vide comme dans la première version de ce générateur.
+ */
+export function construireModeleTO(fiche, { sectionNom } = {}) {
+  const groupe = groupeDe(fiche.squad_code)
+  const region = REGION_PAR_GROUPE[groupe] ?? null
+  const zone = region ? (ZONE_PAR_REGION[region] ?? null) : null
+  const prefecture = fiche.county ? departementNom(fiche) : null
+  const numeroIfsm = fiche.county ? `IFSM-${fiche.county}-${fiche.local_id}` : `IFSM-${fiche.local_id}`
+  const nomDe = sectionNom ? `CRS ${region ?? ''} ${sectionNom}`.replace(/\s+/g, ' ').trim().toUpperCase() : null
+  const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - PRÉFECTURE ${prefecture} - CRS ${region}` : null
+  const victimes = fiche.victimes ?? []
+
+  return {
+    numeroIfsm,
+    entete: {
+      de: nomDe,
+      a: zone,
+      pourInformation: prefecture ? `PRÉFECTURE ${prefecture}` : null,
+      numeroTexte: fiche.snosm_numero_texte || (fiche.local_id != null ? String(fiche.local_id) : null),
+    },
+    alerte: {
+      origine: fiche.snosm_origine_alerte === 'AUTRE' ? fiche.snosm_origine_alerte_autre : fiche.snosm_origine_alerte,
+      alerteLe: formatDateHeureTO(fiche.snosm_alerte_le || fiche.alert_at),
+      departLe: formatDateHeureTO(fiche.snosm_depart_le),
+      surLesLieux: formatDateHeureTO(fiche.snosm_arrivee_lieux_le),
+      finOperation: formatDateHeureTO(fiche.snosm_fin_operation_le || fiche.clotureLe),
+    },
+    localisation: {
+      typeDomaine: fiche.snosm_type_domaine,
+      lieuPrecis: fiche.lieu,
+      altitude: fiche.alt ? `${fiche.alt} m` : null,
+      massif: fiche.massif,
+      commune: formatCommuneTO(fiche.com),
+    },
+    natureOperation: {
+      natureIntervention: fiche.snosm_nature_operation || 'Secours en montagne',
+      natureActivite: fiche.activity ? fiche.activity.toUpperCase() : null,
+    },
+    circonstances: {
+      circonstances: fiche.description,
+    },
+    moyens: {
+      operation: fiche.snosm_type_operation_moyens,
+      helicopteres: fiche.snosm_helicopteres,
+      ppsm: fiche.snosm_ppsm,
+      effectifEngage: (fiche.effectifs_engages ?? []).map((e) => e.personne).filter(Boolean).join(' - ') || null,
+      medicalisation: fiche.snosm_medicalisation,
+    },
+    compteRendu: {
+      gestesSecourisme: fiche.snosm_gestes_secourisme,
+      techniquesEvacuation: fiche.snosm_techniques_evacuation,
+    },
+    bilan: {
+      disparus: String(fiche.recherche_personne ? 1 : 0),
+      assistes: String(victimes.filter((v) => v.snosm_etat_medical === 'Indemne').length),
+      blesses: String(victimes.filter((v) => v.snosm_etat_medical === 'Blessé').length),
+      decedes: String(victimes.filter((v) => (v.snosm_etat_medical || '').startsWith('Décédé')).length),
+    },
+    victimes: victimes.map((v) => ({
+      id: v.id,
+      statut: v.snosm_statut || 'Victime',
+      nom: v.nom,
+      prenom: v.prenom,
+      sexe: v.sexe,
+      dateNaissance: v.date_naissance ? new Date(v.date_naissance).toLocaleDateString('fr-FR') : null,
+      nationalite: v.nationalite,
+      telephone: v.telephone,
+      etatMedical: v.snosm_etat_medical,
+      circonstance: v.snosm_circonstances_liste,
+      natureBlessures: [v.snosm_localisation_blessure, v.snosm_type_blessure].filter(Boolean).join(' — ') || null,
+      destination: v.snosm_destination,
+    })),
+    judiciaire: {
+      suiviJudiciaire: fiche.snosm_suivi_judiciaire,
+      directeurEnquete: fiche.snosm_directeur_enquete,
+    },
+    autorites: {
+      autoritesAvisees: fiche.snosm_autorites_avisees || autoritesDefaut,
+      mediasInformes: fiche.snosm_medias_informes,
+      avisDivers: fiche.snosm_avis_divers,
+    },
+    finalisation: {
+      redacteur: fiche.snosm_redacteur,
+      signataire: fiche.snosm_signataire,
+    },
+  }
 }
 
 /**
@@ -191,19 +288,11 @@ class MisePage {
   }
 }
 
-/** Construit le document — fonction pure, ne télécharge rien (voir telechargerTelegrammeTO). */
-export async function genererTelegrammeTO(fiche, { sectionNom } = {}) {
+/** Construit le PDF à partir d'un modèle (édité ou non par l'utilisateur) — fonction pure, ne télécharge rien. */
+export async function genererPdfDepuisModele(modele) {
   const doc = new jsPDF()
   const logo = await chargerImage(logoCrsUrl).catch(() => null)
-
-  const groupe = groupeDe(fiche.squad_code)
-  const region = REGION_PAR_GROUPE[groupe] ?? null
-  const zone = region ? (ZONE_PAR_REGION[region] ?? null) : null
-  const prefecture = fiche.county ? (PREFECTURE_PAR_DEPARTEMENT[fiche.county] ?? fiche.county) : null
-  const numeroIfsm = fiche.county ? `IFSM-${fiche.county}-${fiche.local_id}` : `IFSM-${fiche.local_id}`
-  const nomDe = sectionNom ? `CRS ${region ?? ''} ${sectionNom}`.replace(/\s+/g, ' ').trim().toUpperCase() : null
-
-  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne n° ${numeroIfsm}`)
+  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne n° ${modele.numeroIfsm}`)
 
   // ---- En-tête -----------------------------------------------------------
   if (logo) doc.addImage(logo, 'PNG', page.largeur - MARGE - 20, 10, 20, 26)
@@ -213,17 +302,17 @@ export async function genererTelegrammeTO(fiche, { sectionNom } = {}) {
   doc.text('Intervention des Formations Spécialisées Montagne', MARGE, 18)
   doc.setFontSize(10)
   doc.setTextColor(...ROUGE_CRS)
-  doc.text(`n° ${numeroIfsm}`, MARGE, 25)
+  doc.text(`n° ${modele.numeroIfsm}`, MARGE, 25)
   doc.setDrawColor(...ROUGE_CRS)
   doc.setLineWidth(0.6)
   doc.line(MARGE, 30, page.largeur - MARGE, 30)
   doc.setLineWidth(0.2)
   page.y = 38
 
-  page.champ('DE :', nomDe)
-  page.champ('À :', zone)
-  page.champ('Pour information :', prefecture ? `PRÉFECTURE ${prefecture}` : null)
-  page.champ('N° DE TEXTE :', null)
+  page.champ('DE :', modele.entete.de)
+  page.champ('À :', modele.entete.a)
+  page.champ('Pour information :', modele.entete.pourInformation)
+  page.champ('N° DE TEXTE :', modele.entete.numeroTexte)
   doc.setFont(undefined, 'bold')
   doc.setFontSize(9)
   doc.setTextColor(...NOIR)
@@ -233,106 +322,107 @@ export async function genererTelegrammeTO(fiche, { sectionNom } = {}) {
 
   // ---- 1. Alerte -----------------------------------------------------------
   page.titreSection(1, 'ALERTE')
-  page.champ('Origine :', fiche.alert_origin)
+  page.champ('Origine :', modele.alerte.origine)
   page.champsDoubles([
-    ['Alerte : ', formatDateHeureTO(fiche.alert_at)],
-    ['Départ : ', null],
+    ['Alerte : ', modele.alerte.alerteLe],
+    ['Départ : ', modele.alerte.departLe],
   ])
   page.champsDoubles([
-    ['Sur les lieux : ', null],
-    ["Fin d'opération : ", formatDateHeureTO(fiche.clotureLe)],
+    ['Sur les lieux : ', modele.alerte.surLesLieux],
+    ["Fin d'opération : ", modele.alerte.finOperation],
   ])
   page.espaceur()
 
   // ---- 2. Localisation -------------------------------------------------
   page.titreSection(2, 'LOCALISATION')
-  page.champ('Type de domaine :', null)
-  page.champ('Lieu précis :', fiche.lieu)
+  page.champ('Type de domaine :', modele.localisation.typeDomaine)
+  page.champ('Lieu précis :', modele.localisation.lieuPrecis)
   page.champsDoubles([
-    ['Altitude : ', fiche.alt ? `${fiche.alt} m` : null],
-    ['Massif : ', fiche.massif],
+    ['Altitude : ', modele.localisation.altitude],
+    ['Massif : ', modele.localisation.massif],
   ])
-  page.champ('Commune :', formatCommuneTO(fiche.com))
+  page.champ('Commune :', modele.localisation.commune)
   page.espaceur()
 
   // ---- 3. Nature de l'opération ------------------------------------------
   page.titreSection(3, "NATURE DE L'OPÉRATION")
-  page.champ("Nature de l'intervention :", 'SECOURS EN MONTAGNE')
-  page.champ("Nature de l'activité ayant donné lieu au déclenchement :", fiche.activity?.toUpperCase())
+  page.champ("Nature de l'intervention :", modele.natureOperation.natureIntervention)
+  page.champ("Nature de l'activité ayant donné lieu au déclenchement :", modele.natureOperation.natureActivite)
   page.espaceur()
 
   // ---- 4. Circonstances -------------------------------------------------
   page.titreSection(4, "CIRCONSTANCES DE L'ACCIDENT")
-  page.champ('Circonstances :', fiche.description)
+  page.champ('Circonstances :', modele.circonstances.circonstances)
   page.espaceur()
 
   // ---- 5. Moyens engagés -------------------------------------------------
   page.titreSection(5, 'MOYENS ENGAGÉS')
-  page.champ('Opération :', typeOperation(fiche.helicopter))
-  page.champ('Hélicoptère(s) :', typeOperation(fiche.helicopter) === 'Héliportée' ? fiche.helicopter : null)
-  page.champ('Effectif CRS engagé :', fiche.team?.length ? fiche.team.join(' - ') : null)
-  page.champ('Médicalisation :', fiche.is_med == null ? null : fiche.is_med ? 'Oui' : 'Non')
+  page.champ('Opération :', modele.moyens.operation)
+  page.champ('Hélicoptère(s) :', modele.moyens.helicopteres)
+  page.champ('PPSM(s) :', modele.moyens.ppsm)
+  page.champ('Effectif CRS engagé :', modele.moyens.effectifEngage)
+  page.champ('Médicalisation :', modele.moyens.medicalisation)
   page.espaceur()
 
   // ---- 6. Compte rendu d'opération ---------------------------------------
   page.titreSection(6, "COMPTE RENDU D'OPÉRATION")
-  page.champ('Geste(s) de secourisme effectué(s) :', null)
-  page.champ("Technique(s) d'évacuation(s) mise(s) en œuvre :", null)
+  page.champ('Geste(s) de secourisme effectué(s) :', modele.compteRendu.gestesSecourisme)
+  page.champ("Technique(s) d'évacuation(s) mise(s) en œuvre :", modele.compteRendu.techniquesEvacuation)
   page.espaceur()
 
   // ---- 7. Bilan -----------------------------------------------------------
-  const nbVictimes = fiche.victimes?.length ?? 0
   page.titreSection(7, "BILAN DE L'OPÉRATION")
   page.champsDoubles([
-    ['Personne(s) disparue(s) : ', String(fiche.recherche_personne ? 1 : 0)],
-    ['Assisté(s) : ', '0'],
+    ['Personne(s) disparue(s) : ', modele.bilan.disparus],
+    ['Assisté(s) : ', modele.bilan.assistes],
   ])
   page.champsDoubles([
-    ['Blessé(s) : ', String(nbVictimes)],
-    ['Décédé(s) : ', '0'],
+    ['Blessé(s) : ', modele.bilan.blesses],
+    ['Décédé(s) : ', modele.bilan.decedes],
   ])
   page.espaceur()
 
   // ---- 8. Identité des personnes secourues -------------------------------
   page.titreSection(8, 'IDENTITÉ DES PERSONNES SECOURUES')
-  if (nbVictimes === 0) {
+  if (modele.victimes.length === 0) {
     page.champ('', 'Aucune victime enregistrée.')
   } else {
-    fiche.victimes.forEach((v, i) => {
+    modele.victimes.forEach((v, i) => {
       if (i > 0) {
         page.espace(6)
         doc.setDrawColor(...GRIS_CLAIR)
         doc.line(MARGE, page.y - 4, page.largeur - MARGE, page.y - 4)
       }
-      page.champ('Statut :', 'Victime')
+      page.champ('Statut :', v.statut)
       page.champsDoubles([
         ['Nom : ', v.nom],
         ['Prénom : ', v.prenom],
       ])
       page.champsDoubles([
         ['Sexe : ', v.sexe],
-        ['Date naissance : ', v.date_naissance ? new Date(v.date_naissance).toLocaleDateString('fr-FR') : null],
+        ['Date naissance : ', v.dateNaissance],
       ])
       page.champ('Nationalité :', v.nationalite)
       page.champ('Téléphone :', v.telephone)
-      page.champ('État médical :', etatMedical(v.pathologie))
-      page.champ('Circonstance :', v.circonstances)
-      page.champ('Nature des blessures :', v.pathologie)
-      page.champ('Destination :', null)
+      page.champ('État médical :', v.etatMedical)
+      page.champ('Circonstance :', v.circonstance)
+      page.champ('Nature des blessures :', v.natureBlessures)
+      page.champ('Destination :', v.destination)
     })
   }
   page.espaceur()
 
   // ---- 9. Procédure judiciaire --------------------------------------------
   page.titreSection(9, 'PROCÉDURE JUDICIAIRE')
-  page.champ('Suivi judiciaire :', null)
+  page.champ('Suivi judiciaire :', modele.judiciaire.suiviJudiciaire)
+  page.champ('Directeur d’enquête :', modele.judiciaire.directeurEnquete)
   page.espaceur()
 
   // ---- 10. Autorités avisées ----------------------------------------------
   page.titreSection(10, 'AUTORITÉS AVISÉES ET COMMUNICATION MÉDIAS')
-  const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - PRÉFECTURE ${prefecture} - CRS ${region}` : null
-  page.champ('Autorités avisées :', autoritesDefaut)
-  page.champ('Médias informés :', null)
+  page.champ('Autorités avisées :', modele.autorites.autoritesAvisees)
+  page.champ('Médias informés :', modele.autorites.mediasInformes)
+  page.champ('Avis divers :', modele.autorites.avisDivers)
   page.espaceur(6)
 
   page.espace(16)
@@ -343,8 +433,8 @@ export async function genererTelegrammeTO(fiche, { sectionNom } = {}) {
   doc.setTextColor(...NOIR)
   doc.text('STOP ET FIN', MARGE, page.y + 2)
   page.y += 10
-  page.champ('Rédacteur :', null)
-  page.champ('Signataire :', null)
+  page.champ('Rédacteur :', modele.finalisation.redacteur)
+  page.champ('Signataire :', modele.finalisation.signataire)
 
   // ---- Pied de page --------------------------------------------------------
   const nombrePages = doc.internal.getNumberOfPages()
@@ -353,19 +443,37 @@ export async function genererTelegrammeTO(fiche, { sectionNom } = {}) {
     doc.setFont(undefined, 'italic')
     doc.setFontSize(7.5)
     doc.setTextColor(...GRIS)
-    doc.text(
-      'Document généré par Cim’Log — brouillon à vérifier et compléter avant envoi (champs manquants : «……» ).',
-      MARGE,
-      page.hauteur - 10
-    )
+    doc.text('Document généré par Cim’Log — à vérifier avant envoi.', MARGE, page.hauteur - 10)
     doc.text(`Page ${i}/${nombrePages}`, page.largeur - MARGE, page.hauteur - 10, { align: 'right' })
   }
 
   return doc
 }
 
-/** Génère et télécharge le TO d'une intervention. */
+/** « IFSM <n°> <Département> <Nom de la victime principale>.pdf » — décision utilisateur. */
+export function nomFichierTO(fiche, modele) {
+  const departement = departementNom(fiche)
+  const premiereVictime = modele.victimes[0]?.nom || ''
+  const morceaux = [`IFSM ${fiche.local_id ?? ''}`.trim(), departement ? versTitreCase(departement) : '', premiereVictime].filter(
+    Boolean
+  )
+  const nom = morceaux.join(' ').replace(/[\\/:*?"<>|]/g, '').trim()
+  return `${nom || 'IFSM'}.pdf`
+}
+
+/** Génère + télécharge un TO à partir d'un modèle déjà construit (édité ou non). */
+export async function telechargerTOModele(fiche, modele) {
+  const doc = await genererPdfDepuisModele(modele)
+  doc.save(nomFichierTO(fiche, modele))
+}
+
+/**
+ * Génère et télécharge le TO d'une intervention — la dernière version
+ * validée (snosm_to_texte) si elle existe, sinon un modèle frais depuis les
+ * données SNOSM actuelles (jamais encore validé). Utilisé par le bouton TO/
+ * Télécharger TO du Registre, et par ModaleTO pour la première ouverture.
+ */
 export async function telechargerTelegrammeTO(fiche, options) {
-  const doc = await genererTelegrammeTO(fiche, options)
-  doc.save(`TO-${fiche.local_id}.pdf`)
+  const modele = fiche.snosm_to_texte ? JSON.parse(fiche.snosm_to_texte) : construireModeleTO(fiche, options)
+  await telechargerTOModele(fiche, modele)
 }

@@ -68,7 +68,7 @@ import {
   chargerReferentiels,
   chargerCosTelephonisteDuJour,
 } from '../../lib/registre'
-import { telechargerTelegrammeTO } from '../../lib/telegrammeTO'
+import ModaleTO from './ModaleTO'
 
 /**
  * Les 7 onglets SNOSM sont les seuls onglets de la fiche — pas d'onglet
@@ -668,7 +668,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [erreur, setErreur] = useState(null)
   const [confirmerAnnulation, setConfirmerAnnulation] = useState(false)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
-  const [generationTO, setGenerationTO] = useState(false)
+  const [modaleTOOuverte, setModaleTOOuverte] = useState(false)
   // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
   // Dédoublonné sur le libellé (nom + prénom, sans la section) : une même personne peut apparaître
   // plusieurs fois côté annuaire (affectations multiples), mais ne doit être proposée qu'une fois ici.
@@ -831,15 +831,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     }
   }
 
-  async function genererTO() {
-    setGenerationTO(true)
-    try {
-      await telechargerTelegrammeTO(fiche, { sectionNom })
-    } catch (e) {
-      setErreur(e.message)
-    } finally {
-      setGenerationTO(false)
-    }
+  /** Sauvegarde le modèle de TO validé dans ModaleTO — ne touche à aucun champ SNOSM (retouche du
+   * PDF uniquement, décision utilisateur). Pas de verrou posé : la fiche reste modifiable après
+   * coup, un nouveau TO peut être régénéré tant que la synchronisation SNOSM (Chamonix, plusieurs
+   * jours après) n'a pas eu lieu. */
+  async function validerModeleTO(modele) {
+    const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
+    await modifierIntervention(fiche.id, codesRequete, champs)
+    onFicheMaj((f) => ({ ...f, ...champs }))
   }
 
   async function rafraichirEffectifs() {
@@ -1187,8 +1186,8 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             </button>
           </>
         )}
-        <button type="button" className="bouton-principal" onClick={genererTO} disabled={generationTO}>
-          {generationTO ? '…' : 'TO'}
+        <button type="button" className="bouton-principal" onClick={() => setModaleTOOuverte(true)}>
+          Valider et créer le TO
         </button>
       </div>
 
@@ -1206,6 +1205,10 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             </div>
           </div>
         </div>
+      )}
+
+      {modaleTOOuverte && (
+        <ModaleTO fiche={fiche} sectionNom={sectionNom} onValide={validerModeleTO} onFermer={() => setModaleTOOuverte(false)} />
       )}
     </div>
   )

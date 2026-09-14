@@ -203,7 +203,7 @@ export default function Registre({ fSections }) {
                             onClick={(e) => telechargerTO(s, e)}
                             disabled={genererTOId === s.id}
                           >
-                            {genererTOId === s.id ? '…' : 'TO'}
+                            {genererTOId === s.id ? '…' : s.snosm_to_cree_le ? 'Télécharger TO' : 'TO'}
                           </button>
                         </td>
                       </tr>
