@@ -40,11 +40,9 @@ export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) 
           className="schema-avalanche-trajectoire"
         />
 
-        {/* Ligne de cassure (point de rupture de la plaque) */}
+        {/* Ligne de cassure (point de rupture de la plaque) — plus de légende texte ici, la case
+            "Hauteur cassure" juste à côté suffit à l'identifier. */}
         <path d="M 62,116 Q 120,100 190,122 Q 250,142 316,116" className="schema-avalanche-cassure" />
-        <text x="190" y="106" className="schema-avalanche-legende" textAnchor="middle">
-          Point de rupture
-        </text>
 
         {/* Zone de dépôt, en bas de la trajectoire */}
         <path d="M 60,430 Q 200,460 340,430 L 340,438 Q 200,468 60,438 Z" className="schema-avalanche-depot" />
@@ -77,10 +75,10 @@ export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) 
           markerStart="url(#fleche-avalanche)"
           markerEnd="url(#fleche-avalanche)"
         />
-        <text x="0" y="133" className="schema-avalanche-legende" textAnchor="middle" transform="rotate(-90 0 133)">
+        {champ('snosm_avalanche_hauteur_cassure', 58, 133, 70, 'cm')}
+        <text x="58" y="160" className="schema-avalanche-legende" textAnchor="middle">
           Hauteur cassure
         </text>
-        {champ('snosm_avalanche_hauteur_cassure', 58, 133, 70, 'cm')}
 
         {/* Pente : petit repère d'angle (perspective simplifiée) dans la marge libre en haut à droite */}
         <g transform="translate(430, 90)">

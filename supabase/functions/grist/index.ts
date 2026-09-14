@@ -190,7 +190,8 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   // Texte libre côté Grist aussi (Numeric -> Text), comme les 4 autres mesures du schéma d'avalanche
   // (voir plus bas) : maintenant saisie directement sur le schéma, pas au compteur +/-.
   ['snosm_avalanche_pente', 'SnosmAvalanchePente', 'text'],
-  ['snosm_avalanche_denivele', 'SnosmAvalancheDenivele', 'numeric'],
+  // Texte libre (Numeric -> Text) : même traitement que les autres mesures, saisie avec unité dans la case.
+  ['snosm_avalanche_denivele', 'SnosmAvalancheDenivele', 'text'],
   ['snosm_avalanche_orientation', 'SnosmAvalancheOrientation', 'text'],
   ['snosm_avalanche_nb_impliques', 'SnosmAvalancheNombreImpliques', 'int'],
   ['snosm_avalanche_nb_victimes', 'SnosmAvalancheNombreVictimes', 'int'],

@@ -8,9 +8,13 @@ function formatDateTimeLocal(iso) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
+/** Classe ajoutée sur un champ texte/date/liste/tags laissé vide — bordure rouge pâle, pour repérer
+ * en un coup d'œil ce qui reste à compléter (décision utilisateur, valable sur tout le formulaire). */
+const classeVide = (vide) => (vide ? ' champ-vide-snosm' : '')
+
 export function ChampTexte({ label, valeur, onChange, icone }) {
   return (
-    <div className="detail-fiche-edition">
+    <div className={`detail-fiche-edition${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
         {icone}
@@ -22,7 +26,7 @@ export function ChampTexte({ label, valeur, onChange, icone }) {
 
 export function ChampTexteLong({ label, valeur, onChange, rows = 3 }) {
   return (
-    <div className="detail-fiche-edition detail-pleine-largeur">
+    <div className={`detail-fiche-edition detail-pleine-largeur${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <textarea value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} rows={rows} />
     </div>
@@ -31,7 +35,7 @@ export function ChampTexteLong({ label, valeur, onChange, rows = 3 }) {
 
 export function ChampDate({ label, valeur, onChange, icone }) {
   return (
-    <div className="detail-fiche-edition">
+    <div className={`detail-fiche-edition${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
         {icone}
@@ -45,7 +49,7 @@ export function ChampDate({ label, valeur, onChange, icone }) {
  * pertinent qu'un compteur +/- pour une mesure qu'on connaît déjà (distance parcourue, profondeur…). */
 export function ChampTexteUnite({ label, valeur, onChange, unite }) {
   return (
-    <div className="detail-fiche-edition">
+    <div className={`detail-fiche-edition${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className="champ-texte-unite-snosm">
         <input type="text" value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} />
@@ -75,7 +79,7 @@ export function ChampNombre({ label, valeur, onChange, min = 0 }) {
 
 export function ChampListe({ label, valeur, onChange, options, pleineLargeur }) {
   return (
-    <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
+    <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <select value={valeur ?? ''} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
@@ -457,7 +461,7 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
   const retirer = (v) => onChange(valeurs.filter((existant) => existant !== v).join(', '))
 
   return (
-    <div className={`detail-fiche-edition champ-tags-snosm${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
+    <div className={`detail-fiche-edition champ-tags-snosm${pleineLargeur ? ' detail-pleine-largeur' : ''}${classeVide(valeurs.length === 0)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className="zone-tags-snosm">
         {valeurs.map((v) => (
@@ -516,7 +520,7 @@ export function ChampAutocomplete({ label, valeur, onChange, options }) {
   const suggestions = (filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options).slice(0, 8)
 
   return (
-    <div className="detail-fiche-edition champ-autocomplete-snosm">
+    <div className={`detail-fiche-edition champ-autocomplete-snosm${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <input
         type="text"
@@ -586,7 +590,7 @@ export function ChampCheckbox({ label, valeur, onChange }) {
 
 export function ChampDateTime({ label, valeur, onChange, disabled }) {
   return (
-    <div className="detail-fiche-edition">
+    <div className={`detail-fiche-edition${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <input
         type="datetime-local"

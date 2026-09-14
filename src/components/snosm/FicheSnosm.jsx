@@ -319,7 +319,7 @@ const CHAMPS_AVALANCHE_HORAIRES = [
   { cle: 'snosm_avalanche_declenchement_le', label: 'Déclenchement', type: 'datetime' },
   { cle: 'snosm_avalanche_point_depart_gps', label: 'Point de départ (GPS)' },
   { cle: 'snosm_avalanche_altitude', label: 'Altitude (m)' },
-  { cle: 'snosm_avalanche_denivele', label: 'Dénivelé total (m)', type: 'nombre' },
+  { cle: 'snosm_avalanche_denivele', label: 'Dénivelé total', type: 'texte-unite', unite: 'm' },
 ]
 const CHAMPS_AVALANCHE_BILAN = [
   { cle: 'snosm_avalanche_nb_impliques', label: 'Nombre d’impliqués', type: 'nombre' },
@@ -420,28 +420,48 @@ function IconeMaison() {
   )
 }
 
-const CHAMPS_IMPLIQUE = [
-  { cle: 'snosm_statut', label: 'Statut', type: 'bulles', options: OPTIONS_STATUT_PERSONNE },
-  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL, pleineLargeur: false },
-  { cle: 'snosm_victime_avalanche', label: 'Victime avalanche', type: 'checkbox' },
-  { cle: 'nom', label: 'Nom' },
-  { cle: 'prenom', label: 'Prénom' },
-  { cle: 'sexe', label: 'Sexe', type: 'radio', options: ['Homme', 'Femme'], icones: ICONES_SEXE, pleineLargeur: false },
-  { cle: 'snosm_demeurant', label: 'Demeurant', icone: <IconeMaison /> },
-  { cle: 'snosm_code_postal', label: 'Code postal' },
-  { cle: 'snosm_commune', label: 'Commune' },
-  { cle: 'snosm_pays', label: 'Pays' },
-  { cle: 'nationalite', label: 'Nationalité', type: 'liste-si-vide', options: OPTIONS_NATIONALITE },
-  { cle: 'telephone', label: 'Téléphone', icone: <IconeTelephone /> },
-  { cle: 'date_naissance', label: 'Date de naissance', type: 'date', icone: <IconeCalendrier /> },
-  { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance', icone: <IconePin /> },
-  { cle: 'snosm_profession', label: 'Profession' },
-  { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'tags', options: OPTIONS_LOCALISATION_BLESSURE },
-  { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'tags', options: OPTIONS_TYPE_BLESSURE },
-  { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
-  { cle: 'snosm_destination', label: 'Destination', icone: <IconeMaison /> },
-  { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
+// Statut + Victime avalanche : rendus à part sur une même ligne (Statut à gauche, Victime avalanche
+// décalée à droite — décision utilisateur), pas dans les groupes ci-dessous.
+const CHAMP_STATUT_IMPLIQUE = { cle: 'snosm_statut', label: 'Statut', type: 'bulles', options: OPTIONS_STATUT_PERSONNE }
+const CHAMP_VICTIME_AVALANCHE = { cle: 'snosm_victime_avalanche', label: 'Victime avalanche', type: 'checkbox' }
+
+// Un groupe par sujet — chacun forcé sur sa propre ligne (plutôt qu'un seul gros tas de champs
+// laissé au flexbox), pour ne jamais mélanger état médical / identité / coordonnées / blessure /
+// devenir (décision utilisateur).
+const GROUPES_IMPLIQUE = [
+  [{ cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL, pleineLargeur: false }],
+  [
+    { cle: 'nom', label: 'Nom' },
+    { cle: 'prenom', label: 'Prénom' },
+    { cle: 'sexe', label: 'Sexe', type: 'radio', options: ['Homme', 'Femme'], icones: ICONES_SEXE, pleineLargeur: false },
+    { cle: 'date_naissance', label: 'Date de naissance', type: 'date', icone: <IconeCalendrier /> },
+  ],
+  [
+    { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance', icone: <IconePin /> },
+    { cle: 'nationalite', label: 'Nationalité', type: 'liste-si-vide', options: OPTIONS_NATIONALITE },
+    { cle: 'snosm_profession', label: 'Profession' },
+  ],
+  [
+    { cle: 'snosm_demeurant', label: 'Demeurant', icone: <IconeMaison /> },
+    { cle: 'snosm_code_postal', label: 'Code postal' },
+    { cle: 'snosm_commune', label: 'Commune' },
+    { cle: 'snosm_pays', label: 'Pays' },
+    { cle: 'telephone', label: 'Téléphone', icone: <IconeTelephone /> },
+  ],
+  [
+    { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'tags', options: OPTIONS_LOCALISATION_BLESSURE },
+    { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'tags', options: OPTIONS_TYPE_BLESSURE },
+    { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
+  ],
+  [
+    { cle: 'snosm_destination', label: 'Destination', icone: <IconeMaison /> },
+    { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
+  ],
 ]
+
+// Liste à plat — utilisée pour initialiser le brouillon (une seule boucle sur toutes les clés) et par
+// l'Edge Function/le reste du code qui n'a pas besoin du découpage par groupe.
+const CHAMPS_IMPLIQUE = [CHAMP_STATUT_IMPLIQUE, CHAMP_VICTIME_AVALANCHE, ...GROUPES_IMPLIQUE.flat()]
 
 /** Sous-groupe airbag (marque/alimentation/gonflage/position…), affiché seulement si Sac airbag = oui. */
 function visibleSiAirbag(bv) {
@@ -999,17 +1019,31 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                   </div>
                   {edition ? (
                     <>
-                      <div className="grille-details-fiche" style={{ marginTop: 8 }}>
-                        {CHAMPS_IMPLIQUE.map((c) => (
-                          <ChampSnosm
-                            key={c.cle}
-                            description={c}
-                            valeur={brouillonVictimes[v.id]?.[c.cle]}
-                            onChange={(val) => majChampVictime(v.id, c.cle, val)}
-                            brouillon={brouillonVictimes[v.id]}
-                          />
-                        ))}
+                      <div className="ligne-statut-avalanche-snosm">
+                        <ChampSnosm
+                          description={CHAMP_STATUT_IMPLIQUE}
+                          valeur={brouillonVictimes[v.id]?.snosm_statut}
+                          onChange={(val) => majChampVictime(v.id, 'snosm_statut', val)}
+                        />
+                        <ChampSnosm
+                          description={CHAMP_VICTIME_AVALANCHE}
+                          valeur={brouillonVictimes[v.id]?.snosm_victime_avalanche}
+                          onChange={(val) => majChampVictime(v.id, 'snosm_victime_avalanche', val)}
+                        />
                       </div>
+                      {GROUPES_IMPLIQUE.map((groupe, i) => (
+                        <div className="grille-details-fiche" style={{ marginTop: i === 0 ? 8 : 10 }} key={i}>
+                          {groupe.map((c) => (
+                            <ChampSnosm
+                              key={c.cle}
+                              description={c}
+                              valeur={brouillonVictimes[v.id]?.[c.cle]}
+                              onChange={(val) => majChampVictime(v.id, c.cle, val)}
+                              brouillon={brouillonVictimes[v.id]}
+                            />
+                          ))}
+                        </div>
+                      ))}
                       {avalancheVictime && (
                         <>
                           <h4 style={{ marginTop: 12 }}>Avalanche — cette victime</h4>
@@ -1028,10 +1062,22 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                       )}
                     </>
                   ) : (
-                    <div className="grille-details-fiche" style={{ marginTop: 8 }}>
-                      <ChampsLecture champs={CHAMPS_IMPLIQUE} source={v} />
-                      {avalancheVictime && <ChampsLecture champs={CHAMPS_AVALANCHE_VICTIME} source={v} />}
-                    </div>
+                    <>
+                      <div className="ligne-statut-avalanche-snosm">
+                        <Detail label="Statut">{v.snosm_statut || '—'}</Detail>
+                        <Detail label="Victime avalanche">{v.snosm_victime_avalanche ? 'Oui' : 'Non'}</Detail>
+                      </div>
+                      {GROUPES_IMPLIQUE.map((groupe, i) => (
+                        <div className="grille-details-fiche" style={{ marginTop: i === 0 ? 8 : 10 }} key={i}>
+                          <ChampsLecture champs={groupe} source={v} />
+                        </div>
+                      ))}
+                      {avalancheVictime && (
+                        <div className="grille-details-fiche">
+                          <ChampsLecture champs={CHAMPS_AVALANCHE_VICTIME} source={v} />
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               )

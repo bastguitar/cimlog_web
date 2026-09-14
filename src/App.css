@@ -1838,6 +1838,18 @@ main > * {
   transition: border-color 0.15s, box-shadow 0.15s;
 }
 
+/* Champ laissé vide : bordure rouge pâle pour le repérer d'un coup d'œil (décision utilisateur, sur
+   tout le formulaire). N'inclut pas les boutons radio/bulles/case à cocher — pas de « case » évidente
+   à colorer sans les redessiner, et un bouton non coché est déjà visuellement explicite en soi. */
+.champ-vide-snosm input,
+.champ-vide-snosm textarea,
+.champ-vide-snosm select,
+.champ-vide-snosm .entree-avec-icone-snosm,
+.champ-vide-snosm .champ-texte-unite-snosm,
+.champ-vide-snosm .zone-tags-snosm {
+  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+}
+
 .detail-fiche-edition input:hover,
 .detail-fiche-edition textarea:hover,
 .detail-fiche-edition select:hover {
@@ -2375,6 +2387,7 @@ main > * {
 .schemas-avalanche-cote-a-cote {
   display: flex;
   align-items: flex-start;
+  justify-content: space-between;
   gap: 18px;
   flex-wrap: wrap;
   margin-top: 10px;
@@ -2678,6 +2691,23 @@ main > * {
   color: var(--text-h);
 }
 
+.ligne-statut-avalanche-snosm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.ligne-statut-avalanche-snosm > .detail-pleine-largeur {
+  flex: 1 1 auto;
+}
+
+.ligne-statut-avalanche-snosm .champ-checkbox-snosm {
+  flex-shrink: 0;
+  white-space: nowrap;
+}
+
 .carte-victime {
   padding-bottom: 12px;
   border: 1px solid var(--border);
@@ -2701,9 +2731,14 @@ main > * {
   font-size: 14px;
 }
 
-.carte-victime > .grille-details-fiche {
+.carte-victime > .grille-details-fiche,
+.carte-victime > .ligne-statut-avalanche-snosm {
   padding-left: 14px;
   padding-right: 14px;
+}
+
+.carte-victime > .ligne-statut-avalanche-snosm {
+  padding-top: 10px;
 }
 
 .carte-victime > h4 {
