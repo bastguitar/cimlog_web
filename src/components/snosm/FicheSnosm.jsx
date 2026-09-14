@@ -650,7 +650,7 @@ function brouillonVictimesDepuis(fiche) {
  * chaque victime modifiée. L'effectif CRS engagé (répétable) reste éditable
  * indépendamment — chaque ligne s'enregistre elle-même.
  */
-export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom }) {
+export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom, onFermer }) {
   const [sousOnglet, setSousOnglet] = useState('general')
   const verrouillee = Boolean(fiche.toEnvoyeLe)
   const [edition, setEdition] = useState(!verrouillee)
@@ -726,11 +726,15 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     setErreur(null)
   }
 
-  /** Abandonne les modifications non enregistrées — reste en rédaction, juste réinitialisée sur les dernières valeurs connues. */
+  /** Abandonne les modifications non enregistrées et referme la fenêtre — le bouton « Annuler » est
+   * au même niveau que « Enregistrer »/« TO » dans la barre d'actions, il doit donc agir comme eux
+   * sur la fenêtre entière, pas seulement réinitialiser des champs en silence (bug remonté par
+   * l'utilisateur : le bouton semblait « ne rien faire »). */
   function annulerEdition() {
     setBrouillonFiche(brouillonFicheDepuis(fiche, referentiels))
     setBrouillonVictimes(brouillonVictimesDepuis(fiche))
     setErreur(null)
+    onFermer?.()
   }
 
   function majChampFiche(cle, valeur) {
