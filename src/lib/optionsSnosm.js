@@ -12,6 +12,7 @@
  * ReferentielHelicos/ReferentielActivites, voir chargerReferentiels dans
  * src/lib/registre.js et l'action `referentiels` de l'Edge Function grist).
  */
+import { groupeDe } from './sections'
 
 // En minuscules (décision utilisateur), sans accent ajouté — même convention que le reste du
 // vocabulaire SNOSM déjà passé en minuscules (onglet Avalanche) : lettre pour lettre, pas de
@@ -94,6 +95,57 @@ export const OPTIONS_MEDICALISATION = ['Oui', 'Non', 'Non obtenue']
 export const OPTIONS_SUIVI_JUDICIAIRE = ['Oui', 'Non', 'Indéterminé']
 export const OPTIONS_MEDIAS_INFORMES = ['Oui', 'Non']
 export const OPTIONS_STATUT_PERSONNE = ['Victime', 'Témoin', 'Encadrant']
+
+// Vocabulaire du tableur SNOSM (capture d'écran fournie) — quelques fautes de frappe évidentes du
+// tableur d'origine corrigées (PREFCTURE -> PREFECTURE).
+export const OPTIONS_AUTORITES_AVISEES = [
+  'DCCRS',
+  'DZCRS SUD',
+  'DZCRS SUD-EST',
+  'PROCUREUR DE LA REPUBLIQUE',
+  'PREFECTURE DES ALPES-MARITIMES',
+  'PREFECTURE DE HAUTE SAVOIE',
+  'PREFECTURE DE HAUTE GARONNE',
+  'PREFECTURE DES HAUTES ALPES',
+  'PREFECTURE HAUTES PYRENEES',
+  'PREFECTURE ISERE',
+  'PREFECTURE PYRENEES ORIENTALES',
+  'PREFECTURE SAVOIE',
+  'MAIRE DE LA COMMUNE',
+  'CONSULAT / AMBASSADE',
+  'CRS ALPES',
+  'CRS PYRENEES',
+  'CORG',
+]
+
+// Zone/région/préfecture par section — même correspondance que telegrammeTO.js (voir REGION_PAR_GROUPE
+// là-bas), reprise ici pour préremplir "Autorités avisée(s)". Seule la zone Alpes est confirmée sur un
+// exemplaire réel : pas de zone par défaut pour les Pyrénées tant que ce n'est pas vérifié, plutôt que deviner.
+const REGION_PAR_GROUPE_AUTORITES = { CRS38: 'ALPES', CRS05: 'ALPES', CRS73: 'ALPES', CRS06: 'ALPES', CRS65: 'PYRENEES', CRS66: 'PYRENEES' }
+const ZONE_PAR_REGION_AUTORITES = { ALPES: 'DZCRS SUD-EST' }
+const PREFECTURE_TAG_PAR_DEPARTEMENT = {
+  '06': 'PREFECTURE DES ALPES-MARITIMES',
+  '74': 'PREFECTURE DE HAUTE SAVOIE',
+  '31': 'PREFECTURE DE HAUTE GARONNE',
+  '05': 'PREFECTURE DES HAUTES ALPES',
+  '65': 'PREFECTURE HAUTES PYRENEES',
+  '38': 'PREFECTURE ISERE',
+  '66': 'PREFECTURE PYRENEES ORIENTALES',
+  '73': 'PREFECTURE SAVOIE',
+}
+
+/** Autorités avisées par défaut selon la section/le département — juste un point de départ, toujours modifiable. */
+export function autoritesAviseesDefaut(squadCode, county) {
+  const region = REGION_PAR_GROUPE_AUTORITES[groupeDe(squadCode)] ?? null
+  const tags = ['DCCRS']
+  const zone = region ? ZONE_PAR_REGION_AUTORITES[region] : null
+  if (zone) tags.push(zone)
+  if (region === 'ALPES') tags.push('CRS ALPES')
+  if (region === 'PYRENEES') tags.push('CRS PYRENEES')
+  const prefecture = county ? PREFECTURE_TAG_PAR_DEPARTEMENT[county] : null
+  if (prefecture) tags.push(prefecture)
+  return tags
+}
 
 /** StatutPersonne Cim'Alerte (minuscules sans accent : victime/temoin/encadrant) -> libellé du radio SNOSM. */
 const STATUT_PERSONNE_PAR_CODE = { victime: 'Victime', temoin: 'Témoin', encadrant: 'Encadrant' }
@@ -202,7 +254,9 @@ export const OPTIONS_CIRCONSTANCES_VICTIME = [
 // ce champ ici quand une alerte a été mal renseignée à la prise d'appel.
 export const OPTIONS_TYPE_INTERVENTION = ['Héliportée', 'Terrestre', 'Mixte']
 
-const TYPE_OPERATION_PAR_CODE = { HELIPORTEE: 'Héliportée', TERRESTRE: 'Terrestre', MIXTE: 'Mixte' }
+// HELIPORTE (sans le "e" final) observé sur des fiches réelles en plus de HELIPORTEE — Cim'Alerte
+// n'est pas totalement homogène sur l'accord, les deux variantes sont donc acceptées.
+const TYPE_OPERATION_PAR_CODE = { HELIPORTEE: 'Héliportée', HELIPORTE: 'Héliportée', TERRESTRE: 'Terrestre', MIXTE: 'Mixte' }
 
 /**
  * Reclasse la valeur brute Cim'Alerte (`type_intervention`, ex. "mixte",
@@ -369,10 +423,39 @@ export const OPTIONS_ENVIRONNEMENT_AVALANCHE = ['ravine', 'thalweg', 'creux', 'd
 // Valeurs reprises directement des captures du vrai formulaire (pas de
 // tableur pour celles-ci, juste Oui/Non/Non plus complexe pour certaines).
 export const OPTIONS_OUI_NON_NE_SAIS_PAS = ['oui', 'non', 'ne sais pas']
+export const OPTIONS_OUI_NON = ['oui', 'non']
 export const OPTIONS_GONFLAGE = ['complètement', 'partiellement', 'non']
 export const OPTIONS_POSITION_VICTIME_AIRBAG = ['avec ventrale', 'sans ventrale', 'non']
 export const OPTIONS_SAC_ET_VICTIME = ['liés', 'séparés']
 export const OPTIONS_ALIMENTATION_DVA = ['cartouche', 'électrique']
+export const OPTIONS_MOYENS_LOCALISATION_AVALANCHE = ['DVA', 'Recco', 'Chien', 'Sondage', 'Indice de surface', 'Géolocalisation téléphone', 'Autre']
+export const OPTIONS_POSITION_1_AVALANCHE = [
+  'En surface',
+  'Enseveli total',
+  'Enseveli partiel critique (tête sous la neige)',
+  'Enseveli partiel non critique (tête en dehors de la neige)',
+]
+export const OPTIONS_POSITION_2_AVALANCHE = ['Sur le ventre', 'Sur le dos', 'Sur le côté', 'Tête en haut', 'Tête en bas']
+export const OPTIONS_MATERIEL_AVALANCHE = ['Pelle', 'Sonde', 'RECCO']
+
+export const OPTIONS_NATIONALITE = [
+  'Française',
+  'Britannique',
+  'Allemande',
+  'Italienne',
+  'Espagnole',
+  'Suisse',
+  'Belge',
+  'Néerlandaise',
+  'Portugaise',
+  'Autrichienne',
+  'Polonaise',
+  'Américaine',
+  'Canadienne',
+  'Irlandaise',
+  'Russe',
+  'Autre',
+]
 
 // Avalanche, niveau événement (comptages déjà recoupés en début de chantier : 5/5/5).
 export const OPTIONS_TYPE_AVALANCHE = [
@@ -383,11 +466,11 @@ export const OPTIONS_TYPE_AVALANCHE = [
   'avalanche de glissement (avalanche de fond)',
 ]
 export const OPTIONS_TAILLE_AVALANCHE = [
-  'taille 1 : petite avalanche (coulee)',
+  'taille 1 : coulee (petite avalanche)',
   'taille 2 : avalanche moyenne',
   'taille 3 : grande avalanche',
   'taille 4 : tres grande avalanche',
-  'taille 5 : avalanche extrememement grande',
+  'taille 5 : avalanche exceptionnelle',
 ]
 // Seul champ de l'onglet Avalanche resté en majuscules (décision utilisateur explicite).
 export const OPTIONS_NIVEAU_RISQUE = ['1-FAIBLE', '2-LIMITE', '3-MARQUE', '4-FORT', '5-TRES FORT']
@@ -420,7 +503,8 @@ export const optionsLocalisationPisteSelonDomaine = (bf) => {
   return null
 }
 
-function libelleSexe(sexe) {
+/** Reclasse la valeur brute Cim'Alerte ('F'/'M'/'Feminin'/'Masculin'…) vers 'Femme'/'Homme' (radio SNOSM). */
+export function sexeDepuis(sexe) {
   const s = (sexe ?? '').trim().toUpperCase()
   if (s === 'F' || s === 'FEMME' || s === 'FEMININ') return 'Femme'
   if (s === 'M' || s === 'HOMME' || s === 'MASCULIN') return 'Homme'
@@ -443,7 +527,7 @@ function circonstanceEtCinetique(circonstancesBrut, cinetiqueBrut) {
 
 function texteCirconstancesVictime(v) {
   const morceaux = []
-  const sexeAge = [libelleSexe(v.sexe), v.age ? `${v.age} ans` : null].filter(Boolean).join(' ')
+  const sexeAge = [sexeDepuis(v.sexe), v.age ? `${v.age} ans` : null].filter(Boolean).join(' ')
   if (sexeAge) morceaux.push(sexeAge)
   const circonstance = circonstanceEtCinetique(String(v.circonstances ?? '').trim(), String(v.cinetique ?? '').trim())
   if (circonstance) morceaux.push(circonstance)

@@ -1,27 +1,30 @@
 /**
- * Schéma d'avalanche annoté — Longueur/Largeur cassure/Hauteur cassure/Largeur
- * dépôt se saisissent directement sur le dessin plutôt que dans une liste de
- * champs texte anonymes, à la manière des schémas pédagogiques d'anatomie
- * d'une avalanche (plaque de neige, point de rupture, dépôt). Champs texte
- * libre (voir CHAMPS_AVALANCHE_EVENEMENT dans FicheSnosm.jsx) : ce composant
- * n'est qu'une présentation alternative des 4 mêmes valeurs.
+ * Schéma d'avalanche annoté — Longueur du dépôt/Largeur cassure/Hauteur cassure/Largeur dépôt/Pente
+ * se saisissent directement sur le dessin plutôt que dans une liste de champs texte anonymes, à la
+ * manière des schémas pédagogiques d'anatomie d'une avalanche (plaque de neige, point de rupture,
+ * dépôt). Champs texte libre (voir CHAMPS_SCHEMA_AVALANCHE dans FicheSnosm.jsx) : ce composant n'est
+ * qu'une présentation alternative de ces 5 valeurs. L'unité est affichée dans la case elle-même
+ * (décision utilisateur — plus pertinent qu'un libellé externe séparé).
  */
 export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) {
-  const champ = (cle, x, y, largeur = 74) => (
+  const champ = (cle, x, y, largeur = 78, unite) => (
     <foreignObject x={x - largeur / 2} y={y - 13} width={largeur} height={26}>
-      <input
-        type="text"
-        className="saisie-schema-avalanche"
-        value={valeurs[cle] ?? ''}
-        disabled={lecture}
-        onChange={(e) => onChange(cle, e.target.value)}
-      />
+      <div className="saisie-schema-avalanche-conteneur">
+        <input
+          type="text"
+          className="saisie-schema-avalanche"
+          value={valeurs[cle] ?? ''}
+          disabled={lecture}
+          onChange={(e) => onChange(cle, e.target.value)}
+        />
+        {unite && <span className="unite-schema-avalanche">{unite}</span>}
+      </div>
     </foreignObject>
   )
 
   return (
     <div className="schema-avalanche-snosm">
-      <svg viewBox="0 0 420 520" role="img" aria-label="Schéma d'avalanche">
+      <svg viewBox="0 0 480 520" role="img" aria-label="Schéma d'avalanche">
         <defs>
           <marker id="fleche-avalanche" viewBox="0 0 10 10" refX="5" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M 0 0 L 10 5 L 0 10 z" className="schema-avalanche-pointe" />
@@ -60,9 +63,9 @@ export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) 
           markerEnd="url(#fleche-avalanche)"
         />
         <text x="189" y="58" className="schema-avalanche-legende" textAnchor="middle">
-          Largeur cassure (m)
+          Largeur cassure
         </text>
-        {champ('snosm_avalanche_largeur_cassure', 189, 84)}
+        {champ('snosm_avalanche_largeur_cassure', 189, 84, 78, 'm')}
 
         {/* Hauteur cassure : flèche verticale courte contre le point de rupture */}
         <line
@@ -75,11 +78,23 @@ export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) 
           markerEnd="url(#fleche-avalanche)"
         />
         <text x="0" y="133" className="schema-avalanche-legende" textAnchor="middle" transform="rotate(-90 0 133)">
-          Hauteur cassure (cm)
+          Hauteur cassure
         </text>
-        {champ('snosm_avalanche_hauteur_cassure', 58, 133, 66)}
+        {champ('snosm_avalanche_hauteur_cassure', 58, 133, 70, 'cm')}
 
-        {/* Longueur : flèche verticale le long de toute la trajectoire */}
+        {/* Pente : petit repère d'angle (perspective simplifiée) dans la marge libre en haut à droite */}
+        <g transform="translate(430, 90)">
+          <line x1="-20" y1="20" x2="20" y2="20" className="schema-avalanche-cote" />
+          <line x1="-20" y1="20" x2="16" y2="-12" className="schema-avalanche-cote" />
+          <path d="M -3 20 A 17 17 0 0 1 9 5" fill="none" className="schema-avalanche-cote" />
+        </g>
+        <text x="430" y="126" className="schema-avalanche-legende" textAnchor="middle">
+          Pente
+        </text>
+        {champ('snosm_avalanche_pente', 430, 148, 60, '°')}
+
+        {/* Longueur du dépôt : flèche verticale le long de toute la trajectoire, légende et case posées
+            bien à l'intérieur du viewBox (auparavant collées au bord droit — coupées visuellement). */}
         <line
           x1="380"
           y1="118"
@@ -89,10 +104,15 @@ export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) 
           markerStart="url(#fleche-avalanche)"
           markerEnd="url(#fleche-avalanche)"
         />
-        <text x="410" y="274" className="schema-avalanche-legende" textAnchor="middle" transform="rotate(-90 410 274)">
-          Longueur (m) — linéaire haut/bas
+        <text x="394" y="245" className="schema-avalanche-legende" textAnchor="start">
+          <tspan x="394" dy="0">
+            Longueur
+          </tspan>
+          <tspan x="394" dy="13">
+            du dépôt
+          </tspan>
         </text>
-        {champ('snosm_avalanche_longueur', 380, 274)}
+        {champ('snosm_avalanche_longueur', 420, 300, 78, 'm')}
 
         {/* Largeur dépôt : flèche horizontale sous la zone de dépôt */}
         <line
@@ -105,9 +125,9 @@ export default function SchemaAvalanche({ valeurs, onChange, lecture = false }) 
           markerEnd="url(#fleche-avalanche)"
         />
         <text x="200" y="512" className="schema-avalanche-legende" textAnchor="middle">
-          Largeur dépôt (cm)
+          Largeur dépôt
         </text>
-        {champ('snosm_avalanche_largeur_depot', 200, 490)}
+        {champ('snosm_avalanche_largeur_depot', 200, 490, 78, 'm')}
       </svg>
     </div>
   )

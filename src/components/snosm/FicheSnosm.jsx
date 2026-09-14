@@ -3,7 +3,7 @@ import { chargerTousSecouristes } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
 import { ChampSnosm, ChampCheckbox, ChampDateTime } from './ChampsSnosm'
 import SchemaAvalanche from './SchemaAvalanche'
-import { ICONES_TYPE_AVALANCHE, ICONES_NIVEAU_RISQUE } from './IconesAvalanche'
+import { ICONES_TYPE_AVALANCHE, ICONES_NIVEAU_RISQUE, COULEURS_TAILLE_AVALANCHE } from './IconesAvalanche'
 import {
   OPTIONS_ENCADREMENT,
   OPTIONS_DIPLOME_ENCADRANT,
@@ -47,6 +47,15 @@ import {
   OPTIONS_GESTES_SECOURISME,
   OPTIONS_TECHNIQUES_EVACUATION,
   snosmStatutDepuis,
+  OPTIONS_AUTORITES_AVISEES,
+  autoritesAviseesDefaut,
+  OPTIONS_OUI_NON,
+  OPTIONS_MOYENS_LOCALISATION_AVALANCHE,
+  OPTIONS_POSITION_1_AVALANCHE,
+  OPTIONS_POSITION_2_AVALANCHE,
+  OPTIONS_MATERIEL_AVALANCHE,
+  OPTIONS_NATIONALITE,
+  sexeDepuis,
 } from '../../lib/optionsSnosm'
 import {
   modifierIntervention,
@@ -266,7 +275,7 @@ const GROUPES_AVIS = [
   {
     titre: 'Autorités et médias',
     champs: [
-      { cle: 'snosm_autorites_avisees', label: 'Autorités avisée(s)', type: 'texte-long', rows: 2 },
+      { cle: 'snosm_autorites_avisees', label: 'Autorités avisée(s)', type: 'tags', options: OPTIONS_AUTORITES_AVISEES, pleineLargeur: true },
       { cle: 'snosm_medias_informes', label: 'Médias informés', type: 'radio', options: OPTIONS_MEDIAS_INFORMES },
       { cle: 'snosm_avis_divers', label: 'Avis divers', type: 'texte-long', rows: 2 },
     ],
@@ -280,31 +289,54 @@ const GROUPES_AVIS = [
   },
 ]
 
-// Longueur/Largeur cassure/Hauteur cassure/Largeur dépôt ne sont plus dans la liste plate ci-dessous
-// : saisies directement sur le schéma d'avalanche (SchemaAvalanche.jsx), affiché juste avant dans
-// l'onglet — toujours les 4 mêmes champs texte libre, juste une présentation différente.
+// Longueur du dépôt/Largeur cassure/Hauteur cassure/Largeur dépôt/Pente ne sont plus dans les listes
+// plates ci-dessous : saisies directement sur le schéma d'avalanche (SchemaAvalanche.jsx), affiché
+// juste avant dans l'onglet — toujours les 5 mêmes champs texte libre, juste une présentation différente.
 const CHAMPS_SCHEMA_AVALANCHE = [
   'snosm_avalanche_longueur',
   'snosm_avalanche_largeur_cassure',
   'snosm_avalanche_hauteur_cassure',
   'snosm_avalanche_largeur_depot',
+  'snosm_avalanche_pente',
 ]
 
-const CHAMPS_AVALANCHE_EVENEMENT = [
-  { cle: 'snosm_avalanche_type', label: 'Type d’avalanche', type: 'radio', options: OPTIONS_TYPE_AVALANCHE, icones: ICONES_TYPE_AVALANCHE },
-  { cle: 'snosm_avalanche_taille', label: 'Taille d’avalanche', type: 'radio', options: OPTIONS_TAILLE_AVALANCHE },
+// Ordre de l'onglet (décision utilisateur) : Niveau de risque puis Type d'avalanche ; les schémas
+// (dessin d'avalanche / rose des vents + curseur Taille) côte à côte ; Déclenchement/Point de
+// départ/Altitude/Dénivelé ; puis le bilan (impliqués/victimes/blessés/indemnes/décédés).
+const CHAMPS_AVALANCHE_NIVEAU_TYPE = [
   { cle: 'snosm_avalanche_niveau_risque', label: 'Niveau de risque', type: 'radio', options: OPTIONS_NIVEAU_RISQUE, icones: ICONES_NIVEAU_RISQUE },
+  { cle: 'snosm_avalanche_type', label: 'Type d’avalanche', type: 'radio', options: OPTIONS_TYPE_AVALANCHE, icones: ICONES_TYPE_AVALANCHE },
+]
+const CHAMP_TAILLE_AVALANCHE = {
+  cle: 'snosm_avalanche_taille',
+  label: 'Taille d’avalanche',
+  type: 'echelle',
+  options: OPTIONS_TAILLE_AVALANCHE,
+  couleurs: COULEURS_TAILLE_AVALANCHE,
+}
+const CHAMP_ORIENTATION_AVALANCHE = { cle: 'snosm_avalanche_orientation', label: 'Orientation', type: 'orientation' }
+const CHAMPS_AVALANCHE_HORAIRES = [
   { cle: 'snosm_avalanche_declenchement_le', label: 'Déclenchement', type: 'datetime' },
   { cle: 'snosm_avalanche_point_depart_gps', label: 'Point de départ (GPS)' },
   { cle: 'snosm_avalanche_altitude', label: 'Altitude (m)' },
-  { cle: 'snosm_avalanche_pente', label: 'Pente' },
   { cle: 'snosm_avalanche_denivele', label: 'Dénivelé total (m)', type: 'nombre' },
-  { cle: 'snosm_avalanche_orientation', label: 'Orientation', type: 'orientation' },
+]
+const CHAMPS_AVALANCHE_BILAN = [
   { cle: 'snosm_avalanche_nb_impliques', label: 'Nombre d’impliqués', type: 'nombre' },
   { cle: 'snosm_avalanche_nb_victimes', label: 'Nombre de victimes', type: 'nombre' },
   { cle: 'snosm_avalanche_nb_blesses', label: 'Nombre de blessés', type: 'nombre' },
   { cle: 'snosm_avalanche_nb_indemnes', label: 'Nombre d’indemnes', type: 'nombre' },
   { cle: 'snosm_avalanche_nb_decedes', label: 'Nombre de décédés', type: 'nombre' },
+]
+// Combiné (ordre de l'onglet) — sert à ChampsLecture (mode lecture, simple liste texte) et à
+// l'initialisation du brouillon ; le rendu en édition utilise les sous-groupes ci-dessus séparément
+// pour la mise en page côte à côte.
+const CHAMPS_AVALANCHE_EVENEMENT = [
+  ...CHAMPS_AVALANCHE_NIVEAU_TYPE,
+  CHAMP_TAILLE_AVALANCHE,
+  ...CHAMPS_AVALANCHE_HORAIRES,
+  CHAMP_ORIENTATION_AVALANCHE,
+  ...CHAMPS_AVALANCHE_BILAN,
 ]
 
 /**
@@ -317,50 +349,126 @@ const CHAMPS_AVALANCHE_EVENEMENT = [
  * identité (Nom/Prénom/Sexe/adresse/Nationalité/Téléphone/naissance/Profession, dans cet ordre) ;
  * puis blessure, puis destination/prise en charge.
  */
+function IconeHomme() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+      <circle cx="8" cy="4.2" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 6.6v6.2M8 9.4h3.2M8 9.4H4.8M8 12.8l-2 2.4M8 12.8l2 2.4" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+function IconeFemme() {
+  return (
+    <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true">
+      <circle cx="8" cy="4.2" r="2.4" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      <path d="M8 6.6v6M5.6 10.6h4.8M6.2 15v-2.2M9.8 15v-2.2" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" />
+    </svg>
+  )
+}
+const ICONES_SEXE = { Homme: <IconeHomme />, Femme: <IconeFemme /> }
+
+/** Petites icônes décoratives dans quelques champs de l'onglet Impliqué — inspirées de la maquette fournie. */
+function IconeTelephone() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        d="M3.2 2.4c.6-.3 1.3-.1 1.6.5l.8 1.6c.3.5.1 1.1-.3 1.5l-.7.6c.5 1.3 1.6 2.4 2.9 2.9l.6-.7c.4-.4 1-.5 1.5-.3l1.6.8c.6.3.8 1 .5 1.6l-.5 1c-.3.6-1 1-1.7.9-3.9-.5-7-3.6-7.5-7.5-.1-.7.3-1.4.9-1.7z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+function IconeCalendrier() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <rect x="2" y="3" width="12" height="11" rx="1.5" fill="none" stroke="currentColor" strokeWidth="1.2" />
+      <path d="M2 6.5h12M5 1.6v2.4M11 1.6v2.4" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" />
+    </svg>
+  )
+}
+function IconePin() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path
+        d="M8 14.4S3 9.8 3 6.4a5 5 0 0 1 10 0c0 3.4-5 8-5 8z"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.2"
+        strokeLinejoin="round"
+      />
+      <circle cx="8" cy="6.3" r="1.7" fill="none" stroke="currentColor" strokeWidth="1.2" />
+    </svg>
+  )
+}
+function IconePersonneVictime() {
+  return (
+    <svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true">
+      <circle cx="8" cy="4.6" r="2.6" fill="currentColor" />
+      <path d="M2.4 14c.5-3.2 2.9-5 5.6-5s5.1 1.8 5.6 5" fill="currentColor" />
+    </svg>
+  )
+}
+function IconeMaison() {
+  return (
+    <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true">
+      <path d="M2 8.2 8 3l6 5.2" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M3.4 7.2V14h9.2V7.2" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round" />
+    </svg>
+  )
+}
+
 const CHAMPS_IMPLIQUE = [
   { cle: 'snosm_statut', label: 'Statut', type: 'bulles', options: OPTIONS_STATUT_PERSONNE },
-  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL, pleineLargeur: true },
+  { cle: 'snosm_etat_medical', label: 'État médical', type: 'liste', options: OPTIONS_ETAT_MEDICAL, pleineLargeur: false },
+  { cle: 'snosm_victime_avalanche', label: 'Victime avalanche', type: 'checkbox' },
   { cle: 'nom', label: 'Nom' },
   { cle: 'prenom', label: 'Prénom' },
-  { cle: 'sexe', label: 'Sexe' },
-  { cle: 'snosm_demeurant', label: 'Demeurant', type: 'texte-long', rows: 2 },
+  { cle: 'sexe', label: 'Sexe', type: 'radio', options: ['Homme', 'Femme'], icones: ICONES_SEXE, pleineLargeur: false },
+  { cle: 'snosm_demeurant', label: 'Demeurant', icone: <IconeMaison /> },
+  { cle: 'snosm_code_postal', label: 'Code postal' },
   { cle: 'snosm_commune', label: 'Commune' },
   { cle: 'snosm_pays', label: 'Pays' },
-  { cle: 'nationalite', label: 'Nationalité' },
-  { cle: 'telephone', label: 'Téléphone' },
-  { cle: 'date_naissance', label: 'Date de naissance', type: 'date' },
-  { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance' },
+  { cle: 'nationalite', label: 'Nationalité', type: 'liste-si-vide', options: OPTIONS_NATIONALITE },
+  { cle: 'telephone', label: 'Téléphone', icone: <IconeTelephone /> },
+  { cle: 'date_naissance', label: 'Date de naissance', type: 'date', icone: <IconeCalendrier /> },
+  { cle: 'snosm_lieu_naissance', label: 'Lieu de naissance', icone: <IconePin /> },
   { cle: 'snosm_profession', label: 'Profession' },
   { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'tags', options: OPTIONS_LOCALISATION_BLESSURE },
   { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'tags', options: OPTIONS_TYPE_BLESSURE },
   { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
-  { cle: 'snosm_destination', label: 'Destination' },
+  { cle: 'snosm_destination', label: 'Destination', icone: <IconeMaison /> },
   { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
 ]
 
+/** Sous-groupe airbag (marque/alimentation/gonflage/position…), affiché seulement si Sac airbag = oui. */
+function visibleSiAirbag(bv) {
+  return bv.snosm_avalanche_sac_airbag === 'oui'
+}
+
 const CHAMPS_AVALANCHE_VICTIME = [
-  { cle: 'snosm_avalanche_moyens_localisation', label: 'Moyens de localisation' },
-  { cle: 'snosm_avalanche_distance_m', label: 'Distance parcourue (m)', type: 'nombre' },
-  { cle: 'snosm_avalanche_profondeur_cm', label: 'Profondeur ensevelissement (cm)', type: 'nombre' },
-  { cle: 'snosm_avalanche_duree_mn', label: 'Durée ensevelissement (mn)', type: 'nombre' },
+  { cle: 'snosm_avalanche_moyens_localisation', label: 'Moyens de localisation', type: 'liste', options: OPTIONS_MOYENS_LOCALISATION_AVALANCHE },
+  { cle: 'snosm_avalanche_distance_m', label: 'Distance parcourue', type: 'texte-unite', unite: 'm' },
+  { cle: 'snosm_avalanche_profondeur_cm', label: 'Profondeur ensevelissement', type: 'texte-unite', unite: 'cm' },
+  { cle: 'snosm_avalanche_duree_mn', label: 'Durée ensevelissement', type: 'texte-unite', unite: 'mn' },
+  { cle: 'snosm_avalanche_dva_present', label: 'DVA présent', type: 'radio', options: OPTIONS_OUI_NON, pleineLargeur: false },
+  { cle: 'snosm_avalanche_dva_en_marche', label: 'DVA en marche', type: 'radio', options: OPTIONS_OUI_NON, pleineLargeur: false },
   { cle: 'snosm_avalanche_bouchon_neige', label: 'Bouchon de neige', type: 'radio', options: OPTIONS_OUI_NON_NE_SAIS_PAS },
   { cle: 'snosm_avalanche_poche_air', label: 'Poche d’air', type: 'radio', options: OPTIONS_OUI_NON_NE_SAIS_PAS },
-  { cle: 'snosm_avalanche_position1', label: 'Position 1' },
-  { cle: 'snosm_avalanche_position2', label: 'Position 2' },
+  { cle: 'snosm_avalanche_position1', label: 'Position 1', type: 'liste', options: OPTIONS_POSITION_1_AVALANCHE },
+  { cle: 'snosm_avalanche_position2', label: 'Position 2', type: 'liste', options: OPTIONS_POSITION_2_AVALANCHE },
   { cle: 'snosm_avalanche_durete_neige', label: 'Dureté neige / tête', type: 'radio', options: OPTIONS_DURETE_NEIGE },
   { cle: 'snosm_avalanche_obstacles', label: 'Obstacles / écoulement', type: 'radio', options: OPTIONS_OBSTACLES },
-  { cle: 'snosm_avalanche_environnement', label: 'Environnement', type: 'radio', options: OPTIONS_ENVIRONNEMENT_AVALANCHE },
-  { cle: 'snosm_avalanche_dva_present', label: 'DVA présent', type: 'checkbox' },
-  { cle: 'snosm_avalanche_dva_en_marche', label: 'DVA en marche', type: 'checkbox' },
-  { cle: 'snosm_avalanche_pelle', label: 'Pelle', type: 'checkbox' },
-  { cle: 'snosm_avalanche_sonde', label: 'Sonde', type: 'checkbox' },
-  { cle: 'snosm_avalanche_recco', label: 'RECCO', type: 'checkbox' },
-  { cle: 'snosm_avalanche_sac_airbag', label: 'Sac airbag', type: 'checkbox' },
-  { cle: 'snosm_avalanche_marque_modele', label: 'Marque et modèle' },
-  { cle: 'snosm_avalanche_alimentation', label: 'Alimentation', type: 'radio', options: OPTIONS_ALIMENTATION_DVA },
-  { cle: 'snosm_avalanche_gonflage', label: 'Gonflage', type: 'radio', options: OPTIONS_GONFLAGE },
-  { cle: 'snosm_avalanche_position_victime', label: 'Position sur la victime', type: 'radio', options: OPTIONS_POSITION_VICTIME_AIRBAG },
-  { cle: 'snosm_avalanche_sac_et_victime', label: 'Sac airbag et la victime', type: 'radio', options: OPTIONS_SAC_ET_VICTIME },
+  { cle: 'snosm_avalanche_environnement', label: 'Environnement (où se trouve la victime)', type: 'radio', options: OPTIONS_ENVIRONNEMENT_AVALANCHE },
+  { cle: 'snosm_avalanche_materiel', label: 'Matériel utilisé', type: 'cases-multiples', options: OPTIONS_MATERIEL_AVALANCHE },
+  { cle: 'snosm_avalanche_sac_airbag', label: 'Sac airbag', type: 'radio', options: OPTIONS_OUI_NON, pleineLargeur: false },
+  { cle: 'snosm_avalanche_marque_modele', label: 'Marque et modèle', visibleSi: visibleSiAirbag },
+  { cle: 'snosm_avalanche_alimentation', label: 'Alimentation', type: 'radio', options: OPTIONS_ALIMENTATION_DVA, visibleSi: visibleSiAirbag },
+  { cle: 'snosm_avalanche_gonflage', label: 'Gonflage', type: 'radio', options: OPTIONS_GONFLAGE, visibleSi: visibleSiAirbag },
+  { cle: 'snosm_avalanche_position_victime', label: 'Position sur la victime', type: 'radio', options: OPTIONS_POSITION_VICTIME_AIRBAG, visibleSi: visibleSiAirbag },
+  { cle: 'snosm_avalanche_sac_et_victime', label: 'Sac airbag et la victime', type: 'radio', options: OPTIONS_SAC_ET_VICTIME, visibleSi: visibleSiAirbag },
 ]
 
 const TOUS_GROUPES_INTERVENTION = [...GROUPES_GENERAL, ...GROUPES_MOYENS, ...GROUPES_INTERVENTION, ...GROUPES_RENFORT, ...GROUPES_AVIS]
@@ -466,6 +574,12 @@ function brouillonFicheDepuis(fiche, referentiels) {
     const genere = genererCirconstancesGlobales(fiche)
     if (genere) bf.description = genere
   }
+  // Autorités avisées : point de départ selon la section/le département (DCCRS, zone, CRS région,
+  // préfecture du département de l'intervention) — juste un point de départ, toujours modifiable.
+  if (!bf.snosm_autorites_avisees) {
+    const defaut = autoritesAviseesDefaut(fiche.squad_code, fiche.county)
+    if (defaut.length) bf.snosm_autorites_avisees = defaut.join(', ')
+  }
   return bf
 }
 
@@ -484,10 +598,13 @@ function brouillonVictimesDepuis(fiche) {
     // victimes, à corriger à la main si elles sont parties vers des endroits différents).
     if (!bv[v.id].snosm_destination && v.destination_cim_alerte) bv[v.id].snosm_destination = v.destination_cim_alerte
     if (!bv[v.id].snosm_fin_prise_en_charge_le && v.depose_le) bv[v.id].snosm_fin_prise_en_charge_le = v.depose_le
-    // Adresse / Lieu de naissance / Commune : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
+    // Adresse / Code postal / Lieu de naissance / Commune : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
     if (!bv[v.id].snosm_demeurant && v.adresse_cim_alerte) bv[v.id].snosm_demeurant = v.adresse_cim_alerte
+    if (!bv[v.id].snosm_code_postal && v.code_postal_cim_alerte) bv[v.id].snosm_code_postal = v.code_postal_cim_alerte
     if (!bv[v.id].snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv[v.id].snosm_lieu_naissance = v.lieu_naissance_cim_alerte
     if (!bv[v.id].snosm_commune && v.commune_cim_alerte) bv[v.id].snosm_commune = v.commune_cim_alerte
+    // Sexe : reclassé depuis la valeur brute Cim'Alerte ('F'/'M'…) vers 'Femme'/'Homme' (radio SNOSM).
+    if (bv[v.id].sexe) bv[v.id].sexe = sexeDepuis(bv[v.id].sexe) ?? bv[v.id].sexe
   }
   return bv
 }
@@ -821,9 +938,33 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 <ChampCheckbox label="Avalanche" valeur={brouillonFiche.snosm_avalanche} onChange={(v) => majChampFiche('snosm_avalanche', v)} />
                 {brouillonFiche.snosm_avalanche && (
                   <>
-                    <SchemaAvalanche valeurs={brouillonFiche} onChange={majChampFiche} />
                     <div className="grille-details-fiche" style={{ marginTop: 10 }}>
-                      {CHAMPS_AVALANCHE_EVENEMENT.map((c) => (
+                      {CHAMPS_AVALANCHE_NIVEAU_TYPE.map((c) => (
+                        <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
+                      ))}
+                    </div>
+                    <div className="schemas-avalanche-cote-a-cote">
+                      <SchemaAvalanche valeurs={brouillonFiche} onChange={majChampFiche} />
+                      <div className="schemas-avalanche-colonne">
+                        <ChampSnosm
+                          description={CHAMP_ORIENTATION_AVALANCHE}
+                          valeur={brouillonFiche.snosm_avalanche_orientation}
+                          onChange={(v) => majChampFiche('snosm_avalanche_orientation', v)}
+                        />
+                        <ChampSnosm
+                          description={CHAMP_TAILLE_AVALANCHE}
+                          valeur={brouillonFiche.snosm_avalanche_taille}
+                          onChange={(v) => majChampFiche('snosm_avalanche_taille', v)}
+                        />
+                      </div>
+                    </div>
+                    <div className="grille-details-fiche" style={{ marginTop: 10 }}>
+                      {CHAMPS_AVALANCHE_HORAIRES.map((c) => (
+                        <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
+                      ))}
+                    </div>
+                    <div className="grille-details-fiche" style={{ marginTop: 10 }}>
+                      {CHAMPS_AVALANCHE_BILAN.map((c) => (
                         <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
                       ))}
                     </div>
@@ -846,35 +987,55 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         {sousOnglet === 'implique' && (
           <>
             {(fiche.victimes ?? []).length === 0 && <p className="aide">Aucune victime enregistrée.</p>}
-            {(fiche.victimes ?? []).map((v) => (
-              <div className="carte-victime" key={v.id}>
-                <strong>Victime {v.local_id ?? ''}</strong>
-                {edition ? (
-                  <>
-                    <div className="grille-details-fiche" style={{ marginTop: 8 }}>
-                      {CHAMPS_IMPLIQUE.map((c) => (
-                        <ChampSnosm key={c.cle} description={c} valeur={brouillonVictimes[v.id]?.[c.cle]} onChange={(val) => majChampVictime(v.id, c.cle, val)} />
-                      ))}
-                    </div>
-                    {brouillonFiche.snosm_avalanche && (
-                      <>
-                        <h4 style={{ marginTop: 12 }}>Avalanche — cette victime</h4>
-                        <div className="grille-details-fiche">
-                          {CHAMPS_AVALANCHE_VICTIME.map((c) => (
-                            <ChampSnosm key={c.cle} description={c} valeur={brouillonVictimes[v.id]?.[c.cle]} onChange={(val) => majChampVictime(v.id, c.cle, val)} />
-                          ))}
-                        </div>
-                      </>
-                    )}
-                  </>
-                ) : (
-                  <div className="grille-details-fiche" style={{ marginTop: 8 }}>
-                    <ChampsLecture champs={CHAMPS_IMPLIQUE} source={v} />
-                    {fiche.snosm_avalanche && <ChampsLecture champs={CHAMPS_AVALANCHE_VICTIME} source={v} />}
+            {(fiche.victimes ?? []).map((v) => {
+              const avalancheVictime = edition
+                ? brouillonFiche.snosm_avalanche || brouillonVictimes[v.id]?.snosm_victime_avalanche
+                : fiche.snosm_avalanche || v.snosm_victime_avalanche
+              return (
+                <div className="carte-victime" key={v.id}>
+                  <div className="entete-carte-victime">
+                    <IconePersonneVictime />
+                    <strong>Impliqué(e) {v.local_id ?? ''}</strong>
                   </div>
-                )}
-              </div>
-            ))}
+                  {edition ? (
+                    <>
+                      <div className="grille-details-fiche" style={{ marginTop: 8 }}>
+                        {CHAMPS_IMPLIQUE.map((c) => (
+                          <ChampSnosm
+                            key={c.cle}
+                            description={c}
+                            valeur={brouillonVictimes[v.id]?.[c.cle]}
+                            onChange={(val) => majChampVictime(v.id, c.cle, val)}
+                            brouillon={brouillonVictimes[v.id]}
+                          />
+                        ))}
+                      </div>
+                      {avalancheVictime && (
+                        <>
+                          <h4 style={{ marginTop: 12 }}>Avalanche — cette victime</h4>
+                          <div className="grille-details-fiche">
+                            {CHAMPS_AVALANCHE_VICTIME.map((c) => (
+                              <ChampSnosm
+                                key={c.cle}
+                                description={c}
+                                valeur={brouillonVictimes[v.id]?.[c.cle]}
+                                onChange={(val) => majChampVictime(v.id, c.cle, val)}
+                                brouillon={brouillonVictimes[v.id]}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </>
+                  ) : (
+                    <div className="grille-details-fiche" style={{ marginTop: 8 }}>
+                      <ChampsLecture champs={CHAMPS_IMPLIQUE} source={v} />
+                      {avalancheVictime && <ChampsLecture champs={CHAMPS_AVALANCHE_VICTIME} source={v} />}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </>
         )}
       </div>

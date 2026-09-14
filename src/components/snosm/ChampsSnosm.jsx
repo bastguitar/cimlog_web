@@ -8,11 +8,14 @@ function formatDateTimeLocal(iso) {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`
 }
 
-export function ChampTexte({ label, valeur, onChange }) {
+export function ChampTexte({ label, valeur, onChange, icone }) {
   return (
     <div className="detail-fiche-edition">
       <span className="etiquette-detail-fiche">{label}</span>
-      <input type="text" value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} />
+      <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
+        {icone}
+        <input type="text" value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} />
+      </div>
     </div>
   )
 }
@@ -26,11 +29,28 @@ export function ChampTexteLong({ label, valeur, onChange, rows = 3 }) {
   )
 }
 
-export function ChampDate({ label, valeur, onChange }) {
+export function ChampDate({ label, valeur, onChange, icone }) {
   return (
     <div className="detail-fiche-edition">
       <span className="etiquette-detail-fiche">{label}</span>
-      <input type="date" value={(valeur ?? '').slice(0, 10)} onChange={(e) => onChange(e.target.value || null)} />
+      <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
+        {icone}
+        <input type="date" value={(valeur ?? '').slice(0, 10)} onChange={(e) => onChange(e.target.value || null)} />
+      </div>
+    </div>
+  )
+}
+
+/** Comme ChampTexte, mais avec une unité affichée dans la case elle-même (ex. « 120 m ») — plus
+ * pertinent qu'un compteur +/- pour une mesure qu'on connaît déjà (distance parcourue, profondeur…). */
+export function ChampTexteUnite({ label, valeur, onChange, unite }) {
+  return (
+    <div className="detail-fiche-edition">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="champ-texte-unite-snosm">
+        <input type="text" value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} />
+        {unite && <span className="unite-champ-snosm">{unite}</span>}
+      </div>
     </div>
   )
 }
@@ -208,6 +228,72 @@ export function ChampBulles({ label, valeur, onChange, options, avecFleche = fal
             key={o}
             className={`bulle-snosm${valeur === o ? ' selectionnee' : ''}`}
             onClick={() => onChange(valeur === o ? '' : o)}
+          >
+            {o}
+          </button>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Échelle horizontale à curseur (façon jauge colorée) — un choix ordonné (ex. Taille d'avalanche 1→5)
+ * où la couleur porte elle-même la gravité (jaune → rouge), comme la pièce jointe fournie par
+ * l'utilisateur. `<input type="range">` natif (drag + clic + flèches clavier) posé sur une piste
+ * dégradée ; les graduations en dessous restent cliquables directement (pas besoin de faire glisser).
+ */
+export function ChampEchelle({ label, valeur, onChange, options, couleurs }) {
+  const index = options.indexOf(valeur)
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur champ-echelle-snosm">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="piste-echelle-snosm" style={{ backgroundImage: `linear-gradient(to right, ${couleurs.join(', ')})` }}>
+        <input
+          type="range"
+          min={0}
+          max={options.length - 1}
+          step={1}
+          value={index === -1 ? 0 : index}
+          onChange={(e) => onChange(options[Number(e.target.value)])}
+          className={`curseur-echelle-snosm${index === -1 ? ' curseur-echelle-snosm-vide' : ''}`}
+          aria-label={label}
+        />
+      </div>
+      <div className="graduation-echelle-snosm">
+        {options.map((o, i) => (
+          <button
+            type="button"
+            key={o}
+            className={`graduation-echelle-snosm-item${i === index ? ' selectionnee' : ''}`}
+            onClick={() => onChange(o)}
+          >
+            {i + 1}
+          </button>
+        ))}
+      </div>
+      <div className="valeur-echelle-snosm">{index === -1 ? '—' : options[index]}</div>
+    </div>
+  )
+}
+
+/** Choix multiple en bulles à vocabulaire fixe (contrairement à ChampTags, pas de saisie libre) — ex. « Matériel utilisé ». */
+export function ChampCasesMultiples({ label, valeur, onChange, options }) {
+  const valeurs = (valeur ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+  const basculer = (o) => onChange((valeurs.includes(o) ? valeurs.filter((v) => v !== o) : [...valeurs, o]).join(', '))
+  return (
+    <div className="detail-fiche-edition detail-pleine-largeur">
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className="champ-bulles-snosm">
+        {options.map((o) => (
+          <button
+            type="button"
+            key={o}
+            className={`bulle-snosm${valeurs.includes(o) ? ' selectionnee' : ''}`}
+            onClick={() => basculer(o)}
           >
             {o}
           </button>
@@ -522,7 +608,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
   if (type === 'nombre') return <ChampNombre label={label} valeur={valeur} onChange={onChange} />
   if (type === 'checkbox') return <ChampCheckbox label={label} valeur={valeur} onChange={onChange} />
   if (type === 'datetime') return <ChampDateTime label={label} valeur={valeur} onChange={onChange} />
-  if (type === 'date') return <ChampDate label={label} valeur={valeur} onChange={onChange} />
+  if (type === 'date') return <ChampDate label={label} valeur={valeur} onChange={onChange} icone={description.icone} />
   if (type === 'texte-long') return <ChampTexteLong label={label} valeur={valeur} onChange={onChange} rows={description.rows} />
   if (type === 'liste')
     return <ChampListe label={label} valeur={valeur} onChange={onChange} options={options} pleineLargeur={description.pleineLargeur} />
@@ -544,6 +630,9 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
     )
   if (type === 'bulles')
     return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} avecFleche={description.avecFleche} />
+  if (type === 'cases-multiples') return <ChampCasesMultiples label={label} valeur={valeur} onChange={onChange} options={options} />
+  if (type === 'echelle') return <ChampEchelle label={label} valeur={valeur} onChange={onChange} options={options} couleurs={description.couleurs} />
+  if (type === 'texte-unite') return <ChampTexteUnite label={label} valeur={valeur} onChange={onChange} unite={description.unite} />
   if (type === 'orientation') return <ChampOrientation label={label} valeur={valeur} onChange={onChange} />
   if (type === 'repliable')
     return (
@@ -575,5 +664,5 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
     )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
-  return <ChampTexte label={label} valeur={valeur} onChange={onChange} />
+  return <ChampTexte label={label} valeur={valeur} onChange={onChange} icone={description.icone} />
 }

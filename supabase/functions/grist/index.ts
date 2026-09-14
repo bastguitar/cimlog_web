@@ -187,7 +187,9 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_avalanche_hauteur_cassure', 'SnosmAvalancheHauteurCassure', 'text'],
   ['snosm_avalanche_largeur_depot', 'SnosmAvalancheLargeurDepot', 'text'],
   ['snosm_avalanche_altitude', 'SnosmAvalancheAltitude', 'text'],
-  ['snosm_avalanche_pente', 'SnosmAvalanchePente', 'numeric'],
+  // Texte libre côté Grist aussi (Numeric -> Text), comme les 4 autres mesures du schéma d'avalanche
+  // (voir plus bas) : maintenant saisie directement sur le schéma, pas au compteur +/-.
+  ['snosm_avalanche_pente', 'SnosmAvalanchePente', 'text'],
   ['snosm_avalanche_denivele', 'SnosmAvalancheDenivele', 'numeric'],
   ['snosm_avalanche_orientation', 'SnosmAvalancheOrientation', 'text'],
   ['snosm_avalanche_nb_impliques', 'SnosmAvalancheNombreImpliques', 'int'],
@@ -211,9 +213,10 @@ const CHAMPS_SNOSM_VICTIME: Array<[string, string, TypeChamp]> = [
   ['snosm_destination', 'SnosmDestination', 'text'],
   ['snosm_fin_prise_en_charge_le', 'SnosmFinPriseEnChargeLe', 'datetime'],
   ['snosm_avalanche_moyens_localisation', 'SnosmAvalancheMoyensLocalisation', 'text'],
-  ['snosm_avalanche_distance_m', 'SnosmAvalancheDistanceM', 'numeric'],
-  ['snosm_avalanche_profondeur_cm', 'SnosmAvalancheProfondeurCm', 'numeric'],
-  ['snosm_avalanche_duree_mn', 'SnosmAvalancheDureeMn', 'numeric'],
+  // Texte libre (Numeric -> Text) : saisie directe avec unité affichée dans la case, plus de compteur +/-.
+  ['snosm_avalanche_distance_m', 'SnosmAvalancheDistanceM', 'text'],
+  ['snosm_avalanche_profondeur_cm', 'SnosmAvalancheProfondeurCm', 'text'],
+  ['snosm_avalanche_duree_mn', 'SnosmAvalancheDureeMn', 'text'],
   ['snosm_avalanche_bouchon_neige', 'SnosmAvalancheBouchonNeige', 'text'],
   ['snosm_avalanche_poche_air', 'SnosmAvalanchePocheAir', 'text'],
   ['snosm_avalanche_position1', 'SnosmAvalanchePosition1', 'text'],
@@ -221,17 +224,24 @@ const CHAMPS_SNOSM_VICTIME: Array<[string, string, TypeChamp]> = [
   ['snosm_avalanche_durete_neige', 'SnosmAvalancheDureteNeige', 'text'],
   ['snosm_avalanche_obstacles', 'SnosmAvalancheObstacles', 'text'],
   ['snosm_avalanche_environnement', 'SnosmAvalancheEnvironnement', 'text'],
-  ['snosm_avalanche_dva_present', 'SnosmAvalancheDVAPresent', 'bool'],
-  ['snosm_avalanche_dva_en_marche', 'SnosmAvalancheDVAEnMarche', 'bool'],
-  ['snosm_avalanche_pelle', 'SnosmAvalanchePelle', 'bool'],
-  ['snosm_avalanche_sonde', 'SnosmAvalancheSonde', 'bool'],
-  ['snosm_avalanche_recco', 'SnosmAvalancheRECCO', 'bool'],
-  ['snosm_avalanche_sac_airbag', 'SnosmAvalancheSacAirbag', 'bool'],
+  // DVA présent/en marche et Sac airbag : passés de case à cocher à radio oui/non (Bool -> Text),
+  // pour un design harmonisé avec les autres radios de ce bloc.
+  ['snosm_avalanche_dva_present', 'SnosmAvalancheDVAPresent', 'text'],
+  ['snosm_avalanche_dva_en_marche', 'SnosmAvalancheDVAEnMarche', 'text'],
+  // Pelle/Sonde/RECCO fusionnés dans un seul champ "Matériel utilisé" à choix multiple — remplace les
+  // 3 cases à cocher séparées ci-dessus (colonnes SnosmAvalanchePelle/Sonde/RECCO laissées inutilisées
+  // côté Grist plutôt que supprimées).
+  ['snosm_avalanche_materiel', 'SnosmAvalancheMateriel', 'text'],
+  ['snosm_avalanche_sac_airbag', 'SnosmAvalancheSacAirbag', 'text'],
   ['snosm_avalanche_marque_modele', 'SnosmAvalancheMarqueModele', 'text'],
   ['snosm_avalanche_alimentation', 'SnosmAvalancheAlimentation', 'text'],
   ['snosm_avalanche_gonflage', 'SnosmAvalancheGonflage', 'text'],
   ['snosm_avalanche_position_victime', 'SnosmAvalanchePositionVictime', 'text'],
   ['snosm_avalanche_sac_et_victime', 'SnosmAvalancheSacEtVictime', 'text'],
+  // Bascule indépendante de la case "Avalanche" de l'onglet dédié — permet d'afficher le bloc avalanche
+  // d'une victime sans devoir cocher la case au niveau de l'intervention entière.
+  ['snosm_victime_avalanche', 'SnosmVictimeAvalanche', 'bool'],
+  ['snosm_code_postal', 'SnosmCodePostal', 'text'],
 ]
 
 const CHAMPS_EFFECTIF: Array<[string, string, TypeChamp]> = [
@@ -345,6 +355,7 @@ function versVictimeApp(f: Record<string, unknown>) {
     adresse_cim_alerte: f.Adresse || null,
     lieu_naissance_cim_alerte: f.LieuNaissance || null,
     commune_cim_alerte: f.Commune || null,
+    code_postal_cim_alerte: f.CodePostal || null,
   }
   for (const [appKey, gristCol, type] of CHAMPS_SNOSM_VICTIME) base[appKey] = depuisGrist(f[gristCol], type)
   return base

@@ -126,3 +126,8 @@ export const ICONES_NIVEAU_RISQUE = {
   '4-FORT': <IconeNiveau couleur="#dc2626" />,
   '5-TRES FORT': <IconeNiveau couleur="#1a1a1a" />,
 }
+
+// Dégradé jaune -> rouge (gravité croissante), repris de la pièce jointe fournie par l'utilisateur
+// pour l'échelle de taille d'avalanche — distinct de l'échelle officielle de risque ci-dessus (qui va
+// du vert au noir), les deux vocabulaires n'étant pas censés se ressembler visuellement.
+export const COULEURS_TAILLE_AVALANCHE = ['#f6d743', '#f3b13c', '#ef8b34', '#e2602f', '#b6242c']
