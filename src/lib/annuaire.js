@@ -45,3 +45,35 @@ export async function chargerTousSecouristes() {
 
   return cacheTous
 }
+
+/**
+ * Tout le personnel de l'annuaire, SANS filtrer sur type_personnel — contrairement à
+ * chargerTousSecouristes() ci-dessus (réservé au terrain : effectif CRS engagé). Directeur
+ * d'enquête/Rédacteur/Signataire sont souvent un cadre, pas un secouriste de terrain : les
+ * exclure de la liste proposée était le bug remonté par l'utilisateur (« ne propose pas les
+ * secouristes… propose les effectifs de la section »).
+ */
+let cacheToutPersonnel = null
+
+export async function chargerToutPersonnel() {
+  if (cacheToutPersonnel) return cacheToutPersonnel
+  if (!annuaire) return []
+
+  const [personnes, sections] = await Promise.all([
+    annuaire.from('users').select('id, nom, prenom, section_id'),
+    annuaire.from('sections').select('id, nom'),
+  ])
+  if (personnes.error || sections.error) return []
+
+  const nomDeSection = new Map(sections.data.map((s) => [s.id, s.nom]))
+
+  cacheToutPersonnel = personnes.data
+    .map((p) => ({
+      id: p.id,
+      libelle: `${p.nom} ${p.prenom ?? ''}`.trim(),
+      section: nomDeSection.get(p.section_id) ?? 'Sans affectation',
+    }))
+    .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
+
+  return cacheToutPersonnel
+}

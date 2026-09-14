@@ -107,6 +107,12 @@ export async function modifierVictime(victimeId, eventId, codesRequete, champs) 
   await appelerGrist('updateVictime', { squadCodes: codesRequete, eventId, victimeId, champs })
 }
 
+/** Ajoute un impliqué saisi à la main (pas connu de Cim'Alerte) — renvoie son id Grist interne. */
+export async function ajouterVictime(eventId, codesRequete) {
+  const { id } = await appelerGrist('ajouterVictime', { squadCodes: codesRequete, eventId })
+  return id
+}
+
 /** Effectif CRS engagé (rôle, personne, dépassement horaire) — répétable, propre à l'onglet SNOSM. */
 export async function listerEffectifsEngages(eventId, codesRequete) {
   const { effectifs } = await appelerGrist('listerEffectifs', { squadCodes: codesRequete, eventId })

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { chargerTousSecouristes } from '../../lib/annuaire'
+import { chargerTousSecouristes, chargerToutPersonnel } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
 import { ChampSnosm, ChampCheckbox, ChampDateTime } from './ChampsSnosm'
 import SchemaAvalanche from './SchemaAvalanche'
@@ -60,6 +60,7 @@ import {
 import {
   modifierIntervention,
   modifierVictime,
+  ajouterVictime,
   ajouterEffectifEngage,
   modifierEffectifEngage,
   supprimerEffectifEngage,
@@ -121,7 +122,10 @@ const GROUPES_GENERAL = [
       // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielActivites dans Grist).
       { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: [] },
       { cle: 'alt', label: 'Altitude (m)' },
-      { cle: 'snosm_meteo', label: 'Météo', type: 'tags', options: OPTIONS_METEO },
+      // maxSuggestions : les 10 choix météo dépassaient la limite par défaut (8) — certains
+      // (Tempête de neige, Venteux) n'apparaissaient jamais dans le menu sans les taper (décision
+      // utilisateur : tout le menu doit être visible d'un coup, façon menu déroulant classique).
+      { cle: 'snosm_meteo', label: 'Météo', type: 'tags', options: OPTIONS_METEO, maxSuggestions: OPTIONS_METEO.length },
     ],
   },
   {
@@ -603,29 +607,34 @@ function brouillonFicheDepuis(fiche, referentiels) {
   return bf
 }
 
+/** Brouillon d'une seule victime — factorisé pour être réutilisé aussi bien à l'ouverture de la fiche
+ * qu'à l'ajout à la volée d'un impliqué saisi à la main (voir ajouterImplique). */
+function brouillonUneVictimeDepuis(v) {
+  const bv = {}
+  for (const c of [...CHAMPS_IMPLIQUE, ...CHAMPS_AVALANCHE_VICTIME]) bv[c.cle] = v[c.cle] ?? valeurInitiale(c.type)
+  // Statut (victime/témoin/encadrant) : reclassé depuis StatutPersonne (Cim'Alerte, minuscules sans accent).
+  if (!bv.snosm_statut) {
+    const statut = snosmStatutDepuis(v.statut_personne)
+    if (statut) bv.snosm_statut = statut
+  }
+  // Destination / Heure fin de prise en charge : reprises de Cim'Alerte (calculées à l'échelle de
+  // l'intervention, pas par victime — même valeur sur toutes les victimes d'une fiche à plusieurs
+  // victimes, à corriger à la main si elles sont parties vers des endroits différents).
+  if (!bv.snosm_destination && v.destination_cim_alerte) bv.snosm_destination = v.destination_cim_alerte
+  if (!bv.snosm_fin_prise_en_charge_le && v.depose_le) bv.snosm_fin_prise_en_charge_le = v.depose_le
+  // Adresse / Code postal / Lieu de naissance / Commune : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
+  if (!bv.snosm_demeurant && v.adresse_cim_alerte) bv.snosm_demeurant = v.adresse_cim_alerte
+  if (!bv.snosm_code_postal && v.code_postal_cim_alerte) bv.snosm_code_postal = v.code_postal_cim_alerte
+  if (!bv.snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv.snosm_lieu_naissance = v.lieu_naissance_cim_alerte
+  if (!bv.snosm_commune && v.commune_cim_alerte) bv.snosm_commune = v.commune_cim_alerte
+  // Sexe : reclassé depuis la valeur brute Cim'Alerte ('F'/'M'…) vers 'Femme'/'Homme' (radio SNOSM).
+  if (bv.sexe) bv.sexe = sexeDepuis(bv.sexe) ?? bv.sexe
+  return bv
+}
+
 function brouillonVictimesDepuis(fiche) {
   const bv = {}
-  for (const v of fiche.victimes ?? []) {
-    bv[v.id] = {}
-    for (const c of [...CHAMPS_IMPLIQUE, ...CHAMPS_AVALANCHE_VICTIME]) bv[v.id][c.cle] = v[c.cle] ?? valeurInitiale(c.type)
-    // Statut (victime/témoin/encadrant) : reclassé depuis StatutPersonne (Cim'Alerte, minuscules sans accent).
-    if (!bv[v.id].snosm_statut) {
-      const statut = snosmStatutDepuis(v.statut_personne)
-      if (statut) bv[v.id].snosm_statut = statut
-    }
-    // Destination / Heure fin de prise en charge : reprises de Cim'Alerte (calculées à l'échelle de
-    // l'intervention, pas par victime — même valeur sur toutes les victimes d'une fiche à plusieurs
-    // victimes, à corriger à la main si elles sont parties vers des endroits différents).
-    if (!bv[v.id].snosm_destination && v.destination_cim_alerte) bv[v.id].snosm_destination = v.destination_cim_alerte
-    if (!bv[v.id].snosm_fin_prise_en_charge_le && v.depose_le) bv[v.id].snosm_fin_prise_en_charge_le = v.depose_le
-    // Adresse / Code postal / Lieu de naissance / Commune : repris de Cim'Alerte (par victime, contrairement à destination/dépose ci-dessus).
-    if (!bv[v.id].snosm_demeurant && v.adresse_cim_alerte) bv[v.id].snosm_demeurant = v.adresse_cim_alerte
-    if (!bv[v.id].snosm_code_postal && v.code_postal_cim_alerte) bv[v.id].snosm_code_postal = v.code_postal_cim_alerte
-    if (!bv[v.id].snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv[v.id].snosm_lieu_naissance = v.lieu_naissance_cim_alerte
-    if (!bv[v.id].snosm_commune && v.commune_cim_alerte) bv[v.id].snosm_commune = v.commune_cim_alerte
-    // Sexe : reclassé depuis la valeur brute Cim'Alerte ('F'/'M'…) vers 'Femme'/'Homme' (radio SNOSM).
-    if (bv[v.id].sexe) bv[v.id].sexe = sexeDepuis(bv[v.id].sexe) ?? bv[v.id].sexe
-  }
+  for (const v of fiche.victimes ?? []) bv[v.id] = brouillonUneVictimeDepuis(v)
   return bv
 }
 
@@ -665,6 +674,10 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   // Cim'Log utilisent des casses/accents différents ("BRIANCON" vs "Briançon"), d'où la comparaison
   // normalisée. Le reste de l'annuaire suit, rien n'est retiré de la liste.
   const [secouristes, setSecouristes] = useState([])
+  // Directeur d'enquête/Rédacteur/Signataire : liste distincte de l'effectif CRS engagé ci-dessus —
+  // souvent un cadre, pas un secouriste de terrain, donc pas filtrée sur type_personnel (décision
+  // utilisateur : proposer tout le personnel de la section en premier, le reste de l'annuaire ensuite).
+  const [personnel, setPersonnel] = useState([])
   useEffect(() => {
     const normalise = (s) =>
       (s ?? '')
@@ -672,14 +685,18 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         .replace(/[̀-ͯ]/g, '')
         .toUpperCase()
     const sectionCible = normalise(sectionNom)
+    const trierSectionDabord = (liste) => {
+      const vus = new Set()
+      const dedoublonnes = liste.filter((s) => (vus.has(s.libelle) ? false : vus.add(s.libelle)))
+      const memeSection = dedoublonnes.filter((s) => normalise(s.section) === sectionCible)
+      const autres = dedoublonnes.filter((s) => normalise(s.section) !== sectionCible)
+      return [...memeSection, ...autres].map((s) => s.libelle)
+    }
     chargerTousSecouristes()
-      .then((liste) => {
-        const vus = new Set()
-        const dedoublonnes = liste.filter((s) => (vus.has(s.libelle) ? false : vus.add(s.libelle)))
-        const memeSection = dedoublonnes.filter((s) => normalise(s.section) === sectionCible)
-        const autres = dedoublonnes.filter((s) => normalise(s.section) !== sectionCible)
-        setSecouristes([...memeSection, ...autres].map((s) => s.libelle))
-      })
+      .then((liste) => setSecouristes(trierSectionDabord(liste)))
+      .catch(() => {})
+    chargerToutPersonnel()
+      .then((liste) => setPersonnel(trierSectionDabord(liste)))
       .catch(() => {})
   }, [sectionNom])
   // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
@@ -729,6 +746,21 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       }
       return { ...b, [victimeId]: victime }
     })
+  }
+
+  /** Ajoute un impliqué saisi à la main (champs vierges) — pas connu de Cim'Alerte, ex. un témoin
+   * arrivé sur place et jamais remonté par l'appli mobile. Créé tout de suite côté Grist (même
+   * logique que + Ajouter un effectif), pas seulement en local le temps d'un futur Enregistrer. */
+  async function ajouterImplique() {
+    try {
+      const id = await ajouterVictime(fiche.id, codesRequete)
+      const prochainNumero = 1 + Math.max(0, ...(fiche.victimes ?? []).map((v) => Number(v.local_id) || 0))
+      const victimeVide = { id, local_id: prochainNumero }
+      onFicheMaj((f) => ({ ...f, victimes: [...(f.victimes ?? []), victimeVide] }))
+      setBrouillonVictimes((b) => ({ ...(b ?? {}), [id]: brouillonUneVictimeDepuis(victimeVide) }))
+    } catch (e) {
+      setErreur(e.message)
+    }
   }
 
   async function enregistrer() {
@@ -923,6 +955,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 onMaj={majEffectif}
                 onSupprimer={supprimerLigneEffectif}
                 secouristes={secouristes}
+                secouristesConnus={(fiche.team?.length ?? 0) > 0 || effectifJour.length > 0}
               />
             </div>
             {edition ? (
@@ -945,7 +978,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
         {sousOnglet === 'avis' &&
           (edition ? (
-            <BlocChamps groupes={GROUPES_AVIS} brouillon={brouillonFiche} majChamp={majChampFiche} secouristes={secouristes} />
+            <BlocChamps groupes={GROUPES_AVIS} brouillon={brouillonFiche} majChamp={majChampFiche} secouristes={personnel} />
           ) : (
             <LectureGroupes groupes={GROUPES_AVIS} fiche={fiche} />
           ))}
@@ -1082,6 +1115,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 </div>
               )
             })}
+            {edition && !verrouillee && (
+              <button type="button" className="bouton-secondaire" onClick={ajouterImplique}>
+                + Ajouter un impliqué
+              </button>
+            )}
           </>
         )}
       </div>
@@ -1143,10 +1181,13 @@ function Detail({ label, children }) {
   )
 }
 
-function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprimer, secouristes }) {
+function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprimer, secouristes, secouristesConnus }) {
   return (
     <div className="tableau-effectifs-snosm">
-      {effectifs.length === 0 && <p className="aide">Aucun effectif renseigné.</p>}
+      {/* Masqué quand des secouristes Cim'Alerte/effectif du jour sont déjà proposés juste au-dessus
+          (boutons à cliquer pour les ajouter) — « aucun effectif » y serait trompeur : quelqu'un est
+          bien connu sur cette intervention, juste pas encore ajouté comme ligne d'effectif ici. */}
+      {effectifs.length === 0 && !secouristesConnus && <p className="aide">Aucun effectif renseigné.</p>}
       {effectifs.map((e) => (
         <LigneEffectif key={e.id} effectif={e} verrouillee={verrouillee} onMaj={onMaj} onSupprimer={onSupprimer} secouristes={secouristes} />
       ))}

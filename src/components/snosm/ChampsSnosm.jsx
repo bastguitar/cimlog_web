@@ -436,7 +436,7 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
  * arrière sur un champ vide retire la dernière bulle. Valeurs stockées
  * jointes par ", " (même format texte que les autres champs multi-valeurs).
  */
-export function ChampTags({ label, valeur, onChange, options, pleineLargeur = false }) {
+export function ChampTags({ label, valeur, onChange, options, pleineLargeur = false, maxSuggestions = 8 }) {
   const [texte, setTexte] = useState('')
   const [ouvert, setOuvert] = useState(false)
   const valeurs = (valeur ?? '')
@@ -446,7 +446,7 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
   const filtre = texte.trim().toLowerCase()
   const suggestions = (filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options)
     .filter((o) => !valeurs.some((v) => v.toLowerCase() === o.toLowerCase()))
-    .slice(0, 8)
+    .slice(0, maxSuggestions)
 
   const ajouter = (v) => {
     const nettoye = v.trim()
@@ -664,7 +664,14 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
   if (type === 'tags')
     return (
-      <ChampTags label={label} valeur={valeur} onChange={onChange} options={options} pleineLargeur={description.pleineLargeur} />
+      <ChampTags
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        options={options}
+        pleineLargeur={description.pleineLargeur}
+        maxSuggestions={description.maxSuggestions}
+      />
     )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />

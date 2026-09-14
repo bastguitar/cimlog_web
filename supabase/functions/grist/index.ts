@@ -543,6 +543,15 @@ async function updateVictime(
   await patchGrist(docId, apiKey, 'Victimes', victimeId, champs)
 }
 
+/** Ajoute un impliqué saisi à la main (pas connu de Cim'Alerte) — champs vides, tous modifiables ensuite comme n'importe quelle victime. */
+async function ajouterVictime(docId: string, apiKey: string, squadCodes: string[], eventId: number) {
+  await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId)
+  const existantes = await requeteGrist(docId, apiKey, `select NumeroVictime from Victimes where EventId = ?`, [eventId])
+  const prochainNumero = 1 + Math.max(0, ...existantes.map((v) => Number(v.NumeroVictime) || 0))
+  const gristId = await postGrist(docId, apiKey, 'Victimes', { EventId: eventId, NumeroVictime: prochainNumero })
+  return gristId
+}
+
 async function listerEffectifs(docId: string, apiKey: string, squadCodes: string[], eventId: number) {
   await verifierEcritureAutorisee(docId, apiKey, squadCodes, eventId).catch(() => {
     // Lecture seule tolérée même fiche figée — seule l'écriture doit être bloquée.
@@ -639,6 +648,10 @@ Deno.serve(async (requete) => {
     if (action === 'updateVictime') {
       await updateVictime(docId, apiKey, squadCodes, params.eventId, params.victimeId, params.champs)
       return reponse({ ok: true })
+    }
+    if (action === 'ajouterVictime') {
+      const id = await ajouterVictime(docId, apiKey, squadCodes, params.eventId)
+      return reponse({ ok: true, id })
     }
     if (action === 'listerEffectifs') {
       const effectifs = await listerEffectifs(docId, apiKey, squadCodes, params.eventId)
