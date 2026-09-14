@@ -59,6 +59,7 @@ export default function ModaleTO({ fiche, sectionNom, onValide, onFermer }) {
           seulement ce document.
         </p>
         {erreur && <p className="erreur">{erreur}</p>}
+        <div className="corps-sous-onglet-snosm">
 
         <div className="section-fiche">
           <h4>En-tête</h4>
@@ -271,6 +272,7 @@ export default function ModaleTO({ fiche, sectionNom, onValide, onFermer }) {
               onChange={(v) => majSection('finalisation', 'signataire', v)}
             />
           </div>
+        </div>
         </div>
 
         <div className="actions-edition-fiche">
