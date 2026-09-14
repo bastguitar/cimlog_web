@@ -665,6 +665,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [brouillonVictimes, setBrouillonVictimes] = useState(() => (verrouillee ? null : brouillonVictimesDepuis(fiche)))
   const [enregistrement, setEnregistrement] = useState(false)
   const [erreur, setErreur] = useState(null)
+  const [confirmerAnnulation, setConfirmerAnnulation] = useState(false)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
   const [generationTO, setGenerationTO] = useState(false)
   // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
@@ -729,11 +730,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   /** Abandonne les modifications non enregistrées et referme la fenêtre — le bouton « Annuler » est
    * au même niveau que « Enregistrer »/« TO » dans la barre d'actions, il doit donc agir comme eux
    * sur la fenêtre entière, pas seulement réinitialiser des champs en silence (bug remonté par
-   * l'utilisateur : le bouton semblait « ne rien faire »). */
+   * l'utilisateur : le bouton semblait « ne rien faire »). Passe par une confirmation (setConfirmerAnnulation)
+   * pour ne jamais perdre une saisie par un clic accidentel.
+   */
   function annulerEdition() {
     setBrouillonFiche(brouillonFicheDepuis(fiche, referentiels))
     setBrouillonVictimes(brouillonVictimesDepuis(fiche))
     setErreur(null)
+    setConfirmerAnnulation(false)
     onFermer?.()
   }
 
@@ -1043,6 +1047,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
         {sousOnglet === 'implique' && (
           <>
+            {edition && !verrouillee && (
+              <button type="button" className="bouton-secondaire" onClick={ajouterImplique} style={{ marginBottom: 12 }}>
+                + Ajouter un impliqué
+              </button>
+            )}
             {(fiche.victimes ?? []).length === 0 && <p className="aide">Aucune victime enregistrée.</p>}
             {(fiche.victimes ?? []).map((v) => {
               const avalancheVictime = edition
@@ -1119,11 +1128,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 </div>
               )
             })}
-            {edition && !verrouillee && (
-              <button type="button" className="bouton-secondaire" onClick={ajouterImplique}>
-                + Ajouter un impliqué
-              </button>
-            )}
           </>
         )}
       </div>
@@ -1131,7 +1135,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       <div className="actions-edition-fiche">
         {edition && (
           <>
-            <button type="button" className="bouton-secondaire" onClick={annulerEdition} disabled={enregistrement}>
+            <button type="button" className="bouton-secondaire" onClick={() => setConfirmerAnnulation(true)} disabled={enregistrement}>
               Annuler
             </button>
             <button type="button" className="bouton-principal" onClick={enregistrer} disabled={enregistrement}>
@@ -1143,6 +1147,22 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
           {generationTO ? '…' : 'TO'}
         </button>
       </div>
+
+      {confirmerAnnulation && (
+        <div className="fond-confirmation-snosm" onClick={() => setConfirmerAnnulation(false)}>
+          <div className="boite-confirmation-snosm" role="alertdialog" aria-modal="true" onClick={(e) => e.stopPropagation()}>
+            <p>Fermer sans enregistrer les modifications ?</p>
+            <div className="actions-confirmation-snosm">
+              <button type="button" className="bouton-secondaire" onClick={() => setConfirmerAnnulation(false)}>
+                Non, continuer
+              </button>
+              <button type="button" className="bouton-principal" onClick={annulerEdition}>
+                Oui, fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

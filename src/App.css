@@ -412,6 +412,25 @@ main > * {
   background: rgba(255, 255, 255, 0.18);
 }
 
+/* Accent SNOSM : indigo plutôt que le rouge CRS de reste de l'app (Registre/Carte/Stats) — décision
+   utilisateur (« plus moderne, plus pro »), le rouge restant associé à l'urgence/l'alerte ailleurs.
+   Une seule redéfinition de --accent/--accent-bg ici, scoped à la racine de la fiche SNOSM : tous
+   les usages existants de var(--accent) dans ce sous-arbre (boutons, radios, bulles, tags, focus…)
+   suivent automatiquement, sans avoir à retoucher chaque règle une par une. Les couleurs de sécurité
+   (échelle de risque avalanche, dégradé jaune->rouge de la taille) ne sont volontairement pas
+   concernées : ce sont des signaux de gravité, pas une couleur de marque. */
+.onglet-snosm-racine {
+  --accent: #4552a6;
+  --accent-bg: rgba(69, 82, 166, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  .onglet-snosm-racine {
+    --accent: #8f9be0;
+    --accent-bg: rgba(143, 155, 224, 0.14);
+  }
+}
+
 .fond-modale {
   position: fixed;
   inset: 0;
@@ -432,6 +451,39 @@ main > * {
   from {
     opacity: 0;
   }
+}
+
+.fond-confirmation-snosm {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 20, 12, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  z-index: 2100;
+  animation: apparition-fond 0.15s ease-out;
+}
+
+.boite-confirmation-snosm {
+  width: 100%;
+  max-width: 360px;
+  padding: 20px 22px;
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow);
+}
+
+.boite-confirmation-snosm p {
+  margin: 0 0 16px;
+  color: var(--text-h);
+  font-weight: 600;
+}
+
+.actions-confirmation-snosm {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
 }
 
 .modale-effectifs {
