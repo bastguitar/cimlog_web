@@ -223,7 +223,9 @@ class MisePage {
     this.doc.setTextColor(...GRIS)
     this.doc.text(this.titreCourt, MARGE, 14)
     this.doc.setDrawColor(...GRIS_CLAIR)
-    this.doc.line(MARGE, 18, this.largeur - MARGE, 18)
+    // Le logo va de y=10 à y=28 (hauteur 18) sur les pages suivantes : même correction que
+    // l'en-tête principal, la ligne passe en dessous plutôt que de le traverser.
+    this.doc.line(MARGE, 29, this.largeur - MARGE, 29)
     this.y = 34
   }
 
@@ -305,9 +307,11 @@ export async function genererPdfDepuisModele(modele) {
   doc.text(`n° ${modele.numeroIfsm}`, MARGE, 25)
   doc.setDrawColor(...ROUGE_CRS)
   doc.setLineWidth(0.6)
-  doc.line(MARGE, 30, page.largeur - MARGE, 30)
+  // Le logo va de y=10 à y=36 (hauteur 26) : la ligne doit passer EN DESSOUS, pas la traverser
+  // (bug remonté par l'utilisateur — la ligne barrait l'insigne CRS sur le PDF).
+  doc.line(MARGE, 39, page.largeur - MARGE, 39)
   doc.setLineWidth(0.2)
-  page.y = 38
+  page.y = 46
 
   page.champ('DE :', modele.entete.de)
   page.champ('À :', modele.entete.a)
