@@ -927,6 +927,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     }
   }
 
+  const indexSousOngletActuel = SOUS_ONGLETS.findIndex((o) => o.cle === sousOnglet)
+  const sousOngletSuivant = SOUS_ONGLETS[indexSousOngletActuel + 1]
+
   return (
     <div className="onglet-snosm-racine">
       <div className="entete-snosm">
@@ -1210,6 +1213,22 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
               )
             })}
           </>
+        )}
+
+        {sousOngletSuivant && (
+          <div className="barre-onglet-suivant-snosm">
+            <button
+              type="button"
+              className="bouton-onglet-suivant-snosm"
+              onClick={() => setSousOnglet(sousOngletSuivant.cle)}
+              title={`Onglet suivant : ${sousOngletSuivant.label}`}
+              aria-label={`Onglet suivant : ${sousOngletSuivant.label}`}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
         )}
       </div>
 
