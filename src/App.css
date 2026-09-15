@@ -2101,6 +2101,52 @@ main > * {
   padding-right: 4px;
 }
 
+/* Bouton "onglet suivant" — collé en bas à droite du panneau, sauvegarde au clic (voir
+   passerAuSuivant) avant de changer d'onglet. position: sticky (pas fixed) : reste ancré au
+   panneau qui défile, pas à toute la fenêtre — n'empiète donc jamais sur les boutons Annuler/
+   Enregistrer/Valider en dessous. pointer-events: none sur la barre elle-même : l'espace vide à
+   sa gauche laisse passer clics/scroll, seul le bouton rond capte les clics. */
+.barre-onglet-suivant-snosm {
+  position: sticky;
+  bottom: 10px;
+  display: flex;
+  justify-content: flex-end;
+  padding-right: 6px;
+  margin-top: -14px;
+  pointer-events: none;
+}
+
+.bouton-onglet-suivant-snosm {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: transform 0.15s, filter 0.15s;
+}
+
+.bouton-onglet-suivant-snosm:hover {
+  filter: brightness(1.08);
+  transform: translateY(-1px);
+}
+
+.bouton-onglet-suivant-snosm:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.bouton-onglet-suivant-snosm svg {
+  width: 24px;
+  height: 24px;
+}
+
 .champ-checkbox-snosm {
   display: flex;
   align-items: center;

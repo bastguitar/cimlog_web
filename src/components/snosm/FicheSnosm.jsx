@@ -1268,6 +1268,23 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             })}
           </>
         )}
+
+        {sousOngletSuivant && (
+          <div className="barre-onglet-suivant-snosm">
+            <button
+              type="button"
+              className="bouton-onglet-suivant-snosm"
+              onClick={() => passerAuSuivant(sousOngletSuivant.cle)}
+              disabled={enregistrement}
+              title={`Onglet suivant : ${sousOngletSuivant.label}`}
+              aria-label={`Onglet suivant : ${sousOngletSuivant.label}`}
+            >
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="actions-edition-fiche">
@@ -1281,18 +1298,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             </button>
           </>
         )}
-        {pretPourTO ? (
+        {pretPourTO && (
           <button type="button" className="bouton-principal" onClick={validerEtCreerTO} disabled={creationTO}>
             {creationTO ? '…' : 'Enregistrer et créer le TO'}
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="bouton-principal"
-            onClick={() => sousOngletSuivant && passerAuSuivant(sousOngletSuivant.cle)}
-            disabled={enregistrement || !sousOngletSuivant}
-          >
-            {enregistrement ? '…' : 'Suivant'}
           </button>
         )}
       </div>
