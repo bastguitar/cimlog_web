@@ -1911,13 +1911,28 @@ main > * {
 /* Champ laissé vide : bordure rouge pâle pour le repérer d'un coup d'œil (décision utilisateur, sur
    tout le formulaire). N'inclut pas les boutons radio/bulles/case à cocher — pas de « case » évidente
    à colorer sans les redessiner, et un bouton non coché est déjà visuellement explicite en soi. */
+/* Rouge fixe, PAS var(--accent) : l'accent du SNOSM a été rebasculé sur un bleu indigo (voir
+   .onglet-snosm-racine plus bas), ce qui rendait ce liseré bleu au lieu de rouge et le faisait
+   passer inaperçu — bug remonté par l'utilisateur. Ce repère "à compléter" doit rester rouge quelle
+   que soit la couleur de marque du moment, donc une couleur littérale plutôt que la variable de thème. */
 .champ-vide-snosm input,
 .champ-vide-snosm textarea,
 .champ-vide-snosm select,
 .champ-vide-snosm .entree-avec-icone-snosm,
 .champ-vide-snosm .champ-texte-unite-snosm,
 .champ-vide-snosm .zone-tags-snosm {
-  border-color: color-mix(in srgb, var(--accent) 40%, var(--border));
+  border-color: color-mix(in srgb, #b6242c 45%, var(--border));
+}
+
+@media (prefers-color-scheme: dark) {
+  .champ-vide-snosm input,
+  .champ-vide-snosm textarea,
+  .champ-vide-snosm select,
+  .champ-vide-snosm .entree-avec-icone-snosm,
+  .champ-vide-snosm .champ-texte-unite-snosm,
+  .champ-vide-snosm .zone-tags-snosm {
+    border-color: color-mix(in srgb, #e5646b 45%, var(--border));
+  }
 }
 
 .detail-fiche-edition input:hover,
