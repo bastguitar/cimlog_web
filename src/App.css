@@ -1654,7 +1654,31 @@ main > * {
 }
 
 .tableau-registre .col-moyen-registre {
-  width: 8%;
+  width: 9%;
+}
+
+/* Pastille MED/NON-MED — toujours sur sa propre ligne sous le moyen engagé (colonne étroite, pas
+   la place pour rester sur la même ligne dès que le libellé du moyen est un peu long). */
+.pastille-med-registre {
+  display: block;
+  width: fit-content;
+  margin-top: 2px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.pastille-med-registre.med {
+  background: var(--succes-bg);
+  color: var(--succes);
+}
+
+.pastille-med-registre.non-med {
+  background: var(--bg-alt);
+  color: var(--text);
+  opacity: 0.7;
 }
 
 .tableau-registre .col-equipe-registre {

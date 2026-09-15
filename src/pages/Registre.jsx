@@ -197,7 +197,10 @@ export default function Registre({ fSections }) {
                           {s.accident_type && <div className="cellule-sous-registre">{s.accident_type}</div>}
                         </td>
                         <td>{pathologiesDe(s) || '—'}</td>
-                        <td>{s.helicopter || '—'}</td>
+                        <td>
+                          {s.helicopter || '—'}
+                          <span className={`pastille-med-registre${s.is_med ? ' med' : ' non-med'}`}>{s.is_med ? 'MED' : 'NON-MED'}</span>
+                        </td>
                         <td>{(s.team ?? []).map(nomSeul).join(', ') || '—'}</td>
                         <td>
                           <button
