@@ -32,7 +32,6 @@ const GRIS = [110, 110, 118]
 const GRIS_CLAIR = [225, 226, 230]
 const ROUGE_CRS = [182, 36, 44]
 const MARGE = 14
-const LARGEUR_LABEL = 42
 
 // Zone/région et préfectures — dérivées à partir de ce que l'utilisateur a
 // confirmé sur UN exemplaire réel (Alpes/Albertville). Le cas Pyrénées n'a
@@ -105,6 +104,64 @@ function departementNom(fiche) {
   return PREFECTURE_PAR_DEPARTEMENT[fiche.county] ?? fiche.county
 }
 
+/** « IFSM <n°> <Département> <Nom de la victime principale> » — même construction pour le n° IFSM
+ * affiché en tête du TO et pour le nom du fichier téléchargé (décision utilisateur : une seule règle). */
+function libelleIfsm(fiche, premiereVictimeNom) {
+  const departement = departementNom(fiche)
+  const morceaux = [`IFSM ${fiche.local_id ?? ''}`.trim(), departement ? versTitreCase(departement) : '', premiereVictimeNom || ''].filter(
+    Boolean
+  )
+  return morceaux.join(' ')
+}
+
+// Emoji (drapeaux compris) retirés avant affichage sur le TO — jsPDF ne les rend pas (case vide ou
+// glyphe manquant). Tout code point au-delà de 0x2000 est un emoji/symbole dans ce contexte (les
+// caractères accentués français utiles restent tous en-dessous, y compris Latin Extended-A/B).
+function retirerEmoji(texte) {
+  return Array.from(String(texte ?? ''))
+    .filter((car) => car.codePointAt(0) < 0x2000)
+    .join('')
+    .trim()
+}
+
+// Vocabulaire du menu déroulant Pays de l'onglet Impliqué (voir OPTIONS_PAYS, optionsSnosm.js) ->
+// nationalité (adjectif). Couvre les nationalités les plus fréquentes en intervention ; ce qui n'y
+// figure pas (ou est déjà un adjectif, ex. valeur déjà corrigée à la main) est renvoyé tel quel,
+// juste nettoyé de tout emoji.
+const NATIONALITE_PAR_PAYS = {
+  FRANCE: 'Française',
+  ALLEMAGNE: 'Allemande',
+  ITALIE: 'Italienne',
+  ESPAGNE: 'Espagnole',
+  SUISSE: 'Suisse',
+  BELGIQUE: 'Belge',
+  'PAYS-BAS': 'Néerlandaise',
+  PORTUGAL: 'Portugaise',
+  AUTRICHE: 'Autrichienne',
+  POLOGNE: 'Polonaise',
+  'ROYAUME-UNI': 'Britannique',
+  'ETATS-UNIS': 'Américaine',
+  CANADA: 'Canadienne',
+  IRLANDE: 'Irlandaise',
+  RUSSIE: 'Russe',
+}
+
+/** null si 0 (le champ disparaît alors de la mise en page), sinon le nombre en texte. */
+function nombreSi(n) {
+  return n > 0 ? String(n) : null
+}
+
+/** Nationalité affichée sur le TO par le pays (« française », pas « France ») — voir le mot de l'utilisateur en tête de fichier. */
+function nationaliteDepuisPays(brut) {
+  const nettoye = retirerEmoji(brut)
+  if (!nettoye) return null
+  const cle = nettoye
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+  return NATIONALITE_PAR_PAYS[cle] ?? nettoye
+}
+
 /**
  * Modèle éditable du TO — fonction pure, pas de PDF ici. Chaque champ vient
  * maintenant du vrai formulaire SNOSM (voir FicheSnosm.jsx) plutôt que d'un
@@ -115,10 +172,10 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
   const region = REGION_PAR_GROUPE[groupe] ?? null
   const zone = region ? (ZONE_PAR_REGION[region] ?? null) : null
   const prefecture = fiche.county ? departementNom(fiche) : null
-  const numeroIfsm = fiche.county ? `IFSM-${fiche.county}-${fiche.local_id}` : `IFSM-${fiche.local_id}`
   const nomDe = sectionNom ? `CRS ${region ?? ''} ${sectionNom}`.replace(/\s+/g, ' ').trim().toUpperCase() : null
   const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - PRÉFECTURE ${prefecture} - CRS ${region}` : null
   const victimes = fiche.victimes ?? []
+  const numeroIfsm = libelleIfsm(fiche, victimes[0]?.nom)
 
   return {
     numeroIfsm,
@@ -161,10 +218,12 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       techniquesEvacuation: fiche.snosm_techniques_evacuation,
     },
     bilan: {
-      disparus: String(fiche.recherche_personne ? 1 : 0),
-      assistes: String(victimes.filter((v) => v.snosm_etat_medical === 'Indemne').length),
-      blesses: String(victimes.filter((v) => v.snosm_etat_medical === 'Blessé').length),
-      decedes: String(victimes.filter((v) => (v.snosm_etat_medical || '').startsWith('Décédé')).length),
+      // Affichés seulement si > 0 (décision utilisateur) — null plutôt que "0" pour que la mise en
+      // page (qui masque déjà tout champ vide) les fasse disparaître sans logique spécifique ici.
+      disparus: fiche.recherche_personne ? '1' : null,
+      assistes: nombreSi(victimes.filter((v) => v.snosm_etat_medical === 'Indemne').length),
+      blesses: nombreSi(victimes.filter((v) => v.snosm_etat_medical === 'Blessé').length),
+      decedes: nombreSi(victimes.filter((v) => (v.snosm_etat_medical || '').startsWith('Décédé')).length),
     },
     victimes: victimes.map((v) => ({
       id: v.id,
@@ -173,16 +232,18 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       prenom: v.prenom,
       sexe: v.sexe,
       dateNaissance: v.date_naissance ? new Date(v.date_naissance).toLocaleDateString('fr-FR') : null,
-      nationalite: v.nationalite,
+      nationalite: nationaliteDepuisPays(v.nationalite),
       telephone: v.telephone,
       etatMedical: v.snosm_etat_medical,
-      circonstance: v.snosm_circonstances_liste,
-      natureBlessures: [v.snosm_localisation_blessure, v.snosm_type_blessure].filter(Boolean).join(' — ') || null,
+      // Minuscules (décision utilisateur) — la mise en majuscules ne sert qu'aux menus de saisie.
+      circonstance: v.snosm_circonstances_liste ? v.snosm_circonstances_liste.toLowerCase() : null,
+      natureBlessures: [v.snosm_localisation_blessure, v.snosm_type_blessure].filter(Boolean).join(' — ').toLowerCase() || null,
       destination: v.snosm_destination,
     })),
     judiciaire: {
       suiviJudiciaire: fiche.snosm_suivi_judiciaire,
-      directeurEnquete: fiche.snosm_directeur_enquete,
+      // Pas de directeur d'enquête à afficher si aucun suivi judiciaire (décision utilisateur).
+      directeurEnquete: fiche.snosm_suivi_judiciaire === 'Non' ? null : fiche.snosm_directeur_enquete,
     },
     autorites: {
       autoritesAvisees: fiche.snosm_autorites_avisees || autoritesDefaut,
@@ -248,44 +309,47 @@ class MisePage {
   }
 
   /**
-   * Un champ « Label : valeur ». Si le libellé est court, la valeur suit sur
-   * la même ligne (colonne fixe) ; s'il est trop long pour cette colonne
-   * (« Nature de l'activité ayant donné lieu au déclenchement : », par ex.),
-   * la valeur passe sur la ligne suivante plutôt que de chevaucher le texte.
+   * Un champ « Label : valeur » — la valeur suit toujours le label sur la
+   * même ligne, juste après les deux-points (décision utilisateur : plus de
+   * renvoi à la ligne suivante même pour un label long, la colonne de valeur
+   * s'ajuste à la largeur du label au lieu d'une colonne fixe). Rien n'est
+   * dessiné si la valeur est vide — un champ non renseigné n'apparaît pas du
+   * tout sur le TO plutôt que de laisser des pointillés à remplir à la main.
    */
   champ(label, valeur) {
-    const texte = valeur || '……………………………'
+    if (!valeur) return
     this.doc.setFont(undefined, 'bold')
     this.doc.setFontSize(7.5)
-    const empile = this.doc.getTextWidth(label) > LARGEUR_LABEL - 2
-    const xValeur = empile ? MARGE : MARGE + LARGEUR_LABEL
+    const labelAvecEspace = label.endsWith(' ') ? label : `${label} `
+    const xValeur = MARGE + this.doc.getTextWidth(labelAvecEspace)
     const largeurValeur = this.largeur - MARGE - xValeur
-    const lignes = this.doc.splitTextToSize(texte, largeurValeur)
-    this.espace((empile ? 3.5 : 0) + 4.2 * lignes.length + 1)
+    const lignes = this.doc.splitTextToSize(valeur, largeurValeur)
+    this.espace(4.2 * lignes.length + 1)
     this.doc.setTextColor(...NOIR)
-    this.doc.text(label, MARGE, this.y)
-    if (empile) this.y += 3.8
-    this.doc.setFont(undefined, valeur ? 'normal' : 'italic')
-    this.doc.setTextColor(...(valeur ? NOIR : GRIS))
+    this.doc.text(labelAvecEspace, MARGE, this.y)
+    this.doc.setFont(undefined, 'normal')
     this.doc.text(lignes, xValeur, this.y)
     this.y += 4.2 * lignes.length + 1
   }
 
-  /** Deux ou trois champs courts côte à côte (dates, altitude/massif, opération/hélico/PPSM…). */
+  /** Deux ou trois champs courts côte à côte (dates, altitude/massif, opération/hélico/PPSM…) — ceux
+   * sans valeur sont retirés de la ligne (même règle que champ() ci-dessus), la ligne entière est
+   * sautée si plus aucun des champs du groupe n'est renseigné. */
   champsDoubles(paires) {
+    const remplies = paires.filter(([, valeur]) => valeur)
+    if (remplies.length === 0) return
     this.espace(5.5)
     const y = this.y
-    const largeurColonne = (this.largeur - MARGE * 2) / paires.length
-    paires.forEach(([label, valeur], i) => {
+    const largeurColonne = (this.largeur - MARGE * 2) / remplies.length
+    remplies.forEach(([label, valeur], i) => {
       const x = MARGE + i * largeurColonne
       this.doc.setFont(undefined, 'bold')
       this.doc.setFontSize(7.5)
       this.doc.setTextColor(...NOIR)
       this.doc.text(label, x, y)
       const largeurLabel = this.doc.getTextWidth(label) + 1.5
-      this.doc.setFont(undefined, valeur ? 'normal' : 'italic')
-      this.doc.setTextColor(...(valeur ? NOIR : GRIS))
-      this.doc.text(valeur || '……………', x + largeurLabel, y)
+      this.doc.setFont(undefined, 'normal')
+      this.doc.text(valeur, x + largeurLabel, y)
     })
     this.y += 5.5
   }
@@ -299,7 +363,7 @@ class MisePage {
 export async function genererPdfDepuisModele(modele) {
   const doc = new jsPDF()
   const logo = await chargerImage(logoCrsUrl).catch(() => null)
-  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne n° ${modele.numeroIfsm}`)
+  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne — ${modele.numeroIfsm}`)
 
   // ---- En-tête ------------------------------------------------------------
   // Mise en page dense (voir commentaire en tête de fichier) : logo et police réduits, DE/À et
@@ -311,7 +375,7 @@ export async function genererPdfDepuisModele(modele) {
   doc.text('Intervention des Formations Spécialisées Montagne', MARGE, 15)
   doc.setFontSize(9)
   doc.setTextColor(...ROUGE_CRS)
-  doc.text(`n° ${modele.numeroIfsm}`, MARGE, 21)
+  doc.text(modele.numeroIfsm, MARGE, 21)
   doc.setDrawColor(...ROUGE_CRS)
   doc.setLineWidth(0.6)
   // La ligne s'arrête avant l'écusson plutôt que de courir sur toute la largeur en-dessous.
@@ -469,14 +533,9 @@ export async function genererPdfDepuisModele(modele) {
   return doc
 }
 
-/** « IFSM <n°> <Département> <Nom de la victime principale>.pdf » — décision utilisateur. */
+/** « IFSM <n°> <Département> <Nom de la victime principale>.pdf » — même construction que modele.numeroIfsm (décision utilisateur : une seule règle pour le n° IFSM affiché et le nom du fichier). */
 export function nomFichierTO(fiche, modele) {
-  const departement = departementNom(fiche)
-  const premiereVictime = modele.victimes[0]?.nom || ''
-  const morceaux = [`IFSM ${fiche.local_id ?? ''}`.trim(), departement ? versTitreCase(departement) : '', premiereVictime].filter(
-    Boolean
-  )
-  const nom = morceaux.join(' ').replace(/[\\/:*?"<>|]/g, '').trim()
+  const nom = modele.numeroIfsm.replace(/[\\/:*?"<>|]/g, '').trim()
   return `${nom || 'IFSM'}.pdf`
 }
 
