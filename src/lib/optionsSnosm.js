@@ -14,6 +14,17 @@
  */
 import { groupeDe } from './sections'
 
+// Harmonise la casse des menus déroulants (décision utilisateur : première lettre en majuscule, le
+// reste en minuscule) sans retaper chaque libellé à la main — appliqué en une fois sur les tableaux
+// de vocabulaire concernés, pas sur les valeurs déjà saisies par les utilisateurs (jamais réécrites).
+function premiereMajuscule(s) {
+  // Cherche la 1ère lettre plutôt que le 1er caractère : certains libellés commencent par une
+  // parenthèse (« (DOMAINE SKIABLE) … »), la majuscule doit porter sur "Domaine", pas sur "(".
+  const i = s.search(/[a-zà-ÿ]/i)
+  if (i === -1) return s
+  return s.slice(0, i) + s.charAt(i).toUpperCase() + s.slice(i + 1)
+}
+
 // En minuscules (décision utilisateur), sans accent ajouté — même convention que le reste du
 // vocabulaire SNOSM déjà passé en minuscules (onglet Avalanche) : lettre pour lettre, pas de
 // normalisation orthographique. Cim'Log ne change que sa propre présentation, jamais le format
@@ -183,7 +194,7 @@ export const OPTIONS_LOCALISATION_BLESSURE = [
   'tibia péroné',
   'visage',
   'autre',
-]
+].map(premiereMajuscule)
 
 export const OPTIONS_TYPE_BLESSURE = [
   'arrêt cardio-respiratoire',
@@ -218,7 +229,7 @@ export const OPTIONS_TYPE_BLESSURE = [
   'trauma crânien avec perte de connaissance',
   'trauma crânien sans perte de connaissance',
   'autre',
-]
+].map(premiereMajuscule)
 
 // Europe d'abord (ordre alphabétique), puis le reste du monde (ordre alphabétique) — décision
 // utilisateur. Menu déroulant strict (type 'liste', pas de saisie libre) : couvre la quasi-totalité
@@ -454,7 +465,7 @@ export const OPTIONS_CIRCONSTANCES_VICTIME = [
   '(DOMAINE SKIABLE) HYPOTHERMIE',
   '(DOMAINE SKIABLE) NON TRAUMATIQUE',
   "PATHOLOGIES D'ALTITUDE",
-]
+].map((s) => premiereMajuscule(s.toLowerCase()))
 
 // Valeurs Cim'Alerte (pas du vocabulaire SNOSM) — reprises de
 // alerte_secours_web/src/lib/moyens.js (TYPES_INTERVENTION), pour compléter
