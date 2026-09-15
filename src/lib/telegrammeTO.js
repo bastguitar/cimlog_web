@@ -447,7 +447,6 @@ export async function genererPdfDepuisModele(modele) {
     doc.setFont(undefined, 'italic')
     doc.setFontSize(7.5)
     doc.setTextColor(...GRIS)
-    doc.text('Document généré par Cim’Log — à vérifier avant envoi.', MARGE, page.hauteur - 10)
     doc.text(`Page ${i}/${nombrePages}`, page.largeur - MARGE, page.hauteur - 10, { align: 'right' })
   }
 

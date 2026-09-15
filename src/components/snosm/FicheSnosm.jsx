@@ -68,7 +68,7 @@ import {
   chargerReferentiels,
   chargerCosTelephonisteDuJour,
 } from '../../lib/registre'
-import ModaleTO from './ModaleTO'
+import { construireModeleTO, genererPdfDepuisModele, nomFichierTO } from '../../lib/telegrammeTO'
 
 /**
  * Les 7 onglets SNOSM sont les seuls onglets de la fiche — pas d'onglet
@@ -668,7 +668,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [erreur, setErreur] = useState(null)
   const [confirmerAnnulation, setConfirmerAnnulation] = useState(false)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
-  const [modaleTOOuverte, setModaleTOOuverte] = useState(false)
+  const [creationTO, setCreationTO] = useState(false)
   // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
   // Dédoublonné sur le libellé (nom + prénom, sans la section) : une même personne peut apparaître
   // plusieurs fois côté annuaire (affectations multiples), mais ne doit être proposée qu'une fois ici.
@@ -831,14 +831,29 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     }
   }
 
-  /** Sauvegarde le modèle de TO validé dans ModaleTO — ne touche à aucun champ SNOSM (retouche du
-   * PDF uniquement, décision utilisateur). Pas de verrou posé : la fiche reste modifiable après
-   * coup, un nouveau TO peut être régénéré tant que la synchronisation SNOSM (Chamonix, plusieurs
-   * jours après) n'a pas eu lieu. */
-  async function validerModeleTO(modele) {
-    const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
-    await modifierIntervention(fiche.id, codesRequete, champs)
-    onFicheMaj((f) => ({ ...f, ...champs }))
+  /** Génère le TO à partir des données SNOSM actuelles, l'enregistre (snosm_to_texte,
+   * snosm_to_cree_le — pas de verrou associé, la fiche reste modifiable) et l'ouvre directement
+   * dans un nouvel onglet, sans étape d'édition intermédiaire (décision utilisateur — l'aperçu
+   * éditable ajoutait un clic superflu pour le cas courant). La fenêtre est ouverte tout de suite,
+   * avant l'attente réseau, pour rester dans le geste utilisateur et échapper au blocage de popup. */
+  async function validerEtCreerTO() {
+    setCreationTO(true)
+    setErreur(null)
+    const fenetre = window.open('', '_blank')
+    try {
+      const modele = construireModeleTO(fiche, { sectionNom })
+      const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
+      await modifierIntervention(fiche.id, codesRequete, champs)
+      onFicheMaj((f) => ({ ...f, ...champs }))
+      const doc = await genererPdfDepuisModele(modele)
+      doc.save(nomFichierTO(fiche, modele))
+      if (fenetre) fenetre.location.href = doc.output('bloburl')
+    } catch (e) {
+      fenetre?.close()
+      setErreur(e.message)
+    } finally {
+      setCreationTO(false)
+    }
   }
 
   async function rafraichirEffectifs() {
@@ -1186,8 +1201,8 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             </button>
           </>
         )}
-        <button type="button" className="bouton-principal" onClick={() => setModaleTOOuverte(true)}>
-          Valider et créer le TO
+        <button type="button" className="bouton-principal" onClick={validerEtCreerTO} disabled={creationTO}>
+          {creationTO ? '…' : 'Valider et créer le TO'}
         </button>
       </div>
 
@@ -1207,9 +1222,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         </div>
       )}
 
-      {modaleTOOuverte && (
-        <ModaleTO fiche={fiche} sectionNom={sectionNom} onValide={validerModeleTO} onFermer={() => setModaleTOOuverte(false)} />
-      )}
     </div>
   )
 }
