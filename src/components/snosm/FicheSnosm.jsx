@@ -55,6 +55,7 @@ import {
   OPTIONS_POSITION_2_AVALANCHE,
   OPTIONS_MATERIEL_AVALANCHE,
   OPTIONS_NATIONALITE,
+  OPTIONS_PAYS,
   sexeDepuis,
 } from '../../lib/optionsSnosm'
 import {
@@ -117,8 +118,8 @@ const GROUPES_GENERAL = [
     champs: [
       { cle: 'massif', label: 'Massif' },
       { cle: 'com', label: 'Commune' },
-      { cle: 'lieu', label: 'Lieu' },
-      { cle: 'county', label: 'Département' },
+      { cle: 'lieu', label: 'Lieu', classe: 'champ-lieu-snosm' },
+      { cle: 'county', label: 'Département', classe: 'champ-departement-snosm' },
       { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'radio', options: OPTIONS_NATURE_OPERATION },
       // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielActivites dans Grist).
       { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: [] },
@@ -450,12 +451,24 @@ const GROUPES_IMPLIQUE = [
     { cle: 'snosm_demeurant', label: 'Demeurant', icone: <IconeMaison /> },
     { cle: 'snosm_code_postal', label: 'Code postal' },
     { cle: 'snosm_commune', label: 'Commune' },
-    { cle: 'snosm_pays', label: 'Pays' },
+    { cle: 'snosm_pays', label: 'Pays', type: 'liste', options: OPTIONS_PAYS, pleineLargeur: false },
     { cle: 'telephone', label: 'Téléphone', icone: <IconeTelephone /> },
   ],
   [
-    { cle: 'snosm_localisation_blessure', label: 'Localisation blessure', type: 'tags', options: OPTIONS_LOCALISATION_BLESSURE },
-    { cle: 'snosm_type_blessure', label: 'Type de blessure', type: 'tags', options: OPTIONS_TYPE_BLESSURE },
+    {
+      cle: 'snosm_localisation_blessure',
+      label: 'Localisation blessure',
+      type: 'tags',
+      options: OPTIONS_LOCALISATION_BLESSURE,
+      maxSuggestions: OPTIONS_LOCALISATION_BLESSURE.length,
+    },
+    {
+      cle: 'snosm_type_blessure',
+      label: 'Type de blessure',
+      type: 'tags',
+      options: OPTIONS_TYPE_BLESSURE,
+      maxSuggestions: OPTIONS_TYPE_BLESSURE.length,
+    },
     { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   ],
   [
@@ -628,6 +641,8 @@ function brouillonUneVictimeDepuis(v) {
   if (!bv.snosm_code_postal && v.code_postal_cim_alerte) bv.snosm_code_postal = v.code_postal_cim_alerte
   if (!bv.snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv.snosm_lieu_naissance = v.lieu_naissance_cim_alerte
   if (!bv.snosm_commune && v.commune_cim_alerte) bv.snosm_commune = v.commune_cim_alerte
+  // Pays : France par défaut (immense majorité des cas), toujours modifiable ensuite via le menu déroulant.
+  if (!bv.snosm_pays) bv.snosm_pays = 'France'
   // Sexe : reclassé depuis la valeur brute Cim'Alerte ('F'/'M'…) vers 'Femme'/'Homme' (radio SNOSM).
   if (bv.sexe) bv.sexe = sexeDepuis(bv.sexe) ?? bv.sexe
   return bv
@@ -680,6 +695,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   // souvent un cadre, pas un secouriste de terrain, donc pas filtrée sur type_personnel (décision
   // utilisateur : proposer tout le personnel de la section en premier, le reste de l'annuaire ensuite).
   const [personnel, setPersonnel] = useState([])
+  // id annuaire (uuid, secouriste_id de effectifs_mc) -> "Nom Prenom" — pour afficher le nom complet
+  // des puces "Effectif du jour" (effectifs_mc.nom ne porte parfois que le nom de famille).
+  const [personnelParId, setPersonnelParId] = useState(new Map())
   useEffect(() => {
     const normalise = (s) =>
       (s ?? '')
@@ -698,7 +716,10 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       .then((liste) => setSecouristes(trierSectionDabord(liste)))
       .catch(() => {})
     chargerToutPersonnel()
-      .then((liste) => setPersonnel(trierSectionDabord(liste)))
+      .then((liste) => {
+        setPersonnel(trierSectionDabord(liste))
+        setPersonnelParId(new Map(liste.map((p) => [p.id, p.libelle])))
+      })
       .catch(() => {})
   }, [sectionNom])
   // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
@@ -876,8 +897,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
    * des 3 valeurs du tableau SNOSM, toujours modifiable ensuite si le classement ne convient pas.
    */
   async function ajouterDepuisEffectifJour(entree) {
-    if (effectifs.some((e) => e.personne === entree.nom)) return
-    await ajouterLigneEffectif(roleSnosmDepuis(entree.role), entree.nom)
+    const nomComplet = personnelParId.get(entree.secouriste_id) ?? entree.nom
+    if (effectifs.some((e) => e.personne === nomComplet)) return
+    await ajouterLigneEffectif(roleSnosmDepuis(entree.role), nomComplet)
   }
 
   /** Secouristes engagés sur CETTE intervention côté Cim'Alerte (fiche.team) — pas de rôle connu, Secouriste par défaut. */
@@ -980,7 +1002,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                       disabled={verrouillee}
                       onClick={() => ajouterDepuisEffectifJour(e)}
                     >
-                      {e.nom} <span className="role-effectif-jour-snosm">{e.role}</span>
+                      {personnelParId.get(e.secouriste_id) ?? e.nom} <span className="role-effectif-jour-snosm">{e.role}</span>
                     </button>
                   ))}
                 </div>

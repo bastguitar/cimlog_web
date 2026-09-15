@@ -1925,6 +1925,22 @@ main > * {
   resize: vertical;
 }
 
+/* Lieu : la case s'agrandit avec le texte saisi (adresse/lieu-dit parfois long) plutôt que de rester
+   à la largeur par défaut du navigateur — field-sizing: content (Chromium/Edge récents, seuls
+   navigateurs utilisés sur ce poste) ; min/max-width bornent la taille aux deux extrêmes. */
+.champ-lieu-snosm input {
+  field-sizing: content;
+  min-width: 140px;
+  max-width: 420px;
+}
+
+/* Département : juste un nombre à 2 chiffres, pas besoin de la largeur d'un champ texte classique. */
+.champ-departement-snosm input {
+  field-sizing: content;
+  width: 4ch;
+  min-width: 4ch;
+}
+
 /* Le <select> natif est autrement blanc/gris et sans cohérence avec le
    reste du design (aucune règle ne le stylait avant) — chevron dessiné à la
    main (deux variantes clair/sombre) plutôt que la flèche du système. */

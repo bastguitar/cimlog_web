@@ -12,9 +12,9 @@ function formatDateTimeLocal(iso) {
  * en un coup d'œil ce qui reste à compléter (décision utilisateur, valable sur tout le formulaire). */
 const classeVide = (vide) => (vide ? ' champ-vide-snosm' : '')
 
-export function ChampTexte({ label, valeur, onChange, icone }) {
+export function ChampTexte({ label, valeur, onChange, icone, classe }) {
   return (
-    <div className={`detail-fiche-edition${classeVide(!valeur)}`}>
+    <div className={`detail-fiche-edition${classe ? ' ' + classe : ''}${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
         {icone}
@@ -675,5 +675,5 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
     )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
-  return <ChampTexte label={label} valeur={valeur} onChange={onChange} icone={description.icone} />
+  return <ChampTexte label={label} valeur={valeur} onChange={onChange} icone={description.icone} classe={description.classe} />
 }
