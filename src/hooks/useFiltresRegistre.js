@@ -30,8 +30,11 @@ const FILTRES_VIDES = {
  */
 const DEBUT_A_TRAITER = '2026-09-11T22:12:46.865Z'
 
-/** Clôturée depuis la bascule TO/SNOSM, mais pas encore couverte par un télégramme officiel — voir modifierIntervention/TOEnvoyeLe. */
-const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.toEnvoyeLe
+/** Clôturée depuis la bascule TO/SNOSM, mais sans TO généré dans Cim'Log — même signal que le
+ * liseré rouge/vert du Registre (snosm_to_cree_le), pas TOEnvoyeLe : ce dernier marquerait l'envoi
+ * officiel au SNOSM (Chamonix), une action qui n'existe encore nulle part dans Cim'Log — resterait
+ * vide pour toujours et "à traiter" ne se serait jamais vidé, même une fois tous les TO créés. */
+const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.snosm_to_cree_le
 
 /** Un texte se retrouve dans une intervention — numéro exact, ou sous-chaîne d'un des champs. */
 function correspond(s, mot) {
