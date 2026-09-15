@@ -517,7 +517,10 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
 export function ChampAutocomplete({ label, valeur, onChange, options }) {
   const [ouvert, setOuvert] = useState(false)
   const filtre = (valeur ?? '').trim().toLowerCase()
-  const suggestions = (filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options).slice(0, 8)
+  // Pas de plafond façon ChampTags (8 par défaut) : une section peut compter plus de 8 secouristes,
+  // et la liste des suggestions défile déjà (.suggestions-autocomplete-snosm, max-height + overflow)
+  // — les couper aurait caché une partie de la section au lieu de juste demander de faire défiler.
+  const suggestions = filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options
 
   return (
     <div className={`detail-fiche-edition champ-autocomplete-snosm${classeVide(!valeur)}`}>
