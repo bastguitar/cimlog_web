@@ -104,9 +104,11 @@ function departementNom(fiche) {
   return PREFECTURE_PAR_DEPARTEMENT[fiche.county] ?? fiche.county
 }
 
-/** « IFSM <n°> <Département> <Nom de la victime principale> » — même construction pour le n° IFSM
- * affiché en tête du TO et pour le nom du fichier téléchargé (décision utilisateur : une seule règle). */
-function libelleIfsm(fiche, premiereVictimeNom) {
+/** « IFSM <n°> <Département> <Nom de la victime principale> » — nom du fichier téléchargé seulement
+ * (décision utilisateur : le n° IFSM affiché EN-TÊTE du document reste le code court IFSM-<dépt>-<n°>,
+ * ne pas répéter le nom de la victime sur chaque page — seul le fichier téléchargé a besoin d'être
+ * identifiable sans l'ouvrir). */
+function nomFichierIfsm(fiche, premiereVictimeNom) {
   const departement = departementNom(fiche)
   const morceaux = [`IFSM ${fiche.local_id ?? ''}`.trim(), departement ? versTitreCase(departement) : '', premiereVictimeNom || ''].filter(
     Boolean
@@ -122,6 +124,27 @@ function retirerEmoji(texte) {
     .filter((car) => car.codePointAt(0) < 0x2000)
     .join('')
     .trim()
+}
+
+// Ponctuation typographique utilisée volontairement dans ce fichier (tiret cadratin entre
+// localisation/type de blessure, par ex.) — gardée en plus de la plage Latin de base ci-dessous.
+const PONCTUATION_AUTORISEE = new Set(['—', '–', '’', '‘', '“', '”', '…'])
+
+/**
+ * Dernier filet avant impression jsPDF : retire tout caractère que la police par défaut
+ * (WinAnsiEncoding) ne sait pas dessiner — emoji en tête — quelle que soit l'origine du texte
+ * (saisie directe, ou un TO déjà validé et sauvegardé AVANT ce filet, voir snosm_to_texte). Sans
+ * ça, jsPDF n'affiche ni case vide ni erreur : il dessine des caractères illisibles à la place
+ * (bug remonté par l'utilisateur sur le champ Nationalité). Latin-1 Supplément + Latin Extended-A
+ * (0x017F) couvrent tous les caractères accentués français utiles.
+ */
+function texteImprimable(valeur) {
+  if (valeur == null) return valeur
+  const nettoye = Array.from(String(valeur))
+    .filter((car) => car.codePointAt(0) <= 0x017f || PONCTUATION_AUTORISEE.has(car))
+    .join('')
+    .trim()
+  return nettoye || null
 }
 
 // Vocabulaire du menu déroulant Pays de l'onglet Impliqué (voir OPTIONS_PAYS, optionsSnosm.js) ->
@@ -175,7 +198,7 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
   const nomDe = sectionNom ? `CRS ${region ?? ''} ${sectionNom}`.replace(/\s+/g, ' ').trim().toUpperCase() : null
   const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - PRÉFECTURE ${prefecture} - CRS ${region}` : null
   const victimes = fiche.victimes ?? []
-  const numeroIfsm = libelleIfsm(fiche, victimes[0]?.nom)
+  const numeroIfsm = fiche.county ? `IFSM-${fiche.county}-${fiche.local_id}` : `IFSM-${fiche.local_id}`
 
   return {
     numeroIfsm,
@@ -316,7 +339,8 @@ class MisePage {
    * dessiné si la valeur est vide — un champ non renseigné n'apparaît pas du
    * tout sur le TO plutôt que de laisser des pointillés à remplir à la main.
    */
-  champ(label, valeur) {
+  champ(label, valeurBrute) {
+    const valeur = texteImprimable(valeurBrute)
     if (!valeur) return
     this.doc.setFont(undefined, 'bold')
     this.doc.setFontSize(7.5)
@@ -335,8 +359,8 @@ class MisePage {
   /** Deux ou trois champs courts côte à côte (dates, altitude/massif, opération/hélico/PPSM…) — ceux
    * sans valeur sont retirés de la ligne (même règle que champ() ci-dessus), la ligne entière est
    * sautée si plus aucun des champs du groupe n'est renseigné. */
-  champsDoubles(paires) {
-    const remplies = paires.filter(([, valeur]) => valeur)
+  champsDoubles(pairesBrutes) {
+    const remplies = pairesBrutes.map(([label, valeur]) => [label, texteImprimable(valeur)]).filter(([, valeur]) => valeur)
     if (remplies.length === 0) return
     this.espace(5.5)
     const y = this.y
@@ -354,6 +378,28 @@ class MisePage {
     this.y += 5.5
   }
 
+  /** Comme champsDoubles, mais TOUJOURS affiché même vide (pointillés à défaut) — réservé au bloc de
+   * signature final (Rédacteur/Signataire) : contrairement au reste du TO, cette ligne doit rester
+   * visible même non renseignée, pour être complétée à la main sur le document imprimé. */
+  champsDoublesToujours(pairesBrutes) {
+    this.espace(5.5)
+    const y = this.y
+    const largeurColonne = (this.largeur - MARGE * 2) / pairesBrutes.length
+    pairesBrutes.forEach(([label, valeurBrute], i) => {
+      const valeur = texteImprimable(valeurBrute)
+      const x = MARGE + i * largeurColonne
+      this.doc.setFont(undefined, 'bold')
+      this.doc.setFontSize(7.5)
+      this.doc.setTextColor(...NOIR)
+      this.doc.text(label, x, y)
+      const largeurLabel = this.doc.getTextWidth(label) + 1.5
+      this.doc.setFont(undefined, valeur ? 'normal' : 'italic')
+      this.doc.setTextColor(...(valeur ? NOIR : GRIS))
+      this.doc.text(valeur || '……………', x + largeurLabel, y)
+    })
+    this.y += 5.5
+  }
+
   espaceur(h = 1.5) {
     this.y += h
   }
@@ -363,7 +409,7 @@ class MisePage {
 export async function genererPdfDepuisModele(modele) {
   const doc = new jsPDF()
   const logo = await chargerImage(logoCrsUrl).catch(() => null)
-  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne — ${modele.numeroIfsm}`)
+  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne n° ${modele.numeroIfsm}`)
 
   // ---- En-tête ------------------------------------------------------------
   // Mise en page dense (voir commentaire en tête de fichier) : logo et police réduits, DE/À et
@@ -375,7 +421,7 @@ export async function genererPdfDepuisModele(modele) {
   doc.text('Intervention des Formations Spécialisées Montagne', MARGE, 15)
   doc.setFontSize(9)
   doc.setTextColor(...ROUGE_CRS)
-  doc.text(modele.numeroIfsm, MARGE, 21)
+  doc.text(`n° ${modele.numeroIfsm}`, MARGE, 21)
   doc.setDrawColor(...ROUGE_CRS)
   doc.setLineWidth(0.6)
   // La ligne s'arrête avant l'écusson plutôt que de courir sur toute la largeur en-dessous.
@@ -515,7 +561,7 @@ export async function genererPdfDepuisModele(modele) {
   doc.setTextColor(...NOIR)
   doc.text('STOP ET FIN', MARGE, page.y + 1.5)
   page.y += 5.5
-  page.champsDoubles([
+  page.champsDoublesToujours([
     ['Rédacteur : ', modele.finalisation.redacteur],
     ['Signataire : ', modele.finalisation.signataire],
   ])
@@ -533,9 +579,10 @@ export async function genererPdfDepuisModele(modele) {
   return doc
 }
 
-/** « IFSM <n°> <Département> <Nom de la victime principale>.pdf » — même construction que modele.numeroIfsm (décision utilisateur : une seule règle pour le n° IFSM affiché et le nom du fichier). */
+/** « IFSM <n°> <Département> <Nom de la victime principale>.pdf » — nom du fichier téléchargé, indépendant du n° IFSM affiché en en-tête du document (voir nomFichierIfsm ci-dessus). */
 export function nomFichierTO(fiche, modele) {
-  const nom = modele.numeroIfsm.replace(/[\\/:*?"<>|]/g, '').trim()
+  const premiereVictime = modele.victimes[0]?.nom || ''
+  const nom = nomFichierIfsm(fiche, premiereVictime).replace(/[\\/:*?"<>|]/g, '').trim()
   return `${nom || 'IFSM'}.pdf`
 }
 
