@@ -82,19 +82,30 @@ const formatDateHeureTO = (iso) => {
   return `Le ${jour}/${mois}/${d.getFullYear()} à ${heure}:${min}`
 }
 
-/** « 21:45 » — pour l'heure de fin de service d'un dépassement horaire, pas besoin de la date complète. */
-const formatHeureSeule = (iso) => {
+/** « 15/09/2026 21:45 » — date + heure de fin de service d'un dépassement horaire (décision utilisateur : la date seule ne suffit pas, un dépassement peut se terminer après minuit). */
+const formatDateHeureFinService = (iso) => {
   if (!iso) return null
   const d = new Date(iso)
-  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+  const jour = String(d.getDate()).padStart(2, '0')
+  const mois = String(d.getMonth() + 1).padStart(2, '0')
+  const heure = String(d.getHours()).padStart(2, '0')
+  const min = String(d.getMinutes()).padStart(2, '0')
+  return `${jour}/${mois}/${d.getFullYear()} ${heure}:${min}`
 }
 
-/** « Village - 38380 » -> « 38380 VILLAGE », convention des télégrammes officiels. */
+/** 1ère lettre en majuscule, le reste en minuscule — même convention que le reste du TO (nationalité,
+ * blessures…), décision utilisateur. */
+function premiereMajusculeSeule(texte) {
+  if (!texte) return texte
+  return texte.charAt(0).toUpperCase() + texte.slice(1).toLowerCase()
+}
+
+/** « Village - 38380 » -> « 38380 Village », convention des télégrammes officiels. */
 function formatCommuneTO(com) {
   if (!com) return null
   const m = com.match(/^(.*?)\s*-\s*(\d{5})\s*$/)
-  if (!m) return com.toUpperCase()
-  return `${m[2]} ${m[1].toUpperCase()}`
+  if (!m) return premiereMajusculeSeule(com)
+  return `${m[2]} ${premiereMajusculeSeule(m[1])}`
 }
 
 /** « HAUTES-ALPES » -> « Hautes-Alpes » — pour le nom de fichier, pas le PDF (qui reste en majuscules). */
@@ -231,7 +242,7 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
     },
     natureOperation: {
       natureIntervention: fiche.snosm_nature_operation || 'Secours en montagne',
-      natureActivite: fiche.activity ? fiche.activity.toUpperCase() : null,
+      natureActivite: fiche.activity ? premiereMajusculeSeule(fiche.activity) : null,
     },
     circonstances: {
       circonstances: fiche.description,
@@ -240,18 +251,21 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       operation: fiche.snosm_type_operation_moyens,
       helicopteres: fiche.snosm_helicopteres,
       ppsm: fiche.snosm_ppsm,
-      // Dépassement horaire signalé entre parenthèses, avec l'heure de fin de service si connue —
-      // décision utilisateur : cette information doit remonter sur le TO, pas seulement dans la fiche.
+      // Dépassement horaire signalé entre parenthèses, date + heure de fin de service — décision
+      // utilisateur : cette information doit remonter sur le TO, pas seulement dans la fiche.
       effectifEngage:
         (fiche.effectifs_engages ?? [])
           .filter((e) => e.personne)
           .map((e) => {
             if (!e.depassement_horaire) return e.personne
-            const heure = formatHeureSeule(e.heure_depassement)
-            return heure ? `${e.personne} (dépassement horaire, fin de service ${heure})` : `${e.personne} (dépassement horaire)`
+            const dateHeure = formatDateHeureFinService(e.heure_depassement)
+            return dateHeure ? `${e.personne} (Fin de service à ${dateHeure})` : `${e.personne} (Fin de service)`
           })
           .join(' - ') || null,
       medicalisation: fiche.snosm_medicalisation,
+      // Affichés seulement si > 0 (décision utilisateur, même règle que le Bilan) — absents du TO jusqu'ici.
+      equipesCynophilesCRS: nombreSi(Number(fiche.snosm_equipes_cynophiles_crs) || 0),
+      equipesDrones: nombreSi(Number(fiche.snosm_equipes_drones) || 0),
     },
     compteRendu: {
       gestesSecourisme: fiche.snosm_gestes_secourisme,
@@ -504,7 +518,11 @@ export async function genererPdfDepuisModele(modele) {
     ['PPSM(s) : ', modele.moyens.ppsm],
   ])
   page.champ('Effectif CRS engagé :', modele.moyens.effectifEngage)
-  page.champ('Médicalisation :', modele.moyens.medicalisation)
+  page.champsDoubles([
+    ['Médicalisation : ', modele.moyens.medicalisation],
+    ['Équipe(s) cynophile(s) CRS : ', modele.moyens.equipesCynophilesCRS],
+    ['Équipe(s) drone(s) : ', modele.moyens.equipesDrones],
+  ])
   page.espaceur()
 
   // ---- 6. Compte rendu d'opération ---------------------------------------
@@ -606,7 +624,11 @@ export function nomFichierTO(fiche, modele) {
 /** Génère + télécharge un TO à partir d'un modèle déjà construit (édité ou non). */
 export async function telechargerTOModele(fiche, modele) {
   const doc = await genererPdfDepuisModele(modele)
-  doc.save(nomFichierTO(fiche, modele))
+  const nom = nomFichierTO(fiche, modele)
+  // Métadonnée PDF "Titre" — la plupart des lecteurs PDF intégrés aux navigateurs (Chrome/Edge)
+  // nomment l'onglet d'après elle plutôt que d'après l'URL blob, sinon illisible (décision utilisateur).
+  doc.setProperties({ title: nom.replace(/\.pdf$/, '') })
+  doc.save(nom)
 }
 
 /**
