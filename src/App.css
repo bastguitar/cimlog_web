@@ -1687,13 +1687,14 @@ main > * {
 
 /* Liseré discret en bordure gauche de chaque ligne (décision utilisateur) — statut TO en un coup
    d'œil sans colonne ni badge supplémentaire : rouge = pas encore généré (à traiter), vert = généré.
-   box-shadow inset plutôt que border-left : un border classique sur <tr> n'est pas fiable selon les
-   navigateurs, l'inset shadow l'est et ne perturbe pas la largeur des colonnes (table-layout: fixed). */
-.ligne-a-traiter-registre {
+   Posé sur la 1ère cellule, pas sur <tr> : box-shadow (et border) sur une ligne de tableau ne se
+   peint pas dans certains navigateurs (la cellule repeint par-dessus) — la 1ère cellule, elle, le
+   supporte de façon fiable partout sans perturber la largeur des colonnes (table-layout: fixed). */
+.ligne-a-traiter-registre td:first-child {
   box-shadow: inset 3px 0 0 0 var(--accent);
 }
 
-.ligne-traitee-registre {
+.ligne-traitee-registre td:first-child {
   box-shadow: inset 3px 0 0 0 var(--succes);
 }
 
@@ -1946,11 +1947,14 @@ main > * {
   max-width: 420px;
 }
 
-/* Département : juste un nombre à 2 chiffres, pas besoin de la largeur d'un champ texte classique. */
+/* Département : juste un nombre à 2 chiffres, pas besoin de la largeur d'un champ texte classique.
+   Largeur fixe plutôt que field-sizing: content — combiner les deux sur une valeur aussi courte
+   entrait en conflit (box-sizing: border-box mange le padding dans les 4ch, le "5" de "05" se
+   retrouvait coupé/superposé — bug remonté par l'utilisateur). 40px = assez pour 2 chiffres + le
+   padding habituel du champ, sans revenir à la largeur d'un champ texte classique. */
 .champ-departement-snosm input {
-  field-sizing: content;
-  width: 4ch;
-  min-width: 4ch;
+  width: 40px;
+  min-width: 40px;
 }
 
 /* Le <select> natif est autrement blanc/gris et sans cohérence avec le
