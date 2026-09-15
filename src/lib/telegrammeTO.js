@@ -376,7 +376,10 @@ class MisePage {
     this.doc.setFont(undefined, 'bold')
     this.doc.setFontSize(7.5)
     const labelAvecEspace = label.endsWith(' ') ? label : `${label} `
-    const xValeur = MARGE + this.doc.getTextWidth(labelAvecEspace)
+    // + 1 : un espace en fin de chaîne ne se voit pas toujours à l'affichage (largeur mesurée mais
+    // visuellement collée à la valeur suivante selon la police) — même filet que champsDoubles, qui
+    // ajoute sa propre marge fixe plutôt que de compter sur le seul espace texte.
+    const xValeur = MARGE + this.doc.getTextWidth(labelAvecEspace) + 1
     const largeurValeur = this.largeur - MARGE - xValeur
     const lignes = this.doc.splitTextToSize(valeur, largeurValeur)
     this.espace(4.2 * lignes.length + 1)
