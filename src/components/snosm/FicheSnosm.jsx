@@ -91,7 +91,7 @@ const SOUS_ONGLETS = [
 
 // Avalanche exclu (décision utilisateur) : rare, souvent sans objet — ne doit pas empêcher de
 // créer le TO tant que le reste n'a pas été relu. Sert à la fois à la validation du bouton
-// "Suivant"/"Enregistrer et créer le TO" et à savoir quel est le dernier onglet à parcourir.
+// "Créer le TO" et à savoir quel est le dernier onglet à parcourir.
 const ONGLETS_REQUIS_TO = SOUS_ONGLETS.filter((o) => o.cle !== 'avalanche')
 
 const GROUPES_GENERAL = [
@@ -674,8 +674,8 @@ function brouillonVictimesDepuis(fiche) {
  */
 export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom, onFermer }) {
   const [sousOnglet, setSousOnglet] = useState('general')
-  // Onglets déjà consultés — conditionne le bouton "Suivant"/"Enregistrer et créer le TO" en bas de
-  // fiche (décision utilisateur : ne pas pouvoir créer le TO sans être passé par chaque onglet).
+  // Onglets déjà consultés — conditionne l'apparition du bouton "Créer le TO" en bas de fiche
+  // (décision utilisateur : ne pas pouvoir créer le TO sans être passé par chaque onglet).
   const [ongletsVus, setOngletsVus] = useState(() => new Set(['general']))
   useEffect(() => {
     setOngletsVus((v) => (v.has(sousOnglet) ? v : new Set(v).add(sousOnglet)))
@@ -820,9 +820,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   }
 
   /** Écrit les champs modifiés (fiche + victimes) et renvoie une fiche à jour — utilisé par
-   * "Enregistrer" seul, par "Suivant" (sauvegarde à chaque changement d'onglet, décision
-   * utilisateur) et par "Enregistrer et créer le TO" (qui a besoin d'une fiche à jour pour
-   * construire le modèle, pas des anciennes valeurs si rien n'avait encore été enregistré). */
+   * "Enregistrer" seul, par la flèche "onglet suivant" (sauvegarde à chaque changement d'onglet,
+   * décision utilisateur) et par "Créer le TO" (qui a besoin d'une fiche à jour pour construire le
+   * modèle, pas des anciennes valeurs si rien n'avait encore été enregistré). */
   async function sauvegarderBrouillon() {
     // Fiche figée (TOEnvoyeLe) : pas de brouillon à sauvegarder, rien à faire.
     if (!brouillonFiche) return fiche
@@ -902,7 +902,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
    * dans un nouvel onglet, sans étape d'édition intermédiaire (décision utilisateur — l'aperçu
    * éditable ajoutait un clic superflu pour le cas courant). La fenêtre est ouverte tout de suite,
    * avant l'attente réseau, pour rester dans le geste utilisateur et échapper au blocage de popup. */
-  /** "Enregistrer et créer le TO" — enregistre d'abord ce qui a été saisi (comme "Enregistrer"),
+  /** "Créer le TO" — enregistre d'abord ce qui a été saisi (comme "Enregistrer"),
    * puis construit le modèle depuis la fiche fraîchement sauvegardée : sans ça, une modification pas
    * encore enregistrée manquerait dans le TO généré. */
   async function validerEtCreerTO() {
@@ -1300,7 +1300,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         )}
         {pretPourTO && (
           <button type="button" className="bouton-principal" onClick={validerEtCreerTO} disabled={creationTO}>
-            {creationTO ? '…' : 'Enregistrer et créer le TO'}
+            {creationTO ? '…' : 'Créer le TO'}
           </button>
         )}
       </div>
