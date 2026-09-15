@@ -2,9 +2,15 @@
 /**
  * Crée (ou supprime) une intervention de test directement dans Grist — pour tester le formulaire
  * SNOSM/le TO en dev sans avoir à saisir une vraie intervention via Cim'Alerte ni remplir tous les
- * champs à la main. Les données créées sont clairement fictives : EventId/NumeroIntervention dans
- * une plage réservée (900000000+ / 90000-99999), commune "TEST-DEV", pour ne jamais se confondre
- * avec une vraie intervention.
+ * champs à la main. Marqueur de test : commune "TEST-DEV" — c'est le SEUL signal utilisé pour
+ * identifier une intervention de test avant de la supprimer, jamais une plage d'EventId.
+ *
+ * ⚠ Une plage d'EventId "réservée" (900000000-999999999) a été utilisée un temps pour --nettoyer,
+ * abandonnée après avoir trouvé DEUX vraies interventions historiques dans cette plage (les EventId
+ * Cim'Alerte ne sont pas garantis >= 1000000000 comme supposé au départ) — --nettoyer aurait pu les
+ * supprimer. La commune ne peut jamais coïncider avec une vraie intervention, contrairement à un
+ * nombre : c'est le seul filtre utilisé maintenant, y compris pour --supprimer (garde-fou si jamais
+ * un mauvais EventId est passé à la main).
  *
  * N'utilise QUE la clé API Grist en variable d'environnement, jamais codée en dur ici (même
  * principe que l'Edge Function grist : la clé ne doit jamais atterrir dans un fichier commité).
@@ -17,14 +23,16 @@
  *     cherche "TEST-DEV" ou le numéro affiché) pour ouvrir la fiche.
  *
  *   GRIST_API_KEY=... node scripts/intervention-test.mjs --supprimer <eventId>
- *     Supprime l'intervention de test (et ses victimes) créée précédemment.
+ *     Supprime l'intervention de test (et ses victimes) créée précédemment — refuse si la commune
+ *     de cet EventId n'est pas "TEST-DEV" (protection contre un mauvais numéro tapé à la main).
  *
  *   GRIST_API_KEY=... node scripts/intervention-test.mjs --nettoyer
- *     Supprime TOUTES les interventions de test encore présentes (EventId >= 900000000).
+ *     Supprime TOUTES les interventions dont la commune est "TEST-DEV" (et elles seules).
  */
 
 const DOC_ID = '9rMpYraJkSiX'
 const BASE = `https://grist.numerique.gouv.fr/api/docs/${DOC_ID}`
+const COMMUNE_TEST = 'TEST-DEV - 38000'
 
 const apiKey = process.env.GRIST_API_KEY
 if (!apiKey) {
@@ -65,9 +73,20 @@ const PRENOMS_H = ['Julien', 'Nicolas', 'Alexandre', 'Thomas', 'Mathieu']
 const PRENOMS_F = ['Camille', 'Julie', 'Marie', 'Sophie', 'Claire']
 const auHasard = (liste) => liste[Math.floor(Math.random() * liste.length)]
 
+/** EventId aléatoire, mais vérifié inutilisé avant insertion (pas de plage supposée libre : on
+ * vient de découvrir que les EventId réels ne suivent pas un schéma prévisible). */
+async function eventIdLibre() {
+  for (let essai = 0; essai < 10; essai++) {
+    const candidat = 100000000 + Math.floor(Math.random() * 899999999)
+    const [existant] = await sql('select EventId from Interventions where EventId = ?', [candidat])
+    if (!existant) return candidat
+  }
+  throw new Error('Impossible de trouver un EventId libre après 10 essais — réessayez.')
+}
+
 async function creerInterventionTest(section) {
   const maintenant = Math.floor(Date.now() / 1000)
-  const eventId = 900000000 + Math.floor(Math.random() * 99999999)
+  const eventId = await eventIdLibre()
   const numeroIntervention = 90000 + Math.floor(Math.random() * 9999)
   const sexe = Math.random() < 0.5 ? 'F' : 'M'
   const prenom = auHasard(sexe === 'F' ? PRENOMS_F : PRENOMS_H)
@@ -82,7 +101,7 @@ async function creerInterventionTest(section) {
       ClotureLe: maintenant,
       AlerteLe: maintenant - 3600,
       OrigineAlerte: 'CODIS',
-      Commune: 'TEST-DEV - 38000',
+      Commune: COMMUNE_TEST,
       Lieu: 'Lieu de test (script dev)',
       Departement: '38',
       Massif: 'Chartreuse',
@@ -124,17 +143,27 @@ async function creerInterventionTest(section) {
 }
 
 async function supprimerInterventionTest(eventId) {
+  const [ligne] = await sql('select id, Commune from Interventions where EventId = ?', [eventId])
+  if (!ligne) {
+    console.log(`Aucune intervention avec EventId ${eventId} — rien à supprimer.`)
+    return
+  }
+  if (ligne.Commune !== COMMUNE_TEST) {
+    console.error(
+      `EventId ${eventId} a pour commune "${ligne.Commune}", pas "${COMMUNE_TEST}" — ce n'est probablement pas une intervention de ce script. Suppression refusée (utilisez l'interface Grist directement si c'est volontaire).`
+    )
+    process.exit(1)
+  }
   const victimes = await sql('select id from Victimes where EventId = ?', [eventId])
   await supprimer('Victimes', victimes.map((v) => v.id))
   const effectifs = await sql('select id from EffectifsEngages where EventId = ?', [eventId])
   await supprimer('EffectifsEngages', effectifs.map((e) => e.id))
-  const interventions = await sql('select id from Interventions where EventId = ?', [eventId])
-  await supprimer('Interventions', interventions.map((i) => i.id))
+  await supprimer('Interventions', [ligne.id])
   console.log(`Intervention ${eventId} (et ses victimes/effectifs) supprimée.`)
 }
 
 async function nettoyerToutesLesInterventionsTest() {
-  const interventions = await sql('select EventId from Interventions where EventId >= 900000000')
+  const interventions = await sql('select EventId from Interventions where Commune = ?', [COMMUNE_TEST])
   if (interventions.length === 0) {
     console.log('Aucune intervention de test à nettoyer.')
     return
