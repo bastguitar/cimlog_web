@@ -641,6 +641,7 @@ function brouillonUneVictimeDepuis(v) {
   if (!bv.snosm_code_postal && v.code_postal_cim_alerte) bv.snosm_code_postal = v.code_postal_cim_alerte
   if (!bv.snosm_lieu_naissance && v.lieu_naissance_cim_alerte) bv.snosm_lieu_naissance = v.lieu_naissance_cim_alerte
   if (!bv.snosm_commune && v.commune_cim_alerte) bv.snosm_commune = v.commune_cim_alerte
+  if (!bv.snosm_profession && v.profession_cim_alerte) bv.snosm_profession = v.profession_cim_alerte
   // Pays : France par défaut (immense majorité des cas), toujours modifiable ensuite via le menu déroulant.
   if (!bv.snosm_pays) bv.snosm_pays = 'France'
   // Sexe : reclassé depuis la valeur brute Cim'Alerte ('F'/'M'…) vers 'Femme'/'Homme' (radio SNOSM).
