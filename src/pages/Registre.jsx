@@ -171,7 +171,11 @@ export default function Registre({ fSections }) {
                   <ColgroupRegistre colonnes={colonnes} />
                   <tbody>
                     {jour.secours.map((s) => (
-                      <tr key={s.id} className="ligne-registre" onClick={() => setFicheId(s.id)}>
+                      <tr
+                        key={s.id}
+                        className={`ligne-registre ${s.snosm_to_cree_le ? 'ligne-traitee-registre' : 'ligne-a-traiter-registre'}`}
+                        onClick={() => setFicheId(s.id)}
+                      >
                         <td>{formatHeure(s.created_at)}</td>
                         <td>
                           <span className="numero-mc" style={{ color: STATUTS[s.statut]?.couleur }}>

@@ -1685,6 +1685,18 @@ main > * {
   background: var(--accent-bg);
 }
 
+/* Liseré discret en bordure gauche de chaque ligne (décision utilisateur) — statut TO en un coup
+   d'œil sans colonne ni badge supplémentaire : rouge = pas encore généré (à traiter), vert = généré.
+   box-shadow inset plutôt que border-left : un border classique sur <tr> n'est pas fiable selon les
+   navigateurs, l'inset shadow l'est et ne perturbe pas la largeur des colonnes (table-layout: fixed). */
+.ligne-a-traiter-registre {
+  box-shadow: inset 3px 0 0 0 var(--accent);
+}
+
+.ligne-traitee-registre {
+  box-shadow: inset 3px 0 0 0 var(--succes);
+}
+
 /* En-tête de colonnes fixe, au-dessus de .liste-mc — une seule fois, pas
    répétée par jour (chaque jour garde sa propre <table>, voir plus haut). */
 .tableau-entete-registre {
