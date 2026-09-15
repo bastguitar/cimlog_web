@@ -82,6 +82,13 @@ const formatDateHeureTO = (iso) => {
   return `Le ${jour}/${mois}/${d.getFullYear()} à ${heure}:${min}`
 }
 
+/** « 21:45 » — pour l'heure de fin de service d'un dépassement horaire, pas besoin de la date complète. */
+const formatHeureSeule = (iso) => {
+  if (!iso) return null
+  const d = new Date(iso)
+  return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
 /** « Village - 38380 » -> « 38380 VILLAGE », convention des télégrammes officiels. */
 function formatCommuneTO(com) {
   if (!com) return null
@@ -233,7 +240,17 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       operation: fiche.snosm_type_operation_moyens,
       helicopteres: fiche.snosm_helicopteres,
       ppsm: fiche.snosm_ppsm,
-      effectifEngage: (fiche.effectifs_engages ?? []).map((e) => e.personne).filter(Boolean).join(' - ') || null,
+      // Dépassement horaire signalé entre parenthèses, avec l'heure de fin de service si connue —
+      // décision utilisateur : cette information doit remonter sur le TO, pas seulement dans la fiche.
+      effectifEngage:
+        (fiche.effectifs_engages ?? [])
+          .filter((e) => e.personne)
+          .map((e) => {
+            if (!e.depassement_horaire) return e.personne
+            const heure = formatHeureSeule(e.heure_depassement)
+            return heure ? `${e.personne} (dépassement horaire, fin de service ${heure})` : `${e.personne} (dépassement horaire)`
+          })
+          .join(' - ') || null,
       medicalisation: fiche.snosm_medicalisation,
     },
     compteRendu: {
