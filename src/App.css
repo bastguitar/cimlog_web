@@ -1657,8 +1657,9 @@ main > * {
   width: 9%;
 }
 
-/* Pastille MED/NON-MED — toujours sur sa propre ligne sous le moyen engagé (colonne étroite, pas
-   la place pour rester sur la même ligne dès que le libellé du moyen est un peu long). */
+/* Pastille MED — affichée seulement si médicalisé (décision utilisateur : NON-MED n'apporte rien à
+   voir, seul un secours médicalisé mérite d'attirer l'œil). Toujours sur sa propre ligne sous le
+   moyen engagé (colonne étroite, pas la place pour rester sur la même ligne si le libellé est long). */
 .pastille-med-registre {
   display: block;
   width: fit-content;
@@ -1668,17 +1669,8 @@ main > * {
   font-size: 9.5px;
   font-weight: 700;
   letter-spacing: 0.03em;
-}
-
-.pastille-med-registre.med {
-  background: var(--succes-bg);
-  color: var(--succes);
-}
-
-.pastille-med-registre.non-med {
-  background: var(--bg-alt);
-  color: var(--text);
-  opacity: 0.7;
+  background: var(--accent-bg);
+  color: var(--accent);
 }
 
 .tableau-registre .col-equipe-registre {
