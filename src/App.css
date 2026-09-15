@@ -1662,15 +1662,19 @@ main > * {
 }
 
 .tableau-registre .col-to-registre {
-  width: 8%;
+  width: 5%;
 }
 
 .bouton-to-registre {
-  padding: 4px 10px;
+  padding: 4px 9px;
   font-size: 11.5px;
   font-weight: 700;
   letter-spacing: 0.03em;
   white-space: nowrap;
+}
+
+.bouton-to-registre svg {
+  color: var(--succes);
 }
 
 .tableau-registre tbody tr {

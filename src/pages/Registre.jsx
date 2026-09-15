@@ -199,11 +199,37 @@ export default function Registre({ fSections }) {
                         <td>
                           <button
                             type="button"
-                            className="bouton-principal bouton-to-registre"
+                            className="bouton-secondaire bouton-to-registre"
                             onClick={(e) => telechargerTO(s, e)}
                             disabled={genererTOId === s.id}
+                            aria-label={s.snosm_to_cree_le ? 'Télécharger le TO' : 'Créer le TO'}
                           >
-                            {genererTOId === s.id ? '…' : s.snosm_to_cree_le ? 'Télécharger TO' : 'TO'}
+                            {genererTOId === s.id ? (
+                              '…'
+                            ) : (
+                              <>
+                                {s.snosm_to_cree_le && (
+                                  <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true">
+                                    <path
+                                      d="M8 1.8v7.6M8 9.4 5 6.4M8 9.4l3-3"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.4"
+                                      strokeLinecap="round"
+                                      strokeLinejoin="round"
+                                    />
+                                    <path
+                                      d="M2.5 11.7v1.6a1 1 0 0 0 1 1h9a1 1 0 0 0 1-1v-1.6"
+                                      fill="none"
+                                      stroke="currentColor"
+                                      strokeWidth="1.4"
+                                      strokeLinecap="round"
+                                    />
+                                  </svg>
+                                )}
+                                TO
+                              </>
+                            )}
                           </button>
                         </td>
                       </tr>
