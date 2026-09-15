@@ -161,8 +161,7 @@ export default function Registre({ fSections }) {
         {semaines.map((semaine) => (
           <div key={semaine.cle}>
             <div className="titre-semaine-registre">
-              Semaine {numeroSemaine(semaine.debut)} — {libelleSemaine(semaine.debut)} · {semaine.total} intervention
-              {semaine.total > 1 ? 's' : ''}
+              Semaine {numeroSemaine(semaine.debut)} — {libelleSemaine(semaine.debut)}
             </div>
             {semaine.jours.map((jour) => (
               <div key={jour.cle}>
