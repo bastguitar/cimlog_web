@@ -8,25 +8,31 @@ import { groupeDe } from './sections'
  *   1. construireModeleTO(fiche, options) — données pures, lues sur les
  *      champs SNOSM réels (formulaire aujourd'hui complet — ce fichier
  *      datait d'avant sa construction, beaucoup de champs restaient
- *      volontairement vides). Consommé par ModaleTO.jsx (formulaire éditable)
- *      ET par genererPdfDepuisModele ci-dessous (même mise en page).
- *   2. genererPdfDepuisModele(modele, fiche) — construit le PDF à partir de
- *      ce modèle (édité ou non par l'utilisateur dans ModaleTO).
+ *      volontairement vides).
+ *   2. genererPdfDepuisModele(modele) — construit le PDF à partir de ce
+ *      modèle.
  *
  * Le modèle validé (JSON) est sauvegardé sur la fiche (snosm_to_texte,
- * snosm_to_cree_le) — ces retouches ne modifient QUE le texte du PDF, jamais
- * les champs SNOSM d'origine (décision utilisateur). La fiche SNOSM reste
+ * snosm_to_cree_le) — pour re-télécharger exactement le même PDF plus tard
+ * (bouton Registre) sans repasser par une régénération. La fiche SNOSM reste
  * modifiable après validation du TO : la vraie synchronisation vers la base
  * SNOSM (Chamonix) se fait plusieurs jours après, on peut donc régénérer un
  * TO à jour entre-temps — pas de verrou associé à snosm_to_cree_le.
+ *
+ * Mise en page volontairement dense (espacements/tailles de police réduits,
+ * champs courts groupés par 2 ou 3 sur une ligne) pour tenir sur un recto —
+ * atteint pour une intervention à une victime avec un texte de circonstances
+ * courant ; plusieurs victimes ou un texte long font toujours déborder sur
+ * une page suivante (mise en page inchangée pour ces cas-là, rien n'est
+ * jamais tronqué).
  */
 
 const NOIR = [23, 23, 28]
 const GRIS = [110, 110, 118]
 const GRIS_CLAIR = [225, 226, 230]
 const ROUGE_CRS = [182, 36, 44]
-const MARGE = 16
-const LARGEUR_LABEL = 46
+const MARGE = 14
+const LARGEUR_LABEL = 42
 
 // Zone/région et préfectures — dérivées à partir de ce que l'utilisateur a
 // confirmé sur UN exemplaire réel (Alpes/Albertville). Le cas Pyrénées n'a
@@ -208,7 +214,7 @@ class MisePage {
 
   /** Réserve `h` mm ; saute de page avant si nécessaire. */
   espace(h) {
-    if (this.y + h > this.hauteur - 18) {
+    if (this.y + h > this.hauteur - 12) {
       this.doc.addPage()
       this.y = MARGE
       this.enTeteCourant()
@@ -217,30 +223,28 @@ class MisePage {
   }
 
   enTeteCourant() {
-    if (this.logo) this.doc.addImage(this.logo, 'PNG', this.largeur - MARGE - 14, 10, 14, 18)
+    if (this.logo) this.doc.addImage(this.logo, 'PNG', this.largeur - MARGE - 12, 9, 12, 15)
     this.doc.setFont(undefined, 'bold')
-    this.doc.setFontSize(9)
+    this.doc.setFontSize(8)
     this.doc.setTextColor(...GRIS)
-    this.doc.text(this.titreCourt, MARGE, 14)
+    this.doc.text(this.titreCourt, MARGE, 13)
     this.doc.setDrawColor(...GRIS_CLAIR)
-    // La ligne s'arrête avant l'écusson (x = largeur-MARGE-14, largeur 14) plutôt que de courir
-    // sur toute la largeur en-dessous — remontée d'autant, plus près du titre (décision utilisateur,
-    // plus sobre visuellement qu'une ligne pleine largeur qui passait juste sous le logo).
-    this.doc.line(MARGE, 20, this.largeur - MARGE - 14 - 6, 20)
-    this.y = 34
+    // La ligne s'arrête avant l'écusson plutôt que de courir sur toute la largeur en-dessous.
+    this.doc.line(MARGE, 18, this.largeur - MARGE - 12 - 5, 18)
+    this.y = 24
   }
 
   titreSection(numero, titre) {
-    this.espace(14)
+    this.espace(8)
     this.doc.setFillColor(...ROUGE_CRS)
-    this.doc.rect(MARGE, this.y - 4, 5, 5, 'F')
+    this.doc.rect(MARGE, this.y - 3, 3.5, 3.5, 'F')
     this.doc.setFont(undefined, 'bold')
-    this.doc.setFontSize(10.5)
+    this.doc.setFontSize(9)
     this.doc.setTextColor(...NOIR)
-    this.doc.text(`${numero} — ${titre}`, MARGE + 8, this.y)
+    this.doc.text(`${numero} — ${titre}`, MARGE + 6, this.y)
     this.doc.setDrawColor(...GRIS_CLAIR)
-    this.doc.line(MARGE, this.y + 3, this.largeur - MARGE, this.y + 3)
-    this.y += 10
+    this.doc.line(MARGE, this.y + 2, this.largeur - MARGE, this.y + 2)
+    this.y += 5.5
   }
 
   /**
@@ -252,41 +256,41 @@ class MisePage {
   champ(label, valeur) {
     const texte = valeur || '……………………………'
     this.doc.setFont(undefined, 'bold')
-    this.doc.setFontSize(9)
+    this.doc.setFontSize(7.5)
     const empile = this.doc.getTextWidth(label) > LARGEUR_LABEL - 2
     const xValeur = empile ? MARGE : MARGE + LARGEUR_LABEL
     const largeurValeur = this.largeur - MARGE - xValeur
     const lignes = this.doc.splitTextToSize(texte, largeurValeur)
-    this.espace((empile ? 5 : 0) + 6 * lignes.length + 2)
+    this.espace((empile ? 3.5 : 0) + 4.2 * lignes.length + 1)
     this.doc.setTextColor(...NOIR)
     this.doc.text(label, MARGE, this.y)
-    if (empile) this.y += 5
+    if (empile) this.y += 3.8
     this.doc.setFont(undefined, valeur ? 'normal' : 'italic')
     this.doc.setTextColor(...(valeur ? NOIR : GRIS))
     this.doc.text(lignes, xValeur, this.y)
-    this.y += 6 * lignes.length + 3
+    this.y += 4.2 * lignes.length + 1
   }
 
-  /** Deux champs courts côte à côte (dates, altitude/massif…). */
+  /** Deux ou trois champs courts côte à côte (dates, altitude/massif, opération/hélico/PPSM…). */
   champsDoubles(paires) {
-    this.espace(8)
+    this.espace(5.5)
     const y = this.y
-    const largeurColonne = (this.largeur - MARGE * 2) / 2
+    const largeurColonne = (this.largeur - MARGE * 2) / paires.length
     paires.forEach(([label, valeur], i) => {
       const x = MARGE + i * largeurColonne
       this.doc.setFont(undefined, 'bold')
-      this.doc.setFontSize(9)
+      this.doc.setFontSize(7.5)
       this.doc.setTextColor(...NOIR)
       this.doc.text(label, x, y)
-      const largeurLabel = this.doc.getTextWidth(label) + 2
+      const largeurLabel = this.doc.getTextWidth(label) + 1.5
       this.doc.setFont(undefined, valeur ? 'normal' : 'italic')
       this.doc.setTextColor(...(valeur ? NOIR : GRIS))
       this.doc.text(valeur || '……………', x + largeurLabel, y)
     })
-    this.y += 9
+    this.y += 5.5
   }
 
-  espaceur(h = 3) {
+  espaceur(h = 1.5) {
     this.y += h
   }
 }
@@ -297,34 +301,38 @@ export async function genererPdfDepuisModele(modele) {
   const logo = await chargerImage(logoCrsUrl).catch(() => null)
   const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne n° ${modele.numeroIfsm}`)
 
-  // ---- En-tête -----------------------------------------------------------
-  if (logo) doc.addImage(logo, 'PNG', page.largeur - MARGE - 20, 10, 20, 26)
+  // ---- En-tête ------------------------------------------------------------
+  // Mise en page dense (voir commentaire en tête de fichier) : logo et police réduits, DE/À et
+  // Pour information/N° de texte groupés par 2 au lieu de 4 lignes séparées.
+  if (logo) doc.addImage(logo, 'PNG', page.largeur - MARGE - 16, 8, 16, 21)
   doc.setFont(undefined, 'bold')
-  doc.setFontSize(13)
+  doc.setFontSize(11)
   doc.setTextColor(...NOIR)
-  doc.text('Intervention des Formations Spécialisées Montagne', MARGE, 18)
-  doc.setFontSize(10)
+  doc.text('Intervention des Formations Spécialisées Montagne', MARGE, 15)
+  doc.setFontSize(9)
   doc.setTextColor(...ROUGE_CRS)
-  doc.text(`n° ${modele.numeroIfsm}`, MARGE, 25)
+  doc.text(`n° ${modele.numeroIfsm}`, MARGE, 21)
   doc.setDrawColor(...ROUGE_CRS)
   doc.setLineWidth(0.6)
-  // La ligne s'arrête avant l'écusson (x = largeur-MARGE-20, largeur 20) plutôt que de courir sur
-  // toute la largeur en-dessous — remontée d'autant, plus près du titre (décision utilisateur, plus
-  // sobre visuellement qu'une ligne pleine largeur qui passait juste sous le logo).
-  doc.line(MARGE, 30, page.largeur - MARGE - 20 - 6, 30)
+  // La ligne s'arrête avant l'écusson plutôt que de courir sur toute la largeur en-dessous.
+  doc.line(MARGE, 25, page.largeur - MARGE - 16 - 5, 25)
   doc.setLineWidth(0.2)
-  page.y = 37
+  page.y = 30
 
-  page.champ('DE :', modele.entete.de)
-  page.champ('À :', modele.entete.a)
-  page.champ('Pour information :', modele.entete.pourInformation)
-  page.champ('N° DE TEXTE :', modele.entete.numeroTexte)
+  page.champsDoubles([
+    ['DE : ', modele.entete.de],
+    ['À : ', modele.entete.a],
+  ])
+  page.champsDoubles([
+    ['Pour information : ', modele.entete.pourInformation],
+    ['N° de texte : ', modele.entete.numeroTexte],
+  ])
   doc.setFont(undefined, 'bold')
-  doc.setFontSize(9)
+  doc.setFontSize(7.5)
   doc.setTextColor(...NOIR)
-  page.espace(7)
+  page.espace(4)
   doc.text('OBJET : SECOURS EN MONTAGNE - I.F.S.M. STOP', MARGE, page.y)
-  page.y += 10
+  page.y += 5.5
 
   // ---- 1. Alerte -----------------------------------------------------------
   page.titreSection(1, 'ALERTE')
@@ -363,9 +371,11 @@ export async function genererPdfDepuisModele(modele) {
 
   // ---- 5. Moyens engagés -------------------------------------------------
   page.titreSection(5, 'MOYENS ENGAGÉS')
-  page.champ('Opération :', modele.moyens.operation)
-  page.champ('Hélicoptère(s) :', modele.moyens.helicopteres)
-  page.champ('PPSM(s) :', modele.moyens.ppsm)
+  page.champsDoubles([
+    ['Opération : ', modele.moyens.operation],
+    ['Hélicoptère(s) : ', modele.moyens.helicopteres],
+    ['PPSM(s) : ', modele.moyens.ppsm],
+  ])
   page.champ('Effectif CRS engagé :', modele.moyens.effectifEngage)
   page.champ('Médicalisation :', modele.moyens.medicalisation)
   page.espaceur()
@@ -379,10 +389,8 @@ export async function genererPdfDepuisModele(modele) {
   // ---- 7. Bilan -----------------------------------------------------------
   page.titreSection(7, "BILAN DE L'OPÉRATION")
   page.champsDoubles([
-    ['Personne(s) disparue(s) : ', modele.bilan.disparus],
+    ['Disparu(s) : ', modele.bilan.disparus],
     ['Assisté(s) : ', modele.bilan.assistes],
-  ])
-  page.champsDoubles([
     ['Blessé(s) : ', modele.bilan.blesses],
     ['Décédé(s) : ', modele.bilan.decedes],
   ])
@@ -395,33 +403,37 @@ export async function genererPdfDepuisModele(modele) {
   } else {
     modele.victimes.forEach((v, i) => {
       if (i > 0) {
-        page.espace(6)
+        page.espace(3.5)
         doc.setDrawColor(...GRIS_CLAIR)
-        doc.line(MARGE, page.y - 4, page.largeur - MARGE, page.y - 4)
+        doc.line(MARGE, page.y - 2, page.largeur - MARGE, page.y - 2)
       }
-      page.champ('Statut :', v.statut)
       page.champsDoubles([
+        ['Statut : ', v.statut],
         ['Nom : ', v.nom],
         ['Prénom : ', v.prenom],
       ])
       page.champsDoubles([
         ['Sexe : ', v.sexe],
         ['Date naissance : ', v.dateNaissance],
+        ['Nationalité : ', v.nationalite],
       ])
-      page.champ('Nationalité :', v.nationalite)
-      page.champ('Téléphone :', v.telephone)
-      page.champ('État médical :', v.etatMedical)
+      page.champsDoubles([
+        ['Téléphone : ', v.telephone],
+        ['État médical : ', v.etatMedical],
+        ['Destination : ', v.destination],
+      ])
       page.champ('Circonstance :', v.circonstance)
       page.champ('Nature des blessures :', v.natureBlessures)
-      page.champ('Destination :', v.destination)
     })
   }
   page.espaceur()
 
   // ---- 9. Procédure judiciaire --------------------------------------------
   page.titreSection(9, 'PROCÉDURE JUDICIAIRE')
-  page.champ('Suivi judiciaire :', modele.judiciaire.suiviJudiciaire)
-  page.champ('Directeur d’enquête :', modele.judiciaire.directeurEnquete)
+  page.champsDoubles([
+    ['Suivi judiciaire : ', modele.judiciaire.suiviJudiciaire],
+    ['Directeur d’enquête : ', modele.judiciaire.directeurEnquete],
+  ])
   page.espaceur()
 
   // ---- 10. Autorités avisées ----------------------------------------------
@@ -431,16 +443,18 @@ export async function genererPdfDepuisModele(modele) {
   page.champ('Avis divers :', modele.autorites.avisDivers)
   page.espaceur(6)
 
-  page.espace(16)
+  page.espace(9)
   doc.setDrawColor(...NOIR)
-  doc.line(MARGE, page.y - 4, page.largeur - MARGE, page.y - 4)
+  doc.line(MARGE, page.y - 2.5, page.largeur - MARGE, page.y - 2.5)
   doc.setFont(undefined, 'bold')
-  doc.setFontSize(10)
+  doc.setFontSize(8.5)
   doc.setTextColor(...NOIR)
-  doc.text('STOP ET FIN', MARGE, page.y + 2)
-  page.y += 10
-  page.champ('Rédacteur :', modele.finalisation.redacteur)
-  page.champ('Signataire :', modele.finalisation.signataire)
+  doc.text('STOP ET FIN', MARGE, page.y + 1.5)
+  page.y += 5.5
+  page.champsDoubles([
+    ['Rédacteur : ', modele.finalisation.redacteur],
+    ['Signataire : ', modele.finalisation.signataire],
+  ])
 
   // ---- Pied de page --------------------------------------------------------
   const nombrePages = doc.internal.getNumberOfPages()
