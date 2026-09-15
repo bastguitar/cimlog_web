@@ -323,8 +323,12 @@ function versEvenementApp(
     requerant_telephone: f.RequerantTelephone,
     contre_appel: f.ContreAppel,
     description: f.CirconstancesGenerales,
-    is_med: f.Medicalisation,
-    infirmier: f.Infirmier,
+    // depuisGrist(..., 'bool') plutôt qu'un passthrough brut : Grist renvoie ces deux colonnes en
+    // 0/1 (pas un vrai booléen JS) via l'API SQL — un `{is_med && <Composant/>}` react affichait le
+    // "0" littéral au lieu de rien du tout pour une intervention non médicalisée (bug remonté par
+    // l'utilisateur, pastille MED du Registre : "Choucas 050" au lieu de "Choucas 05").
+    is_med: depuisGrist(f.Medicalisation, 'bool'),
+    infirmier: depuisGrist(f.Infirmier, 'bool'),
     support_units: f.SupportUnits,
     type_intervention: f.TypeOperation,
     moyens_engages: f.MoyensEngages,

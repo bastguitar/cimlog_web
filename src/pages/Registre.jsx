@@ -199,7 +199,7 @@ export default function Registre({ fSections }) {
                         <td>{pathologiesDe(s) || '—'}</td>
                         <td>
                           {s.helicopter || '—'}
-                          {s.is_med && <span className="pastille-med-registre">MED</span>}
+                          {Boolean(s.is_med) && <span className="pastille-med-registre">MED</span>}
                         </td>
                         <td>{(s.team ?? []).map(nomSeul).join(', ') || '—'}</td>
                         <td>
