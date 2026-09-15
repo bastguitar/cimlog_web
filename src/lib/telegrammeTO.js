@@ -223,9 +223,10 @@ class MisePage {
     this.doc.setTextColor(...GRIS)
     this.doc.text(this.titreCourt, MARGE, 14)
     this.doc.setDrawColor(...GRIS_CLAIR)
-    // Le logo va de y=10 à y=28 (hauteur 18) sur les pages suivantes : même correction que
-    // l'en-tête principal, la ligne passe en dessous plutôt que de le traverser.
-    this.doc.line(MARGE, 29, this.largeur - MARGE, 29)
+    // La ligne s'arrête avant l'écusson (x = largeur-MARGE-14, largeur 14) plutôt que de courir
+    // sur toute la largeur en-dessous — remontée d'autant, plus près du titre (décision utilisateur,
+    // plus sobre visuellement qu'une ligne pleine largeur qui passait juste sous le logo).
+    this.doc.line(MARGE, 20, this.largeur - MARGE - 14 - 6, 20)
     this.y = 34
   }
 
@@ -307,11 +308,12 @@ export async function genererPdfDepuisModele(modele) {
   doc.text(`n° ${modele.numeroIfsm}`, MARGE, 25)
   doc.setDrawColor(...ROUGE_CRS)
   doc.setLineWidth(0.6)
-  // Le logo va de y=10 à y=36 (hauteur 26) : la ligne doit passer EN DESSOUS, pas la traverser
-  // (bug remonté par l'utilisateur — la ligne barrait l'insigne CRS sur le PDF).
-  doc.line(MARGE, 39, page.largeur - MARGE, 39)
+  // La ligne s'arrête avant l'écusson (x = largeur-MARGE-20, largeur 20) plutôt que de courir sur
+  // toute la largeur en-dessous — remontée d'autant, plus près du titre (décision utilisateur, plus
+  // sobre visuellement qu'une ligne pleine largeur qui passait juste sous le logo).
+  doc.line(MARGE, 30, page.largeur - MARGE - 20 - 6, 30)
   doc.setLineWidth(0.2)
-  page.y = 46
+  page.y = 37
 
   page.champ('DE :', modele.entete.de)
   page.champ('À :', modele.entete.a)
