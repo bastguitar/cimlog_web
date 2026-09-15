@@ -89,6 +89,11 @@ const SOUS_ONGLETS = [
   { cle: 'avalanche', label: 'Avalanche' },
 ]
 
+// Avalanche exclu (décision utilisateur) : rare, souvent sans objet — ne doit pas empêcher de
+// créer le TO tant que le reste n'a pas été relu. Sert à la fois à la validation du bouton
+// "Suivant"/"Enregistrer et créer le TO" et à savoir quel est le dernier onglet à parcourir.
+const ONGLETS_REQUIS_TO = SOUS_ONGLETS.filter((o) => o.cle !== 'avalanche')
+
 const GROUPES_GENERAL = [
   {
     titre: 'Alerte',
@@ -669,6 +674,12 @@ function brouillonVictimesDepuis(fiche) {
  */
 export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom, onFermer }) {
   const [sousOnglet, setSousOnglet] = useState('general')
+  // Onglets déjà consultés — conditionne le bouton "Suivant"/"Enregistrer et créer le TO" en bas de
+  // fiche (décision utilisateur : ne pas pouvoir créer le TO sans être passé par chaque onglet).
+  const [ongletsVus, setOngletsVus] = useState(() => new Set(['general']))
+  useEffect(() => {
+    setOngletsVus((v) => (v.has(sousOnglet) ? v : new Set(v).add(sousOnglet)))
+  }, [sousOnglet])
   const verrouillee = Boolean(fiche.toEnvoyeLe)
   const [edition, setEdition] = useState(!verrouillee)
   // Référentiels hélicoptères/activités : Cim'Alerte fait foi (voir optionsSnosm.js), plus aucune
@@ -808,46 +819,79 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     }
   }
 
+  /** Écrit les champs modifiés (fiche + victimes) et renvoie une fiche à jour — utilisé par
+   * "Enregistrer" seul, par "Suivant" (sauvegarde à chaque changement d'onglet, décision
+   * utilisateur) et par "Enregistrer et créer le TO" (qui a besoin d'une fiche à jour pour
+   * construire le modèle, pas des anciennes valeurs si rien n'avait encore été enregistré). */
+  async function sauvegarderBrouillon() {
+    // Fiche figée (TOEnvoyeLe) : pas de brouillon à sauvegarder, rien à faire.
+    if (!brouillonFiche) return fiche
+    const champsFiche = {}
+    for (const [cle, valeur] of Object.entries(brouillonFiche)) {
+      if (valeur !== (fiche[cle] ?? (typeof valeur === 'boolean' ? false : typeof valeur === 'number' ? 0 : '')))
+        champsFiche[cle] = valeur
+    }
+    if (Object.keys(champsFiche).length > 0) await modifierIntervention(fiche.id, codesRequete, champsFiche)
+
+    const victimesMaj = []
+    for (const v of fiche.victimes ?? []) {
+      const bv = brouillonVictimes[v.id] ?? {}
+      const champsV = {}
+      for (const [cle, valeur] of Object.entries(bv)) {
+        if (valeur !== (v[cle] ?? (typeof valeur === 'boolean' ? false : typeof valeur === 'number' ? 0 : '')))
+          champsV[cle] = valeur
+      }
+      if (Object.keys(champsV).length > 0) {
+        await modifierVictime(v.id, fiche.id, codesRequete, champsV)
+        victimesMaj.push({ id: v.id, champsV })
+      }
+    }
+
+    const ficheAJour = {
+      ...fiche,
+      ...champsFiche,
+      victimes: (fiche.victimes ?? []).map((v) => {
+        const maj = victimesMaj.find((m) => m.id === v.id)
+        return maj ? { ...v, ...maj.champsV } : v
+      }),
+    }
+    onFicheMaj(() => ficheAJour)
+    return ficheAJour
+  }
+
+  /** Verrou (409) : la fiche a été figée entre-temps (télégramme officiel envoyé ailleurs) — même
+   * traitement partout où une sauvegarde peut échouer pour cette raison. */
+  function gererErreurSauvegarde(e) {
+    setErreur(e.message)
+    if (e.codeErreur === 409) {
+      setEdition(false)
+      setBrouillonFiche(null)
+      setBrouillonVictimes(null)
+    }
+  }
+
   async function enregistrer() {
     setEnregistrement(true)
     try {
-      const champsFiche = {}
-      for (const [cle, valeur] of Object.entries(brouillonFiche)) {
-        if (valeur !== (fiche[cle] ?? (typeof valeur === 'boolean' ? false : typeof valeur === 'number' ? 0 : '')))
-          champsFiche[cle] = valeur
-      }
-      if (Object.keys(champsFiche).length > 0) await modifierIntervention(fiche.id, codesRequete, champsFiche)
-
-      const victimesMaj = []
-      for (const v of fiche.victimes ?? []) {
-        const bv = brouillonVictimes[v.id] ?? {}
-        const champsV = {}
-        for (const [cle, valeur] of Object.entries(bv)) {
-          if (valeur !== (v[cle] ?? (typeof valeur === 'boolean' ? false : typeof valeur === 'number' ? 0 : '')))
-            champsV[cle] = valeur
-        }
-        if (Object.keys(champsV).length > 0) {
-          await modifierVictime(v.id, fiche.id, codesRequete, champsV)
-          victimesMaj.push({ id: v.id, champsV })
-        }
-      }
-
-      onFicheMaj((f) => ({
-        ...f,
-        ...champsFiche,
-        victimes: (f.victimes ?? []).map((v) => {
-          const maj = victimesMaj.find((m) => m.id === v.id)
-          return maj ? { ...v, ...maj.champsV } : v
-        }),
-      }))
+      await sauvegarderBrouillon()
       setErreur(null)
     } catch (e) {
-      setErreur(e.message)
-      if (e.codeErreur === 409) {
-        setEdition(false)
-        setBrouillonFiche(null)
-        setBrouillonVictimes(null)
-      }
+      gererErreurSauvegarde(e)
+    } finally {
+      setEnregistrement(false)
+    }
+  }
+
+  /** Bouton "Suivant" du bas de fiche — sauvegarde ce qui a été saisi sur l'onglet quitté avant de
+   * passer au suivant (décision utilisateur), pour ne jamais perdre une saisie en cours de route. */
+  async function passerAuSuivant(cleSuivante) {
+    setEnregistrement(true)
+    try {
+      await sauvegarderBrouillon()
+      setErreur(null)
+      setSousOnglet(cleSuivante)
+    } catch (e) {
+      gererErreurSauvegarde(e)
     } finally {
       setEnregistrement(false)
     }
@@ -858,21 +902,28 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
    * dans un nouvel onglet, sans étape d'édition intermédiaire (décision utilisateur — l'aperçu
    * éditable ajoutait un clic superflu pour le cas courant). La fenêtre est ouverte tout de suite,
    * avant l'attente réseau, pour rester dans le geste utilisateur et échapper au blocage de popup. */
+  /** "Enregistrer et créer le TO" — enregistre d'abord ce qui a été saisi (comme "Enregistrer"),
+   * puis construit le modèle depuis la fiche fraîchement sauvegardée : sans ça, une modification pas
+   * encore enregistrée manquerait dans le TO généré. */
   async function validerEtCreerTO() {
     setCreationTO(true)
     setErreur(null)
     const fenetre = window.open('', '_blank')
     try {
-      const modele = construireModeleTO(fiche, { sectionNom })
+      const ficheAJour = await sauvegarderBrouillon()
+      const modele = construireModeleTO(ficheAJour, { sectionNom })
       const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
       await modifierIntervention(fiche.id, codesRequete, champs)
       onFicheMaj((f) => ({ ...f, ...champs }))
       const doc = await genererPdfDepuisModele(modele)
-      doc.save(nomFichierTO(fiche, modele))
+      const nom = nomFichierTO(fiche, modele)
+      // Métadonnée PDF "Titre" — nomme l'onglet du navigateur d'après le fichier plutôt que l'URL blob illisible.
+      doc.setProperties({ title: nom.replace(/\.pdf$/, '') })
+      doc.save(nom)
       if (fenetre) fenetre.location.href = doc.output('bloburl')
     } catch (e) {
       fenetre?.close()
-      setErreur(e.message)
+      gererErreurSauvegarde(e)
     } finally {
       setCreationTO(false)
     }
@@ -929,6 +980,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
   const indexSousOngletActuel = SOUS_ONGLETS.findIndex((o) => o.cle === sousOnglet)
   const sousOngletSuivant = SOUS_ONGLETS[indexSousOngletActuel + 1]
+  const tousOngletsVus = ONGLETS_REQUIS_TO.every((o) => ongletsVus.has(o.cle))
+  const dernierOngletRequis = ONGLETS_REQUIS_TO[ONGLETS_REQUIS_TO.length - 1]
+  const pretPourTO = tousOngletsVus && sousOnglet === dernierOngletRequis.cle
 
   return (
     <div className="onglet-snosm-racine">
@@ -1214,22 +1268,6 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             })}
           </>
         )}
-
-        {sousOngletSuivant && (
-          <div className="barre-onglet-suivant-snosm">
-            <button
-              type="button"
-              className="bouton-onglet-suivant-snosm"
-              onClick={() => setSousOnglet(sousOngletSuivant.cle)}
-              title={`Onglet suivant : ${sousOngletSuivant.label}`}
-              aria-label={`Onglet suivant : ${sousOngletSuivant.label}`}
-            >
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </button>
-          </div>
-        )}
       </div>
 
       <div className="actions-edition-fiche">
@@ -1243,9 +1281,20 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             </button>
           </>
         )}
-        <button type="button" className="bouton-principal" onClick={validerEtCreerTO} disabled={creationTO}>
-          {creationTO ? '…' : 'Valider et créer le TO'}
-        </button>
+        {pretPourTO ? (
+          <button type="button" className="bouton-principal" onClick={validerEtCreerTO} disabled={creationTO}>
+            {creationTO ? '…' : 'Enregistrer et créer le TO'}
+          </button>
+        ) : (
+          <button
+            type="button"
+            className="bouton-principal"
+            onClick={() => sousOngletSuivant && passerAuSuivant(sousOngletSuivant.cle)}
+            disabled={enregistrement || !sousOngletSuivant}
+          >
+            {enregistrement ? '…' : 'Suivant'}
+          </button>
+        )}
       </div>
 
       {confirmerAnnulation && (
