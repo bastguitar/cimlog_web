@@ -2038,10 +2038,18 @@ main > * {
 
 .actions-edition-fiche {
   display: flex;
+  align-items: center;
   justify-content: flex-end;
   gap: 8px;
   padding-top: 10px;
   border-top: 1px solid var(--border);
+}
+
+.confirmation-sauvegarde-snosm {
+  margin-right: auto;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--succes);
 }
 
 .onglet-snosm-racine {

@@ -692,6 +692,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [brouillonFiche, setBrouillonFiche] = useState(() => (verrouillee ? null : brouillonFicheDepuis(fiche, referentiels)))
   const [brouillonVictimes, setBrouillonVictimes] = useState(() => (verrouillee ? null : brouillonVictimesDepuis(fiche)))
   const [enregistrement, setEnregistrement] = useState(false)
+  // Confirmation visuelle après un enregistrement réussi — sans ça, un « Enregistrer » qui n'a
+  // rien trouvé à modifier (ex. déjà sauvegardé via la flèche « onglet suivant ») donne
+  // l'impression de ne rien faire (bug remonté par l'utilisateur), alors qu'il n'y avait
+  // simplement rien de nouveau à écrire. S'efface tout seul après quelques secondes.
+  const [confirmationSauvegarde, setConfirmationSauvegarde] = useState(false)
   const [erreur, setErreur] = useState(null)
   const [confirmerAnnulation, setConfirmerAnnulation] = useState(false)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
@@ -875,6 +880,8 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     try {
       await sauvegarderBrouillon()
       setErreur(null)
+      setConfirmationSauvegarde(true)
+      setTimeout(() => setConfirmationSauvegarde(false), 2500)
     } catch (e) {
       gererErreurSauvegarde(e)
     } finally {
@@ -1288,6 +1295,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       </div>
 
       <div className="actions-edition-fiche">
+        {confirmationSauvegarde && <span className="confirmation-sauvegarde-snosm">Enregistré ✓</span>}
         {edition && (
           <>
             <button type="button" className="bouton-secondaire" onClick={() => setConfirmerAnnulation(true)} disabled={enregistrement}>
