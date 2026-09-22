@@ -253,13 +253,18 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       ppsm: fiche.snosm_ppsm,
       // Dépassement horaire signalé entre parenthèses, date + heure de fin de service — décision
       // utilisateur : cette information doit remonter sur le TO, pas seulement dans la fiche.
+      // Rôle entre parenthèses après le nom (ex. « ALVES (Secouriste) »), dépassement horaire ajouté
+      // à la suite si renseigné — décision utilisateur.
       effectifEngage:
         (fiche.effectifs_engages ?? [])
           .filter((e) => e.personne)
           .map((e) => {
-            if (!e.depassement_horaire) return e.personne
-            const dateHeure = formatDateHeureFinService(e.heure_depassement)
-            return dateHeure ? `${e.personne} (Fin de service à ${dateHeure})` : `${e.personne} (Fin de service)`
+            let texte = e.role ? `${e.personne} (${e.role})` : e.personne
+            if (e.depassement_horaire) {
+              const dateHeure = formatDateHeureFinService(e.heure_depassement)
+              texte += dateHeure ? ` (Fin de service à ${dateHeure})` : ' (Fin de service)'
+            }
+            return texte
           })
           .join(' - ') || null,
       medicalisation: fiche.snosm_medicalisation,
