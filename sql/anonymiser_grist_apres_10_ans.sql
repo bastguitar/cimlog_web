@@ -85,9 +85,7 @@ BEGIN
   END IF;
 
   PERFORM net.http_post(
-    -- Remplacer <PROJECT_REF> par la référence du projet Supabase partagé (visible dans son URL,
-    -- ex. https://<PROJECT_REF>.supabase.co) avant la première exécution.
-    url     := 'https://<PROJECT_REF>.supabase.co/functions/v1/grist',
+    url     := 'https://xoqcilvsxpprnfukvgwd.supabase.co/functions/v1/grist',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'Authorization', 'Bearer ' || v_anon_key,
