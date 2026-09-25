@@ -652,17 +652,92 @@ async function cosTelephonisteDuJour(docId: string, apiKey: string, section: str
   return { cos: (f?.CosDuJour as string) || null, telephoniste: (f?.TelephonisteDuJour as string) || null }
 }
 
+/**
+ * Politique de conservation des données personnelles — Cim'Log (décidée avec l'utilisateur,
+ * 24-25/09/2026, dossier d'homologation). Contrairement à Cim'Alerte (purge en deux temps : 1 an
+ * puis 10 ans — voir sql/purge_identites.sql côté alerte_secours_web), un seul passage à 10 ans ici :
+ * les données vivent déjà sur le réseau sécurisé du Ministère (Grist), moins de pression pour agir
+ * vite, seule une conservation trop longue reste à borner.
+ *
+ * Efface, 10 ans après l'alerte (AlerteLe) : tout ce qui identifie directement une personne (nom,
+ * coordonnées, date/lieu de naissance) OU la décrit assez pour la reconnaître (récit libre des
+ * circonstances). Conserve tout ce qui sert aux statistiques (date, commune de l'INTERVENTION,
+ * activité, type d'accident, moyens engagés, sexe/âge/pathologie/gravité des victimes).
+ *
+ * ⚠ SnosmToTexte (le PDF du TO déjà validé, gardé en JSON pour retéléchargement) contient une copie
+ * figée de tout ce qui est effacé ici (nom, circonstances…) — sans le vider aussi, l'anonymisation
+ * serait incomplète. Il est donc effacé également ; SnosmTOCreeLe (juste une date) est conservé.
+ *
+ * ⚠ Rédacteur/Signataire/Directeur d'enquête (SnosmRedacteur/SnosmSignataire/SnosmDirecteurEnquete)
+ * NE SONT PAS effacés : ce sont des membres du personnel CRS en service, pas des personnes secourues
+ * — même logique que Cim'Alerte, qui ne purge jamais la liste des secouristes engagés. À confirmer
+ * avec l'utilisateur si ce n'est pas ce qui est attendu.
+ */
+const COLONNES_VICTIME_A_ANONYMISER = [
+  'Nom', 'Prenom', 'DateNaissance', 'LieuNaissance', 'Nationalite', 'Profession',
+  'Telephone', 'Adresse', 'CodePostal', 'Commune', 'Circonstances', 'InfosComplementaires',
+  'SnosmLieuNaissance', 'SnosmProfession', 'SnosmDemeurant', 'SnosmCommune', 'SnosmPays', 'SnosmCodePostal',
+]
+const COLONNES_INTERVENTION_A_ANONYMISER = [
+  'RequerantNom', 'RequerantTelephone', 'PersonneRechercheeNom', 'CirconstancesGenerales', 'SnosmTOTexte',
+]
+
+/** Vérifie le secret du job planifié (pg_cron -> net.http_post) — jamais un jeton de poste, aucune notion de section/région ici : ce job s'applique à toutes les interventions, quelle que soit leur section. */
+async function verifierSecretCron(requete: Request) {
+  const { data, error } = await service.from('reglages_techniques').select('valeur').eq('cle', 'grist_cron_secret').maybeSingle()
+  if (error || !data?.valeur) throw new ErreurHttp(500, 'grist_cron_secret non configuré (reglages_techniques).')
+  const recu = requete.headers.get('X-Cron-Secret') ?? ''
+  if (recu !== data.valeur) throw new ErreurHttp(401, 'Secret cron invalide.')
+}
+
+async function anonymiserAnciennesInterventions(docId: string, apiKey: string) {
+  const limite = Math.floor((Date.now() - 10 * 365.25 * 24 * 3600 * 1000) / 1000)
+
+  const victimes = await requeteGrist(
+    docId,
+    apiKey,
+    `select v.id from Victimes v join Interventions i on i.EventId = v.EventId
+     where i.AlerteLe < ? and (${COLONNES_VICTIME_A_ANONYMISER.map((c) => `(v.${c} is not null and v.${c} != '')`).join(' or ')})`,
+    [limite]
+  )
+  const champsVideVictime = Object.fromEntries(COLONNES_VICTIME_A_ANONYMISER.map((c) => [c, null]))
+  for (const v of victimes) await patchGrist(docId, apiKey, 'Victimes', v.id as number, champsVideVictime)
+
+  const interventions = await requeteGrist(
+    docId,
+    apiKey,
+    `select id from Interventions
+     where AlerteLe < ? and (${COLONNES_INTERVENTION_A_ANONYMISER.map((c) => `(${c} is not null and ${c} != '')`).join(' or ')})`,
+    [limite]
+  )
+  const champsVideIntervention = Object.fromEntries(COLONNES_INTERVENTION_A_ANONYMISER.map((c) => [c, null]))
+  for (const i of interventions) await patchGrist(docId, apiKey, 'Interventions', i.id as number, champsVideIntervention)
+
+  return { victimesAnonymisees: victimes.length, interventionsAnonymisees: interventions.length }
+}
+
 Deno.serve(async (requete) => {
   if (requete.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
   try {
+    const { action, params = {} } = await requete.json()
+
+    // Job planifié (pg_cron -> net.http_post), jamais une session de poste : pas de notion de
+    // section/région ici (l'anonymisation s'applique à toutes les interventions), donc authentifié
+    // par un secret dédié plutôt que par cimlog_squad_codes_region() — vérifié AVANT tout le reste.
+    if (action === 'anonymiserAnciennes') {
+      await verifierSecretCron(requete)
+      const { docId, apiKey } = await lireCleGrist()
+      const resultat = await anonymiserAnciennesInterventions(docId, apiKey)
+      return reponse({ ok: true, ...resultat })
+    }
+
     const auth = requete.headers.get('Authorization') ?? ''
     const commeAppelant = createClient(url, anonKey, { global: { headers: { Authorization: auth } } })
 
     const { data: codesRegion, error: erreurRegion } = await commeAppelant.rpc('cimlog_squad_codes_region')
     if (erreurRegion) throw new ErreurHttp(401, 'Poste non identifié.')
 
-    const { action, params = {} } = await requete.json()
     const squadCodesDemandes: string[] = params.squadCodes ?? []
     const squadCodes = squadCodesDemandes.filter((c) => (codesRegion ?? []).includes(c))
     if (squadCodes.length === 0) throw new ErreurHttp(403, 'Aucune section autorisée.')
