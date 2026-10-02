@@ -632,6 +632,25 @@ async function listerReferentiels(docId: string, apiKey: string) {
 }
 
 /**
+ * Grade (rang police) de chaque secouriste, pour préfixer son nom partout où il est proposé/inscrit
+ * (Effectif CRS engagé, Rédacteur, Signataire, Directeur d'enquête — décision utilisateur,
+ * 02/10/2026). Posé sur `matricules_secouristes` (voir sql/grade_secouristes.sql côté
+ * alerte_secours_web), PAS l'annuaire (projet Supabase séparé) — cette table n'a aucune politique
+ * RLS (accès normalement réservé à la fonction Edge connexion_matricule), lue ici via le
+ * service_role comme pour reglages_techniques. On ne renvoie QUE secouriste_id/grade — jamais le
+ * matricule lui-même ni les autres colonnes de cette table.
+ */
+async function chargerGrades() {
+  const { data, error } = await service.from('matricules_secouristes').select('secouriste_id, grade').not('grade', 'is', null)
+  if (error) throw new ErreurHttp(500, `matricules_secouristes : ${error.message}`)
+  const grades: Record<string, string> = {}
+  for (const r of (data ?? []) as Array<{ secouriste_id: string | null; grade: string }>) {
+    if (r.secouriste_id) grades[r.secouriste_id] = r.grade
+  }
+  return grades
+}
+
+/**
  * COS/Téléphoniste du jour pour une section — Cim'Alerte ne remplit CosDuJour/TelephonisteDuJour
  * QUE sur le premier secours clôturé de la journée pour cette section (les suivants du même jour
  * les laissent vides exprès, pour ne pas répéter la même valeur sur chaque ligne). Utilisé quand
@@ -784,6 +803,10 @@ Deno.serve(async (requete) => {
     if (action === 'referentiels') {
       const referentiels = await listerReferentiels(docId, apiKey)
       return reponse({ ok: true, referentiels })
+    }
+    if (action === 'gradesSecouristes') {
+      const grades = await chargerGrades()
+      return reponse({ ok: true, grades })
     }
     if (action === 'cosTelephonisteDuJour') {
       if (!squadCodes.includes(params.section)) throw new ErreurHttp(403, 'Hors de votre région.')

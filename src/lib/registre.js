@@ -143,6 +143,12 @@ export async function chargerReferentiels(codesRequete) {
   return referentiels
 }
 
+/** secouriste_id (annuaire) -> grade — voir annuaire.js, utilisé pour préfixer le nom partout où un secouriste est proposé. */
+export async function chargerGradesSecouristes(codesRequete) {
+  const { grades } = await appelerGrist('gradesSecouristes', { squadCodes: codesRequete })
+  return grades
+}
+
 /**
  * COS/Téléphoniste du jour pour une section — Cim'Alerte ne les pousse que sur le premier secours
  * clôturé de la journée (voir cos_du_jour/telephoniste_du_jour sur la fiche elle-même) ; pour une

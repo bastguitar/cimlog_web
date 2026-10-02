@@ -9,11 +9,26 @@
  *   jamais descendre dans le navigateur.
  */
 import { createClient } from '@supabase/supabase-js'
+import { chargerGradesSecouristes } from './registre'
 
 const url = import.meta.env.VITE_ANNUAIRE_URL
 const anonKey = import.meta.env.VITE_ANNUAIRE_ANON_KEY
 
 export const annuaire = url && anonKey ? createClient(url, anonKey, { auth: { persistSession: false } }) : null
+
+// Grade (rang police) de chaque secouriste — demandé par l'utilisateur (02/10/2026) : préfixer le
+// nom partout où un secouriste est proposé/inscrit (Effectif engagé, Rédacteur, Signataire,
+// Directeur d'enquête), sans changer la façon de le choisir (toujours le même menu par nom). Posé
+// sur une table du projet Supabase partagé (pas l'annuaire lui-même), lue via l'Edge Function grist
+// — voir chargerGradesSecouristes. La PROMESSE elle-même est cachée (pas seulement le résultat) :
+// chargerTousSecouristes et chargerToutPersonnel peuvent être en vol en même temps au premier
+// chargement, sans ça chacune relancerait son propre appel réseau en double.
+let promesseGrades = null
+function gradesUneFois(codesRequete) {
+  if (!promesseGrades) promesseGrades = chargerGradesSecouristes(codesRequete).catch(() => ({}))
+  return promesseGrades
+}
+const avecGrade = (grade, nomPrenom) => (grade ? `${grade} ${nomPrenom}` : nomPrenom)
 
 /**
  * Tout le personnel, toutes sections confondues, avec son affectation —
@@ -23,13 +38,14 @@ export const annuaire = url && anonKey ? createClient(url, anonKey, { auth: { pe
  */
 let cacheTous = null
 
-export async function chargerTousSecouristes() {
+export async function chargerTousSecouristes(codesRequete) {
   if (cacheTous) return cacheTous
   if (!annuaire) return []
 
-  const [personnes, sections] = await Promise.all([
+  const [personnes, sections, grades] = await Promise.all([
     annuaire.from('users').select('id, nom, prenom, section_id').eq('type_personnel', 'secouriste'),
     annuaire.from('sections').select('id, nom'),
+    gradesUneFois(codesRequete),
   ])
   if (personnes.error || sections.error) return []
 
@@ -38,7 +54,7 @@ export async function chargerTousSecouristes() {
   cacheTous = personnes.data
     .map((p) => ({
       id: p.id,
-      libelle: `${p.nom} ${p.prenom ?? ''}`.trim(),
+      libelle: avecGrade(grades[p.id], `${p.nom} ${p.prenom ?? ''}`.trim()),
       section: nomDeSection.get(p.section_id) ?? 'Sans affectation',
     }))
     .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
@@ -55,13 +71,14 @@ export async function chargerTousSecouristes() {
  */
 let cacheToutPersonnel = null
 
-export async function chargerToutPersonnel() {
+export async function chargerToutPersonnel(codesRequete) {
   if (cacheToutPersonnel) return cacheToutPersonnel
   if (!annuaire) return []
 
-  const [personnes, sections] = await Promise.all([
+  const [personnes, sections, grades] = await Promise.all([
     annuaire.from('users').select('id, nom, prenom, section_id'),
     annuaire.from('sections').select('id, nom'),
+    gradesUneFois(codesRequete),
   ])
   if (personnes.error || sections.error) return []
 
@@ -70,7 +87,7 @@ export async function chargerToutPersonnel() {
   cacheToutPersonnel = personnes.data
     .map((p) => ({
       id: p.id,
-      libelle: `${p.nom} ${p.prenom ?? ''}`.trim(),
+      libelle: avecGrade(grades[p.id], `${p.nom} ${p.prenom ?? ''}`.trim()),
       section: nomDeSection.get(p.section_id) ?? 'Sans affectation',
     }))
     .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))

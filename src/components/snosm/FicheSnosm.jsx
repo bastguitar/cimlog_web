@@ -729,16 +729,16 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       const autres = dedoublonnes.filter((s) => normalise(s.section) !== sectionCible)
       return [...memeSection, ...autres].map((s) => s.libelle)
     }
-    chargerTousSecouristes()
+    chargerTousSecouristes(codesRequete)
       .then((liste) => setSecouristes(trierSectionDabord(liste)))
       .catch(() => {})
-    chargerToutPersonnel()
+    chargerToutPersonnel(codesRequete)
       .then((liste) => {
         setPersonnel(trierSectionDabord(liste))
         setPersonnelParId(new Map(liste.map((p) => [p.id, p.libelle])))
       })
       .catch(() => {})
-  }, [sectionNom])
+  }, [sectionNom, codesRequete])
   // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
   // pour ajouter rapidement à l'Effectif CRS Engagé sans ressaisir un nom déjà connu.
   const [effectifJour, setEffectifJour] = useState([])
