@@ -9,7 +9,7 @@ import { supabase } from './lib/supabase'
 import { useFiltreSections } from './hooks/useFiltreSections'
 import SelecteurSections from './components/SelecteurSections'
 import GardeInactivite from './components/GardeInactivite'
-import logoCimLog from './assets/logo-cimlog.png'
+import logoTrackLog from './assets/logo-tracklog.png'
 import './App.css'
 
 export default function App() {
@@ -61,7 +61,7 @@ export default function App() {
     <BrowserRouter>
       <div className="app">
         <header className="entete">
-          <img src={logoCimLog} alt="Track'Log" className="logo-entete" />
+          <img src={logoTrackLog} alt="Track'Log" className="logo-entete" />
           <nav>
             <NavLink to="/" end>Registre secours</NavLink>
             <NavLink to="/carte">Carte IGN</NavLink>
