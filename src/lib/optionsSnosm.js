@@ -4,7 +4,7 @@
  * (tableur) et l'export réel des télégrammes Grigoletto (comptage des
  * valeurs effectivement utilisées), puis validé point par point avec
  * l'utilisateur. Toute cette correspondance vit ici, pas dans l'Edge
- * Function Grist ni dans Supabase : Cim'Log ne change que sa propre
+ * Function Grist ni dans Supabase : Track'Log ne change que sa propre
  * présentation, jamais le format d'échange.
  *
  * Exception : hélicoptères et activités ne sont PAS codés en dur ici —
@@ -27,7 +27,7 @@ function premiereMajuscule(s) {
 
 // En minuscules (décision utilisateur), sans accent ajouté — même convention que le reste du
 // vocabulaire SNOSM déjà passé en minuscules (onglet Avalanche) : lettre pour lettre, pas de
-// normalisation orthographique. Cim'Log ne change que sa propre présentation, jamais le format
+// normalisation orthographique. Track'Log ne change que sa propre présentation, jamais le format
 // d'échange avec le SNOSM.
 export const OPTIONS_ENCADREMENT = ['encadrement associatif', 'encadrement professionnel', 'non encadre']
 
@@ -632,7 +632,7 @@ export function roleSnosmDepuis(roleBrut) {
 // Vocabulaire SNOSM (tableur fourni par l'utilisateur) pour le sous-bloc
 // avalanche par victime — comptages déjà recoupés en début de chantier
 // (DURETE DE LA NEIGE/TETE : 5, OBSTACLES/ECOULEMENT : 6, ENVIRONNEMENT : 8).
-// En minuscules (décision utilisateur — sauf Niveau de risque, gardé tel quel) : Cim'Log ne change
+// En minuscules (décision utilisateur — sauf Niveau de risque, gardé tel quel) : Track'Log ne change
 // que sa propre présentation, jamais le format d'échange avec le SNOSM.
 export const OPTIONS_DURETE_NEIGE = ['faible (poing)', 'faible (4 doigts)', 'moyen (1 doigt)', 'forte (1 crayon)', 'forte (1 couteau)']
 export const OPTIONS_OBSTACLES = ['rocher', 'arbre', 'barre rocheuse', 'barre de serac', 'couloir', 'autre']

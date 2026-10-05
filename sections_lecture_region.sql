@@ -1,5 +1,5 @@
 -- =====================================================================
---  Visibilité inter-section, en LECTURE SEULE, pour Cim'Log — SANS TOUCHER
+--  Visibilité inter-section, en LECTURE SEULE, pour Track'Log — SANS TOUCHER
 --  aux policies RLS de base (par_section / lecture_par_section, voir
 --  auth_rls.sql), pour que Cim'Alerte (prise d'alerte en direct, appli
 --  séparée sur la même base) garde EXACTEMENT son comportement d'origine :
@@ -7,14 +7,14 @@
 --
 --  Une première tentative (visibilite_regionale.sql, retirée) ajoutait une
 --  policy RLS supplémentaire directement sur events/messages/victimes —
---  correct pour Cim'Log, mais RLS s'applique au RÔLE Postgres, pas à
+--  correct pour Track'Log, mais RLS s'applique au RÔLE Postgres, pas à
 --  l'application : les deux appuis partagent le même compte par section,
 --  donc la policy élargissait aussi ce que Cim'Alerte laissait voir,
 --  jamais demandé pour ce logiciel-là.
 --
 --  Cette fois, la visibilité élargie passe par des fonctions RPC dédiées
 --  (cimlog_evenements / cimlog_messages / cimlog_victimes), appelées
---  UNIQUEMENT par Cim'Log. Cim'Alerte n'appelle jamais ces fonctions : son
+--  UNIQUEMENT par Track'Log. Cim'Alerte n'appelle jamais ces fonctions : son
 --  comportement ne change pas d'un octet. La vérification de portée (la
 --  région du poste connecté) est faite À L'INTÉRIEUR de chaque fonction,
 --  jamais confiée au client — un poste ne peut donc pas demander autre
@@ -60,7 +60,7 @@ $fn$;
  * Interventions d'une ou plusieurs sections de SA région — sur une période,
  * une liste précise d'identifiants, ou les deux à la fois selon ce qui est
  * fourni. Pour le Registre, la Carte IGN, les Stats, la Vue synoptique et la
- * fiche détail de Cim'Log. `p_squad_codes` est rejeté s'il contient un code
+ * fiche détail de Track'Log. `p_squad_codes` est rejeté s'il contient un code
  * hors de la région du poste connecté (<@ = "est inclus dans").
  */
 CREATE OR REPLACE FUNCTION cimlog_evenements(
@@ -87,7 +87,7 @@ $fn$;
 
 /*
  * Messages de main courante d'une ou plusieurs sections de SA région — pour
- * la MC Chronologique et la Vue synoptique de Cim'Log. Couvre les messages
+ * la MC Chronologique et la Vue synoptique de Track'Log. Couvre les messages
  * rattachés à une intervention (squad_code de l'intervention) et les
  * messages généraux (squad_code du message lui-même, event_id NULL) — même
  * distinction que main_courante_generale.sql côté RLS.

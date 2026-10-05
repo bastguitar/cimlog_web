@@ -1,5 +1,5 @@
 -- =====================================================================
---  Repeuple Grist (Interventions/Victimes, vidées côté Cim'Log pour éviter
+--  Repeuple Grist (Interventions/Victimes, vidées côté Track'Log pour éviter
 --  les doublons) en appelant pousser_intervention_grist pour chaque
 --  intervention clôturée — voir grist_synchronisation_cimlog.sql.
 --

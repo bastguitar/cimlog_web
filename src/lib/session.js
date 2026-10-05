@@ -3,7 +3,7 @@ import { supabase } from './supabase'
 /**
  * Identité du poste — repris à l'identique de alerte_secours_web/src/lib/session.js.
  *
- * Cim'Log utilise les MÊMES comptes que l'application de prise d'alerte : un
+ * Track'Log utilise les MÊMES comptes que l'application de prise d'alerte : un
  * identifiant de poste (Grenoble, Albertville, Modane…) et son mot de passe.
  * La RLS de la base limite déjà chaque compte à sa section — pas de logique
  * de cloisonnement à reproduire ici, PostgreSQL s'en charge.

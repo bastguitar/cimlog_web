@@ -705,7 +705,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   // Dédoublonné sur le libellé (nom + prénom, sans la section) : une même personne peut apparaître
   // plusieurs fois côté annuaire (affectations multiples), mais ne doit être proposée qu'une fois ici.
   // Ceux de la section de l'intervention (sectionNom) sont mis en premier — annuaire et sections
-  // Cim'Log utilisent des casses/accents différents ("BRIANCON" vs "Briançon"), d'où la comparaison
+  // Track'Log utilisent des casses/accents différents ("BRIANCON" vs "Briançon"), d'où la comparaison
   // normalisée. Le reste de l'annuaire suit, rien n'est retiré de la liste.
   const [secouristes, setSecouristes] = useState([])
   // Directeur d'enquête/Rédacteur/Signataire : liste distincte de l'effectif CRS engagé ci-dessus —

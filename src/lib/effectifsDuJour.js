@@ -5,7 +5,7 @@ import { supabase } from './supabase'
  * appelé « PERMANENCIER » ou « RADIO » selon les sections, aucun nom fixe :
  * voir alerte_secours_web/src/lib/roles.js) sur le poste qui a pris
  * l'intervention. Table `effectifs_mc`, déjà accessible en lecture depuis
- * Cim'Log (mis en place pour ça côté base) — lue ici pour proposer
+ * Track'Log (mis en place pour ça côté base) — lue ici pour proposer
  * l'ajout rapide à l'Effectif CRS Engagé d'une fiche SNOSM, sans ressaisie.
  *
  * Repose sur `squad_code`, pas la section mère : chaque poste (CRS73C,

@@ -61,7 +61,7 @@ export default function App() {
     <BrowserRouter>
       <div className="app">
         <header className="entete">
-          <img src={logoCimLog} alt="Cim'Log" className="logo-entete" />
+          <img src={logoCimLog} alt="Track'Log" className="logo-entete" />
           <nav>
             <NavLink to="/" end>Registre secours</NavLink>
             <NavLink to="/carte">Carte IGN</NavLink>

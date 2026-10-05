@@ -1,5 +1,5 @@
 -- =====================================================================
---  Ajoute le champ Helicopter à la synchronisation Grist (Cim'Log en a
+--  Ajoute le champ Helicopter à la synchronisation Grist (Track'Log en a
 --  besoin pour les Stats et le filtre « Moyen »). Reprend la version
 --  ACTUELLEMENT déployée (avec l'interrupteur grist_push_actif ajouté
 --  depuis côté Cim'Alerte) — la version précédente de ce fichier avait été

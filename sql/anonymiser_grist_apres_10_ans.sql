@@ -1,5 +1,5 @@
 -- =====================================================================
---  Politique de conservation des données personnelles — Cim'Log.
+--  Politique de conservation des données personnelles — Track'Log.
 --
 --  Décidée avec l'utilisateur (24-25/09/2026), dans le cadre du dossier
 --  d'homologation administrative partagé avec Cim'Alerte. Logique
@@ -7,7 +7,7 @@
 --  alerte_secours_web, purge en DEUX temps : 1 an puis 10 ans) : les
 --  interventions closes vivent déjà sur Grist, la « zone sécurisée » du
 --  Ministère de l'Intérieur — moins de pression pour effacer vite, seule
---  une conservation trop longue reste à borner. Cim'Log fait donc tout en
+--  une conservation trop longue reste à borner. Track'Log fait donc tout en
 --  UN seul passage, à 10 ans.
 --
 --  10 ans après l'alerte (AlerteLe) : tout ce qui identifie directement
@@ -58,7 +58,7 @@
 --
 --  ⚠ À FAIRE AVANT LA PREMIÈRE EXÉCUTION RÉELLE : relire la liste de
 --  colonnes dans grist/index.ts (première fois qu'une liste de champs
---  identifiants/narratifs est écrite pour Cim'Log, à faire confirmer),
+--  identifiants/narratifs est écrite pour Track'Log, à faire confirmer),
 --  déployer la version à jour de l'Edge Function `grist`, déposer les deux
 --  secrets ci-dessus, TESTER manuellement une fois (voir requête manuelle
 --  plus bas) avant d'activer le cron.schedule (volontairement laissé en

@@ -1,8 +1,8 @@
 /**
- * Proxy Grist pour Cim'Log — lecture (et écriture) des interventions
+ * Proxy Grist pour Track'Log — lecture (et écriture) des interventions
  * clôturées, sans jamais exposer la clé API Grist au navigateur.
  *
- * Cim'Log va bientôt tourner sur un réseau administratif fermé, sans accès
+ * Track'Log va bientôt tourner sur un réseau administratif fermé, sans accès
  * direct à la base Cim'Alerte : les interventions closes sont donc lues
  * depuis Grist (alimenté par pousser_intervention_grist, voir
  * grist_synchronisation*.sql côté alerte_secours_web), jamais directement
@@ -616,7 +616,7 @@ async function supprimerEffectif(docId: string, apiKey: string, squadCodes: stri
  * Référentiels hélicoptères/activités — poussés automatiquement par Cim'Alerte
  * (déclencheur Postgres sur ref_helico/ref_activites + fonction Edge dédiée,
  * voir pousser_referentiel.js côté alerte_secours_web) dans ReferentielHelicos/
- * ReferentielActivites. Cim'Alerte fait foi : Cim'Log ne garde plus aucune copie
+ * ReferentielActivites. Cim'Alerte fait foi : Track'Log ne garde plus aucune copie
  * en dur de ces deux listes, juste ce miroir, filtré sur les lignes actives et
  * trié dans l'ordre attendu par l'appli d'origine.
  */
@@ -672,7 +672,7 @@ async function cosTelephonisteDuJour(docId: string, apiKey: string, section: str
 }
 
 /**
- * Politique de conservation des données personnelles — Cim'Log (décidée avec l'utilisateur,
+ * Politique de conservation des données personnelles — Track'Log (décidée avec l'utilisateur,
  * 24-25/09/2026, dossier d'homologation). Contrairement à Cim'Alerte (purge en deux temps : 1 an
  * puis 10 ans — voir sql/purge_identites.sql côté alerte_secours_web), un seul passage à 10 ans ici :
  * les données vivent déjà sur le réseau sécurisé du Ministère (Grist), moins de pression pour agir

@@ -1,13 +1,13 @@
 -- =====================================================================
---  Effectifs de permanence et rôles de main courante — pour Cim'Log.
+--  Effectifs de permanence et rôles de main courante — pour Track'Log.
 --
 --  `statuts_mc` (rôles d'une section : PERMANENCIER, COS, NUIT…) vivait
 --  jusqu'ici dans le projet Supabase de l'appli budget/commandes (CNEAS),
---  colonne `sections.statuts_mc`. Copié ici pour que Cim'Log les lise dans
+--  colonne `sections.statuts_mc`. Copié ici pour que Track'Log les lise dans
 --  le même projet que le reste (events/messages/sections/ref_secouristes) —
 --  la colonne côté CNEAS sera supprimée une fois la bascule terminée.
 --
---  Éditable depuis Cim'Log (onglet Effectifs) : chaque poste peut ajouter,
+--  Éditable depuis Track'Log (onglet Effectifs) : chaque poste peut ajouter,
 --  renommer ou retirer ses propres rôles, comme un secouriste ajouté à
 --  ref_secouristes — pas de liste figée en dur dans le code.
 --
@@ -22,7 +22,7 @@ BEGIN;
 
 -- ---------- coordonnées des sections ----------
 -- Rapatriées au passage depuis la même table côté CNEAS (adresse, ville,
--- téléphone) : pas encore utilisées par Cim'Log, mais utile à ranger tant
+-- téléphone) : pas encore utilisées par Track'Log, mais utile à ranger tant
 -- qu'on est déjà en train de lire cette base pour statuts_mc.
 ALTER TABLE sections ADD COLUMN IF NOT EXISTS adresse_rue text;
 ALTER TABLE sections ADD COLUMN IF NOT EXISTS code_postal text;

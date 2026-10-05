@@ -1,7 +1,7 @@
 -- =====================================================================
---  Modification et « rayage » des messages de main courante, côté Cim'Log.
+--  Modification et « rayage » des messages de main courante, côté Track'Log.
 --
---  Cim'Log est le registre officiel post-intervention : on ne réécrit pas
+--  Track'Log est le registre officiel post-intervention : on ne réécrit pas
 --  l'histoire, mais une erreur de saisie doit pouvoir se corriger dans la
 --  foulée. D'où deux droits distincts, plus stricts que le tchat en direct
 --  (modifier_message_chat.sql, sans limite de temps mais réservé au type
@@ -10,7 +10,7 @@
 --    - modifier le contenu : possible seulement dans les 2h qui suivent la
 --      création (`verrouille_le` matérialise cette fenêtre, voir plus bas).
 --      Passé ce délai, le message est verrouillé — c'est ce que le petit
---      cadenas de chaque ligne affiche côté Cim'Log (ouvert et vert tant que
+--      cadenas de chaque ligne affiche côté Track'Log (ouvert et vert tant que
 --      modifiable).
 --    - rayer / dé-rayer : jamais de suppression, seulement une marque
 --      visuelle (colonne `barre`) — l'entrée reste dans le registre, barrée

@@ -41,7 +41,7 @@ export default function Connexion({ onConnecte, erreurInitiale = null }) {
   return (
     <div className="ecran-connexion">
       <form className="carte-connexion" onSubmit={valider}>
-        <h1>Cim'Log</h1>
+        <h1>Track'Log</h1>
         <p className="aide-connexion">Suivi post-intervention</p>
 
         <label>

@@ -138,7 +138,7 @@ async function creerInterventionTest(section) {
   ])
 
   console.log(`Intervention de test créée : n°${numeroIntervention} (EventId ${eventId}), section ${section}, victime ${nom} ${prenom}.`)
-  console.log(`Dans Cim'Log : Registre secours -> recherche libre "TEST-DEV" -> ouvrir la fiche.`)
+  console.log(`Dans Track'Log : Registre secours -> recherche libre "TEST-DEV" -> ouvrir la fiche.`)
   console.log(`Pour la supprimer : GRIST_API_KEY=... node scripts/intervention-test.mjs --supprimer ${eventId}`)
 }
 

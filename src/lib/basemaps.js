@@ -1,6 +1,6 @@
 /**
  * Fonds de carte IGN (Géoplateforme) — repris de
- * alerte_secours_web/src/lib/basemaps.js, réduit aux deux fonds (Cim'Log
+ * alerte_secours_web/src/lib/basemaps.js, réduit aux deux fonds (Track'Log
  * n'a pas besoin des surcouches opérationnelles de la prise d'alerte :
  * pentes, pistes, obstacles, aéronefs… celles-ci restent propres à
  * alerte_secours_web).

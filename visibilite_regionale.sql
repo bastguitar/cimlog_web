@@ -1,7 +1,7 @@
 -- =====================================================================
 --  RETIRÉ — cette policy RLS élargissait la lecture d'events/messages/
 --  victimes à toute une région (CRS Alpes / CRS Pyrénées), pensée pour
---  Cim'Log. Problème : RLS s'applique au rôle Postgres, pas à
+--  Track'Log. Problème : RLS s'applique au rôle Postgres, pas à
 --  l'application — Cim'Alerte (prise d'alerte en direct) partage les
 --  mêmes comptes par section et se retrouvait donc, elle aussi, à
 --  laisser une section voir les interventions d'une autre section de sa
@@ -10,7 +10,7 @@
 --
 --  Remplacé par sections_lecture_region.sql : la visibilité élargie passe
 --  désormais par des fonctions RPC dédiées, appelées uniquement par
---  Cim'Log — les policies RLS de base (auth_rls.sql) restent strictement
+--  Track'Log — les policies RLS de base (auth_rls.sql) restent strictement
 --  inchangées, donc Cim'Alerte n'est plus concerné.
 --
 --  Script exécuté pour annuler ce qui suit :

@@ -23,16 +23,16 @@ const FILTRES_VIDES = {
 
 /**
  * Toutes les interventions closes avant la mise en place du TO/SNOSM dans
- * Cim'Log ont déjà été traitées par ailleurs (ancien système) — leur
+ * Track'Log ont déjà été traitées par ailleurs (ancien système) — leur
  * `TOEnvoyeLe` Grist restera vide pour toujours, ce n'est pas un oubli à
  * rattraper. Sans cette date de bascule, « à traiter » comptait plusieurs
  * milliers d'interventions historiques au lieu des seules nouvelles.
  */
 const DEBUT_A_TRAITER = '2026-09-11T22:12:46.865Z'
 
-/** Clôturée depuis la bascule TO/SNOSM, mais sans TO généré dans Cim'Log — même signal que le
+/** Clôturée depuis la bascule TO/SNOSM, mais sans TO généré dans Track'Log — même signal que le
  * liseré rouge/vert du Registre (snosm_to_cree_le), pas TOEnvoyeLe : ce dernier marquerait l'envoi
- * officiel au SNOSM (Chamonix), une action qui n'existe encore nulle part dans Cim'Log — resterait
+ * officiel au SNOSM (Chamonix), une action qui n'existe encore nulle part dans Track'Log — resterait
  * vide pour toujours et "à traiter" ne se serait jamais vidé, même une fois tous les TO créés. */
 const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.snosm_to_cree_le
 
