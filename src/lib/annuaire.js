@@ -52,11 +52,10 @@ export async function chargerTousSecouristes(codesRequete) {
   const nomDeSection = new Map(sections.data.map((s) => [s.id, s.nom]))
 
   cacheTous = personnes.data
-    .map((p) => ({
-      id: p.id,
-      libelle: avecGrade(grades[p.id], `${p.nom} ${p.prenom ?? ''}`.trim()),
-      section: nomDeSection.get(p.section_id) ?? 'Sans affectation',
-    }))
+    .map((p) => {
+      const nom = `${p.nom} ${p.prenom ?? ''}`.trim()
+      return { id: p.id, nom, libelle: avecGrade(grades[p.id], nom), section: nomDeSection.get(p.section_id) ?? 'Sans affectation' }
+    })
     .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
 
   return cacheTous
@@ -85,11 +84,10 @@ export async function chargerToutPersonnel(codesRequete) {
   const nomDeSection = new Map(sections.data.map((s) => [s.id, s.nom]))
 
   cacheToutPersonnel = personnes.data
-    .map((p) => ({
-      id: p.id,
-      libelle: avecGrade(grades[p.id], `${p.nom} ${p.prenom ?? ''}`.trim()),
-      section: nomDeSection.get(p.section_id) ?? 'Sans affectation',
-    }))
+    .map((p) => {
+      const nom = `${p.nom} ${p.prenom ?? ''}`.trim()
+      return { id: p.id, nom, libelle: avecGrade(grades[p.id], nom), section: nomDeSection.get(p.section_id) ?? 'Sans affectation' }
+    })
     .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
 
   return cacheToutPersonnel

@@ -1,4 +1,5 @@
 import { supabase } from './supabase'
+import { groupeDe } from './sections'
 
 /** Identité lisible d'une victime — nom, naissance, téléphone, ce qui existe. */
 export function formatIdentiteVictime(v) {
@@ -141,6 +142,26 @@ export async function supprimerEffectifEngage(effectifId, eventId, codesRequete)
 export async function chargerReferentiels(codesRequete) {
   const { referentiels } = await appelerGrist('referentiels', { squadCodes: codesRequete })
   return referentiels
+}
+
+/**
+ * Destinations d'évacuation proposées dans l'onglet Impliqué (champ Destination) — table publique du
+ * projet Supabase partagé (ref_destinations_evac), tenue à jour côté Track-Alerte (message de la
+ * session Track'Alerte, 09/10/2026) : plus de liste en dur ici, pour rester synchro automatiquement.
+ * `groupe IS NULL` = commun à toutes les sections ; sinon filtré sur le groupe (CRS38, CRS73…) du
+ * squad_code — plusieurs postes partagent un même groupe (ex. CRS38 = Grenoble/Huez), d'où groupeDe()
+ * plutôt que le squad_code brut.
+ */
+export async function chargerDestinationsEvac(squadCode) {
+  const groupe = groupeDe(squadCode)
+  const { data, error } = await supabase
+    .from('ref_destinations_evac')
+    .select('nom, ordre, groupe')
+    .or(`groupe.is.null,groupe.eq.${groupe}`)
+    .eq('actif', true)
+    .order('ordre', { ascending: true })
+  if (error) return []
+  return data.map((d) => d.nom)
 }
 
 /** secouriste_id (annuaire) -> grade — voir annuaire.js, utilisé pour préfixer le nom partout où un secouriste est proposé. */

@@ -34,6 +34,7 @@
  *      un appareil sans session.
  */
 import { createClient } from 'npm:@supabase/supabase-js@2'
+import JSZip from 'npm:jszip@3.10.1'
 
 const url = Deno.env.get('SUPABASE_URL')!
 const anonKey = Deno.env.get('SUPABASE_ANON_KEY')!
@@ -735,6 +736,315 @@ async function anonymiserAnciennesInterventions(docId: string, apiKey: string) {
   return { victimesAnonymisees: victimes.length, interventionsAnonymisees: interventions.length }
 }
 
+/**
+ * Export périodique vers le SNOSM (Lars Fornel, ENSA Chamonix) — mail automatique avec un ZIP de
+ * JSON, remplaçant l'extraction manuelle mensuelle que faisait jusqu'ici Manu Grigoletto depuis la
+ * base police. Périmètre volontairement réduit par rapport à l'export actuel (voir échange mail avec
+ * Lars, 07-09/10/2026) : Track'Log permet de saisir beaucoup plus d'informations que ce qui est
+ * strictement nécessaire au SNOSM, certaines ne servant qu'au télégramme officiel interne — donc PAS
+ * exportés : noms des fonctionnaires/secouristes (Rédacteur/Signataire/Directeur d'enquête/Effectif
+ * engagé), identité complète des victimes (nom/prénom/adresse précise/téléphone/profession/
+ * nationalité — seuls sexe/âge/code postal-commune/destination sont gardés), le compte-rendu
+ * narratif (Circonstances), et tout l'onglet Avis (suivi judiciaire/autorités avisées/médias). Les
+ * gestes de secourisme et techniques d'évacuation sont gardés (décision utilisateur, 09/10/2026).
+ *
+ * Valeurs envoyées en TEXTE CLAIR (jamais d'identifiant numérique interne à Track'Log/Grist) — Lars
+ * n'a pas encore répondu sur ce point précis, mais c'est l'hypothèse de travail retenue (décision
+ * utilisateur, 09/10/2026) : à son système d'import de faire la correspondance avec ses tables de
+ * référence (tga_sexe, tga_commune, etc.) de son côté, à confirmer avec lui.
+ *
+ * Authentifié par le même secret cron que anonymiserAnciennesInterventions (job planifié, pas une
+ * session de poste). Couvre TOUTES les sections par défaut (toutes les unités qui alimentent
+ * Track'Log/Cim'Alerte) — c'est ce que fait déjà l'export actuel de Manu Grigoletto, que celui-ci
+ * remplace (décision utilisateur, 09/10/2026) — voir TOUTES_SECTIONS dans exporterSnosm.
+ */
+const COLONNES_EXPORT_INTERVENTION = `id, EventId, NumeroIntervention, Statut, ClotureLe, AlerteLe, Departement, Massif, Commune, Lieu,
+  SnosmNumeroTexte, SnosmOrigineAlerte, SnosmOrigineAlerteAutre, SnosmAlerteLe, SnosmDepartLe, SnosmArriveeLieuxLe, SnosmFinOperationLe,
+  SnosmNatureOperation, Activite, Altitude, SnosmMeteo, SnosmTypeDomaine, SnosmLocalisationPiste, SnosmNeige, SnosmEncadrement, SnosmDiplomeEncadrant,
+  SnosmTypeOperationMoyens, SnosmGestesSecourisme, SnosmTechniquesEvacuation,
+  SnosmRenfortGendarmes, SnosmRenfortPompiers, SnosmRenfortPisteurs, SnosmRenfortMedecins, SnosmRenfortAutres,
+  SnosmEquipesCynophilesCiviles, SnosmEquipesCynophilesGendarmerie, SnosmEquipesCynophilesPompiers, SnosmEquipesCynophilesPisteurs,
+  SnosmAvalanche, SnosmAvalancheType, SnosmAvalancheTaille, SnosmAvalancheNiveauRisque, SnosmAvalancheDeclenchementLe, SnosmAvalanchePointDepartGPS,
+  SnosmAvalancheLongueur, SnosmAvalancheLargeurCassure, SnosmAvalancheHauteurCassure, SnosmAvalancheLargeurDepot, SnosmAvalancheAltitude, SnosmAvalanchePente, SnosmAvalancheDenivele, SnosmAvalancheOrientation,
+  SnosmAvalancheNombreImpliques, SnosmAvalancheNombreVictimes, SnosmAvalancheNombreBlesses, SnosmAvalancheNombreIndemnes, SnosmAvalancheNombreDecedes`
+
+const COLONNES_EXPORT_VICTIME = `v.EventId, v.NumeroVictime, v.Sexe, v.DateNaissance, v.Age, v.SnosmCodePostal, v.SnosmCommune, v.SnosmDestination, v.SnosmVictimeAvalanche,
+  v.SnosmAvalancheMoyensLocalisation, v.SnosmAvalancheDistanceM, v.SnosmAvalancheProfondeurCm, v.SnosmAvalancheDureeMn, v.SnosmAvalancheBouchonNeige, v.SnosmAvalanchePocheAir,
+  v.SnosmAvalanchePosition1, v.SnosmAvalanchePosition2, v.SnosmAvalancheDureteNeige, v.SnosmAvalancheObstacles, v.SnosmAvalancheEnvironnement, v.SnosmAvalancheMateriel,
+  v.SnosmAvalancheSacAirbag, v.SnosmAvalancheMarqueModele, v.SnosmAvalancheAlimentation, v.SnosmAvalancheGonflage, v.SnosmAvalanchePositionVictime, v.SnosmAvalancheSacEtVictime`
+
+/** Âge À LA DATE DE L'INTERVENTION (pas aujourd'hui) — on envoie l'âge, jamais la date de naissance elle-même (trop identifiante). */
+function calculerAge(dateNaissanceIso: string | null, dateReferenceIso: string | null): number | null {
+  if (!dateNaissanceIso || !dateReferenceIso) return null
+  const naissance = new Date(dateNaissanceIso)
+  const reference = new Date(dateReferenceIso)
+  if (Number.isNaN(naissance.getTime()) || Number.isNaN(reference.getTime())) return null
+  let age = reference.getFullYear() - naissance.getFullYear()
+  const avantAnniversaire =
+    reference.getMonth() < naissance.getMonth() ||
+    (reference.getMonth() === naissance.getMonth() && reference.getDate() < naissance.getDate())
+  if (avantAnniversaire) age--
+  return age
+}
+
+function victimeExport(f: Record<string, unknown>, alerteLeIso: string | null, numeroIntervention: unknown) {
+  const ageCalcule = calculerAge((f.DateNaissance as string) || null, alerteLeIso)
+  return {
+    // Corrélation avec interventions.json — jamais l'id interne Grist (EventId), toujours notre
+    // numéro d'intervention lisible (même logique que le reste de l'export : rien d'interne à
+    // Track'Log/Grist ne doit fuiter dans le fichier envoyé).
+    numero_intervention: numeroIntervention,
+    numero: f.NumeroVictime,
+    sexe: f.Sexe || null,
+    age: ageCalcule ?? (f.Age || null),
+    code_postal: f.SnosmCodePostal || null,
+    commune: f.SnosmCommune || null,
+    destination: f.SnosmDestination || null,
+    victime_avalanche: depuisGrist(f.SnosmVictimeAvalanche, 'bool'),
+    avalanche_moyens_localisation: f.SnosmAvalancheMoyensLocalisation || null,
+    avalanche_distance_m: f.SnosmAvalancheDistanceM || null,
+    avalanche_profondeur_cm: f.SnosmAvalancheProfondeurCm || null,
+    avalanche_duree_mn: f.SnosmAvalancheDureeMn || null,
+    avalanche_bouchon_neige: f.SnosmAvalancheBouchonNeige || null,
+    avalanche_poche_air: f.SnosmAvalanchePocheAir || null,
+    avalanche_position1: f.SnosmAvalanchePosition1 || null,
+    avalanche_position2: f.SnosmAvalanchePosition2 || null,
+    avalanche_durete_neige: f.SnosmAvalancheDureteNeige || null,
+    avalanche_obstacles: f.SnosmAvalancheObstacles || null,
+    avalanche_environnement: f.SnosmAvalancheEnvironnement || null,
+    avalanche_materiel: f.SnosmAvalancheMateriel || null,
+    avalanche_sac_airbag: f.SnosmAvalancheSacAirbag || null,
+    avalanche_marque_modele: f.SnosmAvalancheMarqueModele || null,
+    avalanche_alimentation: f.SnosmAvalancheAlimentation || null,
+    avalanche_gonflage: f.SnosmAvalancheGonflage || null,
+    avalanche_position_victime: f.SnosmAvalanchePositionVictime || null,
+    avalanche_sac_et_victime: f.SnosmAvalancheSacEtVictime || null,
+  }
+}
+
+function interventionExport(f: Record<string, unknown>) {
+  return {
+    numero_intervention: f.NumeroIntervention,
+    numero_texte: f.SnosmNumeroTexte || null,
+    departement: f.Departement || null,
+    massif: f.Massif || null,
+    commune: f.Commune || null,
+    lieu: f.Lieu || null,
+    origine_alerte: f.SnosmOrigineAlerte || null,
+    origine_alerte_autre: f.SnosmOrigineAlerteAutre || null,
+    alerte_le: depuisGrist(f.SnosmAlerteLe, 'datetime'),
+    depart_le: depuisGrist(f.SnosmDepartLe, 'datetime'),
+    arrivee_lieux_le: depuisGrist(f.SnosmArriveeLieuxLe, 'datetime'),
+    fin_operation_le: depuisGrist(f.SnosmFinOperationLe, 'datetime'),
+    nature_operation: f.SnosmNatureOperation || null,
+    activite: f.Activite || null,
+    altitude: f.Altitude || null,
+    meteo: f.SnosmMeteo || null,
+    type_domaine: f.SnosmTypeDomaine || null,
+    localisation_piste: f.SnosmLocalisationPiste || null,
+    neige: f.SnosmNeige || null,
+    encadrement: f.SnosmEncadrement || null,
+    diplome_encadrant: f.SnosmDiplomeEncadrant || null,
+    type_operation: f.SnosmTypeOperationMoyens || null,
+    gestes_secourisme: f.SnosmGestesSecourisme || null,
+    techniques_evacuation: f.SnosmTechniquesEvacuation || null,
+    renfort_gendarmes: f.SnosmRenfortGendarmes || null,
+    renfort_pompiers: f.SnosmRenfortPompiers || null,
+    renfort_pisteurs: f.SnosmRenfortPisteurs || null,
+    renfort_medecins: f.SnosmRenfortMedecins || null,
+    renfort_autres: f.SnosmRenfortAutres || null,
+    equipes_cynophiles_civiles: f.SnosmEquipesCynophilesCiviles || null,
+    equipes_cynophiles_gendarmerie: f.SnosmEquipesCynophilesGendarmerie || null,
+    equipes_cynophiles_pompiers: f.SnosmEquipesCynophilesPompiers || null,
+    equipes_cynophiles_pisteurs: f.SnosmEquipesCynophilesPisteurs || null,
+    avalanche: depuisGrist(f.SnosmAvalanche, 'bool'),
+    avalanche_type: f.SnosmAvalancheType || null,
+    avalanche_taille: f.SnosmAvalancheTaille || null,
+    avalanche_niveau_risque: f.SnosmAvalancheNiveauRisque || null,
+    avalanche_declenchement_le: depuisGrist(f.SnosmAvalancheDeclenchementLe, 'datetime'),
+    avalanche_point_depart_gps: f.SnosmAvalanchePointDepartGPS || null,
+    avalanche_longueur: f.SnosmAvalancheLongueur || null,
+    avalanche_largeur_cassure: f.SnosmAvalancheLargeurCassure || null,
+    avalanche_hauteur_cassure: f.SnosmAvalancheHauteurCassure || null,
+    avalanche_largeur_depot: f.SnosmAvalancheLargeurDepot || null,
+    avalanche_altitude: f.SnosmAvalancheAltitude || null,
+    avalanche_pente: f.SnosmAvalanchePente || null,
+    avalanche_denivele: f.SnosmAvalancheDenivele || null,
+    avalanche_orientation: f.SnosmAvalancheOrientation || null,
+    avalanche_nb_impliques: f.SnosmAvalancheNombreImpliques || null,
+    avalanche_nb_victimes: f.SnosmAvalancheNombreVictimes || null,
+    avalanche_nb_blesses: f.SnosmAvalancheNombreBlesses || null,
+    avalanche_nb_indemnes: f.SnosmAvalancheNombreIndemnes || null,
+    avalanche_nb_decedes: f.SnosmAvalancheNombreDecedes || null,
+  }
+}
+
+async function construireZip(fichiers: Record<string, unknown>): Promise<Uint8Array> {
+  const zip = new JSZip()
+  for (const [nom, contenu] of Object.entries(fichiers)) zip.file(nom, JSON.stringify(contenu, null, 2))
+  return await zip.generateAsync({ type: 'uint8array' })
+}
+
+function versBase64(octets: Uint8Array): string {
+  let binaire = ''
+  for (const o of octets) binaire += String.fromCharCode(o)
+  return btoa(binaire)
+}
+
+async function lireConfigEnvoiSnosm() {
+  const { data, error } = await service
+    .from('reglages_techniques')
+    .select('cle, valeur')
+    .in('cle', ['resend_api_key', 'snosm_email_expediteur', 'snosm_email_destinataire'])
+  if (error) throw new ErreurHttp(500, `reglages_techniques : ${error.message}`)
+  const parCle = Object.fromEntries((data ?? []).map((r: { cle: string; valeur: string }) => [r.cle, r.valeur]))
+  if (!parCle.resend_api_key || !parCle.snosm_email_expediteur) throw new ErreurHttp(500, 'Envoi SNOSM non configuré (reglages_techniques).')
+  return parCle as { resend_api_key: string; snosm_email_expediteur: string; snosm_email_destinataire?: string }
+}
+
+async function envoyerEmailSnosm(expediteur: string, destinataire: string, sujet: string, nomFichierZip: string, zipBase64: string) {
+  const r = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${(await lireConfigEnvoiSnosm()).resend_api_key}` },
+    body: JSON.stringify({
+      from: expediteur,
+      to: destinataire,
+      subject: sujet,
+      html: `<p>Export automatique Track'Log.</p><p>Fichier joint : ${nomFichierZip}</p>`,
+      attachments: [{ filename: nomFichierZip, content: zipBase64 }],
+    }),
+  })
+  if (!r.ok) throw new ErreurHttp(502, `Resend : ${r.status} ${await r.text()}`)
+  return await r.json()
+}
+
+async function exporterSnosm(
+  docId: string,
+  apiKey: string,
+  params: { debut?: string; fin?: string; destinataire?: string; squadCodes?: string[] }
+) {
+  const config = await lireConfigEnvoiSnosm()
+  const destinataire = params.destinataire || config.snosm_email_destinataire
+  if (!destinataire) throw new ErreurHttp(400, 'Aucun destinataire (ni params.destinataire, ni snosm_email_destinataire).')
+
+  // Toutes les sections connues (voir GROUPES dans src/lib/sections.js — pas d'import inter-fichier
+  // possible ici, déploiement en copier-coller d'un seul fichier) : contrairement à l'intuition
+  // initiale, cet export doit couvrir TOUTES les unités qui alimentent Track'Log/Cim'Alerte, pas
+  // seulement CRS05 — c'est ce que fait déjà l'export actuel de Manu Grigoletto (toute la base,
+  // sans filtre de section), que celui-ci remplace (décision utilisateur, 09/10/2026).
+  const TOUTES_SECTIONS = [
+    'CRS38', 'CRS38H', 'CRS05', 'CRS73', 'CRS73M', 'CRS73C',
+    'CRS06', 'CRS06S', 'CRS06V', 'CRS65', 'CRS65G', 'CRS65L', 'CRS65S', 'CRS66', 'CRS66B',
+  ]
+  const squadCodes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS
+  const fin = params.fin ? new Date(params.fin) : new Date()
+  const debut = params.debut ? new Date(params.debut) : new Date(fin.getTime() - 31 * 24 * 3600 * 1000)
+  const debutEpoch = Math.floor(debut.getTime() / 1000)
+  const finEpoch = Math.floor(fin.getTime() / 1000)
+  const placeholders = squadCodes.map(() => '?').join(', ')
+
+  const [lignesInterventions, lignesVictimes] = await Promise.all([
+    requeteGrist(
+      docId,
+      apiKey,
+      `select ${COLONNES_EXPORT_INTERVENTION} from Interventions where Section in (${placeholders}) and Statut != 'brouillon' and ClotureLe is not null and AlerteLe >= ? and AlerteLe < ? order by AlerteLe asc`,
+      [...squadCodes, debutEpoch, finEpoch]
+    ),
+    requeteGrist(
+      docId,
+      apiKey,
+      `select ${COLONNES_EXPORT_VICTIME} from Victimes v join Interventions i on i.EventId = v.EventId where i.Section in (${placeholders}) and i.Statut != 'brouillon' and i.ClotureLe is not null and i.AlerteLe >= ? and i.AlerteLe < ?`,
+      [...squadCodes, debutEpoch, finEpoch]
+    ),
+  ])
+
+  const parEventId = new Map<number, Record<string, unknown>>()
+  for (const f of lignesInterventions) parEventId.set(f.EventId as number, f)
+
+  // Deux fichiers séparés dans le ZIP (interventions.json / victimes.json), corrélés par
+  // numero_intervention — plus proche dans l'esprit du vrai export (plusieurs fichiers JSON par
+  // entité) que notre premier essai (tout imbriqué dans un seul fichier), SANS reprendre les noms
+  // de table ni les colonnes à identifiants numériques (CrsAccident.json, tga_sexe_id, etc.) de ce
+  // vrai export : on n'a pas les tables de référence pour les remplir correctement (voir mails à
+  // Lars, 07-09/10/2026) — risque d'erreur silencieuse côté import si on imite juste le nom de
+  // fichier sans le contenu attendu derrière.
+  const victimes = (lignesVictimes as Array<Record<string, unknown> & { EventId: number }>).map((v) => {
+    const interv = parEventId.get(v.EventId)
+    const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
+    return victimeExport(v, alerteLeIso, interv?.NumeroIntervention ?? null)
+  })
+
+  const interventions = lignesInterventions.map((f) => interventionExport(f))
+
+  const periode = `${debut.toISOString().slice(0, 10)}_au_${fin.toISOString().slice(0, 10)}`
+  // Préfixe "CRS" + horodatage de génération (pas la période couverte) : convention demandée par
+  // Lars, qui reprend le format de l'export actuel (ex. CRS_2026-09-11_122947.zip).
+  const maintenant = new Date()
+  const iso = maintenant.toISOString()
+  const dateDuJour = iso.slice(0, 10) // AAAA-MM-JJ
+  const heureDuJour = iso.slice(11, 19).replace(/:/g, '') // HHMMSS
+  const nomFichierZip = `CRS_${dateDuJour}_${heureDuJour}.zip`
+  const octetsZip = await construireZip({ 'interventions.json': interventions, 'victimes.json': victimes })
+  const zipBase64 = versBase64(octetsZip)
+
+  await envoyerEmailSnosm(config.snosm_email_expediteur, destinataire, `Export SNOSM Track'Log — ${periode}`, nomFichierZip, zipBase64)
+
+  return { nombreInterventions: interventions.length, nombreVictimes: victimes.length, destinataire, periode }
+}
+
+/**
+ * Debug/vérification — mêmes requêtes et mêmes transformations que exporterSnosm, mais renvoyées
+ * directement dans la réponse HTTP (pas de ZIP, pas de mail) : sert à inspecter le contenu réel de
+ * l'export sans attendre un envoi. Priorise les interventions dont la fiche SNOSM a été remplie dans
+ * Track'Log (beaucoup de fiches anciennes n'ont que les champs de base poussés par Cim'Alerte — tout
+ * le reste reste vide tant que personne n'a ouvert l'onglet SNOSM de cette intervention précise).
+ */
+async function apercuSnosm(
+  docId: string,
+  apiKey: string,
+  params: { debut?: string; fin?: string; squadCodes?: string[]; limite?: number }
+) {
+  const TOUTES_SECTIONS = [
+    'CRS38', 'CRS38H', 'CRS05', 'CRS73', 'CRS73M', 'CRS73C',
+    'CRS06', 'CRS06S', 'CRS06V', 'CRS65', 'CRS65G', 'CRS65L', 'CRS65S', 'CRS66', 'CRS66B',
+  ]
+  const squadCodes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS
+  const fin = params.fin ? new Date(params.fin) : new Date()
+  const debut = params.debut ? new Date(params.debut) : new Date(fin.getTime() - 31 * 24 * 3600 * 1000)
+  const debutEpoch = Math.floor(debut.getTime() / 1000)
+  const finEpoch = Math.floor(fin.getTime() / 1000)
+  const placeholders = squadCodes.map(() => '?').join(', ')
+  const limite = params.limite ?? 5
+
+  const lignesInterventions = await requeteGrist(
+    docId,
+    apiKey,
+    `select ${COLONNES_EXPORT_INTERVENTION} from Interventions where Section in (${placeholders}) and Statut != 'brouillon' and ClotureLe is not null and AlerteLe >= ? and AlerteLe < ? and (SnosmOrigineAlerte is not null and SnosmOrigineAlerte != '') order by AlerteLe desc limit ?`,
+    [...squadCodes, debutEpoch, finEpoch, limite]
+  )
+
+  const eventIds = lignesInterventions.map((f) => f.EventId as number)
+  const lignesVictimes = eventIds.length
+    ? await requeteGrist(
+        docId,
+        apiKey,
+        `select ${COLONNES_EXPORT_VICTIME} from Victimes v where v.EventId in (${eventIds.map(() => '?').join(', ')})`,
+        eventIds
+      )
+    : []
+
+  const parEventId = new Map<number, Record<string, unknown>>()
+  for (const f of lignesInterventions) parEventId.set(f.EventId as number, f)
+
+  const victimes = (lignesVictimes as Array<Record<string, unknown> & { EventId: number }>).map((v) => {
+    const interv = parEventId.get(v.EventId)
+    const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
+    return victimeExport(v, alerteLeIso, interv?.NumeroIntervention ?? null)
+  })
+
+  return { interventions: lignesInterventions.map((f) => interventionExport(f)), victimes }
+}
+
 Deno.serve(async (requete) => {
   if (requete.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors })
 
@@ -748,6 +1058,18 @@ Deno.serve(async (requete) => {
       await verifierSecretCron(requete)
       const { docId, apiKey } = await lireCleGrist()
       const resultat = await anonymiserAnciennesInterventions(docId, apiKey)
+      return reponse({ ok: true, ...resultat })
+    }
+    if (action === 'exporterSnosm') {
+      await verifierSecretCron(requete)
+      const { docId, apiKey } = await lireCleGrist()
+      const resultat = await exporterSnosm(docId, apiKey, params)
+      return reponse({ ok: true, ...resultat })
+    }
+    if (action === 'apercuSnosm') {
+      await verifierSecretCron(requete)
+      const { docId, apiKey } = await lireCleGrist()
+      const resultat = await apercuSnosm(docId, apiKey, params)
       return reponse({ ok: true, ...resultat })
     }
 

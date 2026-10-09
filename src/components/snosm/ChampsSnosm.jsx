@@ -1,5 +1,6 @@
 /** Champs de saisie réutilisables pour le formulaire SNOSM, pilotés par la description déclarative des groupes (voir FicheSnosm). */
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
+import { createPortal } from 'react-dom'
 
 function formatDateTimeLocal(iso) {
   if (!iso) return ''
@@ -11,6 +12,57 @@ function formatDateTimeLocal(iso) {
 /** Classe ajoutée sur un champ texte/date/liste/tags laissé vide — bordure rouge pâle, pour repérer
  * en un coup d'œil ce qui reste à compléter (décision utilisateur, valable sur tout le formulaire). */
 const classeVide = (vide) => (vide ? ' champ-vide-snosm' : '')
+
+/**
+ * Repositionne un menu de suggestions en `position: fixed` via un portail dans `<body>` — contourne
+ * le découpage (overflow) de la fiche/modale qui cachait le bas du menu quand le champ est proche du
+ * bas de la fenêtre (météo, blessures… bug remonté par l'utilisateur, à l'inverse du menu
+ * "Circonstances", un `<select>` natif que le navigateur affiche toujours par-dessus tout le reste).
+ * Bascule au-dessus du champ s'il n'y a pas assez de place en dessous, comme un menu natif.
+ */
+function useMenuFlottant(ref, ouvert) {
+  const [style, setStyle] = useState(null)
+  useEffect(() => {
+    if (!ouvert || !ref.current) {
+      setStyle(null)
+      return
+    }
+    const recalculer = () => {
+      if (!ref.current) return
+      const r = ref.current.getBoundingClientRect()
+      const espaceBas = window.innerHeight - r.bottom
+      const espaceHaut = r.top
+      const versHaut = espaceBas < 220 && espaceHaut > espaceBas
+      setStyle({
+        position: 'fixed',
+        left: r.left,
+        width: r.width,
+        zIndex: 10000,
+        ...(versHaut ? { bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }),
+      })
+    }
+    recalculer()
+    window.addEventListener('scroll', recalculer, true)
+    window.addEventListener('resize', recalculer)
+    return () => {
+      window.removeEventListener('scroll', recalculer, true)
+      window.removeEventListener('resize', recalculer)
+    }
+  }, [ouvert, ref])
+  return style
+}
+
+/** Même menu visuel que .suggestions-autocomplete-snosm, juste positionné hors du flux normal. */
+export function MenuFlottant({ ancreRef, ouvert, children }) {
+  const style = useMenuFlottant(ancreRef, ouvert)
+  if (!ouvert || !style) return null
+  return createPortal(
+    <ul className="suggestions-autocomplete-snosm" style={style}>
+      {children}
+    </ul>,
+    document.body
+  )
+}
 
 export function ChampTexte({ label, valeur, onChange, icone, classe }) {
   return (
@@ -29,6 +81,68 @@ export function ChampTexteLong({ label, valeur, onChange, rows = 3 }) {
     <div className={`detail-fiche-edition detail-pleine-largeur${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
       <textarea value={valeur ?? ''} onChange={(e) => onChange(e.target.value)} rows={rows} />
+    </div>
+  )
+}
+
+/**
+ * Comme ChampTexte, mais propose en suggestions les communes correspondant au code postal d'un autre
+ * champ de la même victime (API officielle gratuite geo.api.gouv.fr, pas de clé requise) — décision
+ * utilisateur, 09/10/2026 : évite de taper/mal orthographier le nom de commune une fois le code
+ * postal connu. Reste un texte libre au fond (comme ChampAutocomplete) : une commune absente de cette
+ * API (DOM-TOM rares, etc.) ne doit pas empêcher de la taper à la main.
+ */
+export function ChampCommuneParCodePostal({ label, valeur, onChange, codePostal, icone }) {
+  const [options, setOptions] = useState([])
+  const [ouvert, setOuvert] = useState(false)
+  const ancreRef = useRef(null)
+
+  useEffect(() => {
+    const cp = (codePostal ?? '').trim()
+    if (!/^\d{5}$/.test(cp)) {
+      setOptions([])
+      return
+    }
+    let annule = false
+    fetch(`https://geo.api.gouv.fr/communes?codePostal=${cp}&fields=nom&format=json`)
+      .then((r) => (r.ok ? r.json() : []))
+      .then((data) => {
+        if (!annule) setOptions((Array.isArray(data) ? data : []).map((c) => c.nom))
+      })
+      .catch(() => {
+        if (!annule) setOptions([])
+      })
+    return () => {
+      annule = true
+    }
+  }, [codePostal])
+
+  return (
+    <div className={`detail-fiche-edition${classeVide(!valeur)}`} ref={ancreRef}>
+      <span className="etiquette-detail-fiche">{label}</span>
+      <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
+        {icone}
+        <input
+          type="text"
+          autoComplete="off"
+          value={valeur ?? ''}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setOuvert(true)
+          }}
+          onFocus={() => setOuvert(true)}
+          onBlur={() => setTimeout(() => setOuvert(false), 150)}
+        />
+      </div>
+      <MenuFlottant ancreRef={ancreRef} ouvert={ouvert && options.length > 0}>
+        {options.map((o) => (
+          <li key={o}>
+            <button type="button" onMouseDown={() => onChange(o)}>
+              {o}
+            </button>
+          </li>
+        ))}
+      </MenuFlottant>
     </div>
   )
 }
@@ -115,7 +229,7 @@ export function ChampLecture({ label, valeur }) {
   )
 }
 
-export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true, avecFleche = false, icones }) {
+export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = true, avecFleche = false, icones, nomChamp }) {
   return (
     <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}`}>
       {avecFleche ? (
@@ -130,7 +244,7 @@ export function ChampRadio({ label, valeur, onChange, options, pleineLargeur = t
           <label key={o}>
             <input
               type="radio"
-              name={label}
+              name={nomChamp ?? label}
               checked={valeur === o}
               onClick={() => valeur === o && onChange('')}
               onChange={() => onChange(o)}
@@ -439,6 +553,7 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
 export function ChampTags({ label, valeur, onChange, options, pleineLargeur = false, maxSuggestions = 8 }) {
   const [texte, setTexte] = useState('')
   const [ouvert, setOuvert] = useState(false)
+  const ancreRef = useRef(null)
   const valeurs = (valeur ?? '')
     .split(',')
     .map((v) => v.trim())
@@ -463,7 +578,7 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
   return (
     <div className={`detail-fiche-edition champ-tags-snosm${pleineLargeur ? ' detail-pleine-largeur' : ''}${classeVide(valeurs.length === 0)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
-      <div className="zone-tags-snosm">
+      <div className="zone-tags-snosm" ref={ancreRef}>
         {valeurs.map((v) => (
           <span className="tag-snosm" key={v}>
             {v}
@@ -492,17 +607,15 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
           }}
         />
       </div>
-      {ouvert && suggestions.length > 0 && (
-        <ul className="suggestions-autocomplete-snosm">
-          {suggestions.map((o) => (
-            <li key={o}>
-              <button type="button" onMouseDown={() => ajouter(o)}>
-                {o}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <MenuFlottant ancreRef={ancreRef} ouvert={ouvert && suggestions.length > 0}>
+        {suggestions.map((o) => (
+          <li key={o}>
+            <button type="button" onMouseDown={() => ajouter(o)}>
+              {o}
+            </button>
+          </li>
+        ))}
+      </MenuFlottant>
     </div>
   )
 }
@@ -514,8 +627,9 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
  * fond : une personne absente de l'annuaire (départ, mutation) ne doit pas
  * empêcher de taper son nom.
  */
-export function ChampAutocomplete({ label, valeur, onChange, options }) {
+export function ChampAutocomplete({ label, valeur, onChange, options, icone }) {
   const [ouvert, setOuvert] = useState(false)
+  const ancreRef = useRef(null)
   const filtre = (valeur ?? '').trim().toLowerCase()
   // Pas de plafond façon ChampTags (8 par défaut) : une section peut compter plus de 8 secouristes,
   // et la liste des suggestions défile déjà (.suggestions-autocomplete-snosm, max-height + overflow)
@@ -523,36 +637,37 @@ export function ChampAutocomplete({ label, valeur, onChange, options }) {
   const suggestions = filtre ? options.filter((o) => o.toLowerCase().includes(filtre)) : options
 
   return (
-    <div className={`detail-fiche-edition champ-autocomplete-snosm${classeVide(!valeur)}`}>
+    <div className={`detail-fiche-edition champ-autocomplete-snosm${classeVide(!valeur)}`} ref={ancreRef}>
       <span className="etiquette-detail-fiche">{label}</span>
-      <input
-        type="text"
-        autoComplete="off"
-        value={valeur ?? ''}
-        onChange={(e) => {
-          onChange(e.target.value)
-          setOuvert(true)
-        }}
-        onFocus={() => setOuvert(true)}
-        onBlur={() => setTimeout(() => setOuvert(false), 150)}
-      />
-      {ouvert && suggestions.length > 0 && (
-        <ul className="suggestions-autocomplete-snosm">
-          {suggestions.map((o) => (
-            <li key={o}>
-              <button type="button" onMouseDown={() => onChange(o)}>
-                {o}
-              </button>
-            </li>
-          ))}
-        </ul>
-      )}
+      <div className={icone ? 'entree-avec-icone-snosm' : undefined}>
+        {icone}
+        <input
+          type="text"
+          autoComplete="off"
+          value={valeur ?? ''}
+          onChange={(e) => {
+            onChange(e.target.value)
+            setOuvert(true)
+          }}
+          onFocus={() => setOuvert(true)}
+          onBlur={() => setTimeout(() => setOuvert(false), 150)}
+        />
+      </div>
+      <MenuFlottant ancreRef={ancreRef} ouvert={ouvert && suggestions.length > 0}>
+        {suggestions.map((o) => (
+          <li key={o}>
+            <button type="button" onMouseDown={() => onChange(o)}>
+              {o}
+            </button>
+          </li>
+        ))}
+      </MenuFlottant>
     </div>
   )
 }
 
 /** Boutons radio + une case de précision libre sur la même ligne (ex. Origine de l'alerte / « Autre »), comme le vrai formulaire SNOSM. */
-export function ChampRadioTexte({ label, valeur, onChange, options, valeurTexte, onChangeTexte, placeholderTexte }) {
+export function ChampRadioTexte({ label, valeur, onChange, options, valeurTexte, onChangeTexte, placeholderTexte, nomChamp }) {
   return (
     <div className="detail-fiche-edition detail-pleine-largeur">
       <span className="etiquette-detail-fiche">{label}</span>
@@ -562,7 +677,7 @@ export function ChampRadioTexte({ label, valeur, onChange, options, valeurTexte,
             <label key={o}>
               <input
                 type="radio"
-                name={label}
+                name={nomChamp ?? label}
                 checked={valeur === o}
                 onClick={() => valeur === o && onChange('')}
                 onChange={() => onChange(o)}
@@ -606,8 +721,14 @@ export function ChampDateTime({ label, valeur, onChange, disabled }) {
 }
 
 /** Rendu générique d'un champ, piloté par la description déclarative des onglets SNOSM (voir OngletSnosm). */
-export function ChampSnosm({ description, valeur, onChange, secouristes, valeurLiee, onChangeLiee, brouillon }) {
+export function ChampSnosm({ description, valeur, onChange, secouristes, destinations, valeurLiee, onChangeLiee, brouillon, idPrefix }) {
   const { label, type, options, placeholderLie } = description
+  // `name` unique par instance pour les champs radio — sans ça, plusieurs victimes rendant chacune
+  // un champ "Sexe" (ou les radios avalanche par victime) partagent le même `name` dérivé du label,
+  // et le regroupement natif des boutons radio par `name` (navigateur) entre en conflit avec l'état
+  // contrôlé React : un clic ne coche pas visuellement tant qu'un autre rendu n'est pas déclenché par
+  // ailleurs (bug remonté par l'utilisateur sur Sexe, onglet Impliqué).
+  const nomChamp = idPrefix ? `${idPrefix}__${description.cle}` : description.cle
   // Champ conditionnel simple (pas repliable — masqué complètement, pas de flèche) : ex. "Emploi
   // hélicoptère du SAF" qui ne concerne que YETI 1/YETI 2. Le type 'repliable' gère sa propre
   // visibilité (bouton flèche) et n'est jamais concerné par ce masquage complet.
@@ -633,6 +754,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
         pleineLargeur={description.pleineLargeur ?? true}
         avecFleche={description.avecFleche}
         icones={description.icones}
+        nomChamp={nomChamp}
       />
     )
   if (type === 'bulles')
@@ -662,6 +784,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
         valeurTexte={valeurLiee}
         onChangeTexte={onChangeLiee}
         placeholderTexte={placeholderLie}
+        nomChamp={nomChamp}
       />
     )
   if (type === 'liste-si-vide') return <ChampListeOuTexte label={label} valeur={valeur} onChange={onChange} options={options} />
@@ -677,6 +800,20 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, valeurL
       />
     )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
+  if (type === 'commune-code-postal')
+    return (
+      <ChampCommuneParCodePostal
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        codePostal={brouillon?.snosm_code_postal}
+        icone={description.icone}
+      />
+    )
   if (type === 'personnel') return <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={secouristes ?? []} />
+  if (type === 'destination')
+    return (
+      <ChampAutocomplete label={label} valeur={valeur} onChange={onChange} options={destinations ?? []} icone={description.icone} />
+    )
   return <ChampTexte label={label} valeur={valeur} onChange={onChange} icone={description.icone} classe={description.classe} />
 }

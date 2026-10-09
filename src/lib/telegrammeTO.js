@@ -108,30 +108,40 @@ function formatCommuneTO(com) {
   return `${m[2]} ${premiereMajusculeSeule(m[1])}`
 }
 
-/** « HAUTES-ALPES » -> « Hautes-Alpes » — pour le nom de fichier, pas le PDF (qui reste en majuscules). */
-function versTitreCase(texteMajuscule) {
-  return texteMajuscule
-    .toLowerCase()
-    .split(/([\s-])/)
-    .map((partie) => (/[\s-]/.test(partie) ? partie : partie.charAt(0).toUpperCase() + partie.slice(1)))
-    .join('')
-}
-
 function departementNom(fiche) {
   if (!fiche.county) return ''
   return PREFECTURE_PAR_DEPARTEMENT[fiche.county] ?? fiche.county
 }
 
-/** « IFSM <n°> <Département> <Nom de la victime principale> » — nom du fichier téléchargé seulement
- * (décision utilisateur : le n° IFSM affiché EN-TÊTE du document reste le code court IFSM-<dépt>-<n°>,
- * ne pas répéter le nom de la victime sur chaque page — seul le fichier téléchargé a besoin d'être
- * identifiable sans l'ouvrir). */
-function nomFichierIfsm(fiche, premiereVictimeNom) {
+// Nom du poste de prise d'alerte, pour les sections qui en comptent plusieurs (voir GROUPES,
+// src/lib/sections.js) — ajouté après le département sur le TO (décision utilisateur, 09/10/2026,
+// ex. « IFSM SAVOIE MODANE 756 »). Les sections à poste unique (CRS05…) n'ont pas besoin d'entrée ici.
+// TODO : CRS06V encore manquant (à confirmer avec l'utilisateur) ; CRS06 = Saint-Martin-Vésubie
+// donné "je pense" par l'utilisateur, à reconfirmer.
+const NOM_POSTE_PAR_SQUAD_CODE = {
+  CRS38H: 'HUEZ',
+  CRS73M: 'MODANE',
+  CRS73C: 'COURCHEVEL',
+  CRS06: 'SAINT-MARTIN-VÉSUBIE',
+  CRS65G: 'GAVARNIE',
+  CRS65L: 'LUCHON',
+  CRS65S: 'SAINT-LARY-SOULAN',
+  CRS66B: 'BOLQUÈRE',
+}
+
+/** « IFSM <Département> [<Poste>] <n°> » — département en toutes lettres majuscules (plus le code à 2
+ * chiffres), poste de prise d'alerte ajouté pour les sections qui en ont plusieurs (décision
+ * utilisateur, 09/10/2026). Utilisé à la fois pour le n° affiché en en-tête du document et comme base
+ * du nom de fichier téléchargé (voir nomFichierIfsm, qui y ajoute juste le nom de la victime). */
+function identifiantIfsm(fiche) {
   const departement = departementNom(fiche)
-  const morceaux = [`IFSM ${fiche.local_id ?? ''}`.trim(), departement ? versTitreCase(departement) : '', premiereVictimeNom || ''].filter(
-    Boolean
-  )
-  return morceaux.join(' ')
+  const poste = NOM_POSTE_PAR_SQUAD_CODE[fiche.squad_code] ?? ''
+  return ['IFSM', departement, poste, fiche.local_id ?? ''].filter(Boolean).join(' ')
+}
+
+/** « IFSM <Département> [<Poste>] <n°> <Nom de la victime principale> » — nom du fichier téléchargé. */
+function nomFichierIfsm(fiche, premiereVictimeNom) {
+  return [identifiantIfsm(fiche), premiereVictimeNom || ''].filter(Boolean).join(' ')
 }
 
 // Emoji (drapeaux compris) retirés avant affichage sur le TO — jsPDF ne les rend pas (case vide ou
@@ -216,7 +226,7 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
   const nomDe = sectionNom ? `CRS ${region ?? ''} ${sectionNom}`.replace(/\s+/g, ' ').trim().toUpperCase() : null
   const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - PRÉFECTURE ${prefecture} - CRS ${region}` : null
   const victimes = fiche.victimes ?? []
-  const numeroIfsm = fiche.county ? `IFSM-${fiche.county}-${fiche.local_id}` : `IFSM-${fiche.local_id}`
+  const numeroIfsm = identifiantIfsm(fiche)
 
   return {
     numeroIfsm,
@@ -251,18 +261,18 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       operation: fiche.snosm_type_operation_moyens,
       helicopteres: fiche.snosm_helicopteres,
       ppsm: fiche.snosm_ppsm,
-      // Dépassement horaire signalé entre parenthèses, date + heure de fin de service — décision
-      // utilisateur : cette information doit remonter sur le TO, pas seulement dans la fiche.
-      // Rôle entre parenthèses après le nom (ex. « ALVES (Secouriste) »), dépassement horaire ajouté
-      // à la suite si renseigné — décision utilisateur.
+      // Rôle entre parenthèses après le nom (ex. « CDT DUPONT Jean (Secouriste) ») — le nom porte déjà
+      // son grade (voir avecGradeDepuisNom, FicheSnosm.jsx). Dépassement horaire (date + heure de fin
+      // de service) ajouté à la suite SEULEMENT pour les unités Pyrénées (CRS65/CRS66) — décision
+      // utilisateur, 09/10/2026 : cette mention ne concerne pas les unités Alpes.
       effectifEngage:
         (fiche.effectifs_engages ?? [])
           .filter((e) => e.personne)
           .map((e) => {
             let texte = e.role ? `${e.personne} (${e.role})` : e.personne
-            if (e.depassement_horaire) {
+            if (region === 'PYRÉNÉES' && e.depassement_horaire) {
               const dateHeure = formatDateHeureFinService(e.heure_depassement)
-              texte += dateHeure ? ` (Fin de service à ${dateHeure})` : ' (Fin de service)'
+              texte += dateHeure ? ` (Fin de service : ${dateHeure})` : ' (Fin de service)'
             }
             return texte
           })
@@ -556,9 +566,13 @@ export async function genererPdfDepuisModele(modele) {
   } else {
     modele.victimes.forEach((v, i) => {
       if (i > 0) {
-        page.espace(3.5)
+        // Même écart de part et d'autre du trait séparateur (2 mm avant, 2 mm après) — la 2e identité
+        // (et les suivantes) collait directement sous le trait auparavant (bug remonté par l'utilisateur).
+        page.espace(6)
+        page.y += 2
         doc.setDrawColor(...GRIS_CLAIR)
-        doc.line(MARGE, page.y - 2, page.largeur - MARGE, page.y - 2)
+        doc.line(MARGE, page.y, page.largeur - MARGE, page.y)
+        page.y += 2
       }
       page.champsDoubles([
         ['Statut : ', v.statut],

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { chargerTousSecouristes, chargerToutPersonnel } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
-import { ChampSnosm, ChampCheckbox, ChampDateTime } from './ChampsSnosm'
+import { ChampSnosm, ChampCheckbox, ChampDateTime, MenuFlottant } from './ChampsSnosm'
 import SchemaAvalanche from './SchemaAvalanche'
 import { ICONES_TYPE_AVALANCHE, ICONES_NIVEAU_RISQUE, COULEURS_TAILLE_AVALANCHE } from './IconesAvalanche'
 import {
@@ -68,6 +68,7 @@ import {
   listerEffectifsEngages,
   chargerReferentiels,
   chargerCosTelephonisteDuJour,
+  chargerDestinationsEvac,
 } from '../../lib/registre'
 import { construireModeleTO, genererPdfDepuisModele, nomFichierTO } from '../../lib/telegrammeTO'
 
@@ -455,7 +456,7 @@ const GROUPES_IMPLIQUE = [
   [
     { cle: 'snosm_demeurant', label: 'Demeurant', icone: <IconeMaison /> },
     { cle: 'snosm_code_postal', label: 'Code postal' },
-    { cle: 'snosm_commune', label: 'Commune' },
+    { cle: 'snosm_commune', label: 'Commune', type: 'commune-code-postal' },
     { cle: 'snosm_pays', label: 'Pays', type: 'liste', options: OPTIONS_PAYS, pleineLargeur: false },
     { cle: 'telephone', label: 'Téléphone', icone: <IconeTelephone /> },
   ],
@@ -477,7 +478,7 @@ const GROUPES_IMPLIQUE = [
     { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   ],
   [
-    { cle: 'snosm_destination', label: 'Destination', icone: <IconeMaison /> },
+    { cle: 'snosm_destination', label: 'Destination', type: 'destination', icone: <IconeMaison /> },
     { cle: 'snosm_fin_prise_en_charge_le', label: 'Heure fin de prise en charge', type: 'datetime' },
   ],
 ]
@@ -654,6 +655,13 @@ function brouillonUneVictimeDepuis(v) {
   return bv
 }
 
+/** Sans accents/casse — pour comparer un nom Cim'Alerte/Track-Alerte (texte libre) à un nom d'annuaire. */
+const normaliseNom = (s) =>
+  (s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+
 function brouillonVictimesDepuis(fiche) {
   const bv = {}
   for (const v of fiche.victimes ?? []) bv[v.id] = brouillonUneVictimeDepuis(v)
@@ -715,22 +723,25 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   // id annuaire (uuid, secouriste_id de effectifs_mc) -> "Nom Prenom" — pour afficher le nom complet
   // des puces "Effectif du jour" (effectifs_mc.nom ne porte parfois que le nom de famille).
   const [personnelParId, setPersonnelParId] = useState(new Map())
+  // Nom brut (sans grade, tel que connu de Track-Alerte) -> libellé avec grade — pour préfixer
+  // automatiquement le grade des secouristes engagés récupérés de Track-Alerte (fiche.team), qui
+  // n'arrivent eux qu'en texte brut, sans grade (décision utilisateur, 09/10/2026 : toujours afficher
+  // le grade, pas seulement quand on resélectionne depuis le menu déroulant).
+  const [secouristesParNom, setSecouristesParNom] = useState(new Map())
   useEffect(() => {
-    const normalise = (s) =>
-      (s ?? '')
-        .normalize('NFD')
-        .replace(/[̀-ͯ]/g, '')
-        .toUpperCase()
-    const sectionCible = normalise(sectionNom)
+    const sectionCible = normaliseNom(sectionNom)
     const trierSectionDabord = (liste) => {
       const vus = new Set()
       const dedoublonnes = liste.filter((s) => (vus.has(s.libelle) ? false : vus.add(s.libelle)))
-      const memeSection = dedoublonnes.filter((s) => normalise(s.section) === sectionCible)
-      const autres = dedoublonnes.filter((s) => normalise(s.section) !== sectionCible)
+      const memeSection = dedoublonnes.filter((s) => normaliseNom(s.section) === sectionCible)
+      const autres = dedoublonnes.filter((s) => normaliseNom(s.section) !== sectionCible)
       return [...memeSection, ...autres].map((s) => s.libelle)
     }
     chargerTousSecouristes(codesRequete)
-      .then((liste) => setSecouristes(trierSectionDabord(liste)))
+      .then((liste) => {
+        setSecouristes(trierSectionDabord(liste))
+        setSecouristesParNom(new Map(liste.map((s) => [normaliseNom(s.nom), s.libelle])))
+      })
       .catch(() => {})
     chargerToutPersonnel(codesRequete)
       .then((liste) => {
@@ -739,6 +750,16 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       })
       .catch(() => {})
   }, [sectionNom, codesRequete])
+  /** Nom Track-Alerte (brut) -> libellé avec grade s'il est connu de l'annuaire, sinon tel quel. */
+  const avecGradeDepuisNom = (nom) => secouristesParNom.get(normaliseNom(nom)) ?? nom
+  // Destinations d'évacuation proposées en suggestion (champ Destination, onglet Impliqué) — table
+  // Supabase partagée, propre à la section (voir chargerDestinationsEvac, registre.js).
+  const [destinationsEvac, setDestinationsEvac] = useState([])
+  useEffect(() => {
+    chargerDestinationsEvac(fiche.squad_code)
+      .then(setDestinationsEvac)
+      .catch(() => {})
+  }, [fiche.squad_code])
   // Effectif de permanence du poste, le jour de l'intervention (COS, téléphoniste/permanencier…) —
   // pour ajouter rapidement à l'Effectif CRS Engagé sans ressaisir un nom déjà connu.
   const [effectifJour, setEffectifJour] = useState([])
@@ -809,7 +830,17 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     })
   }
 
-  /** Ajoute un impliqué saisi à la main (champs vierges) — pas connu de Cim'Alerte, ex. un témoin
+  // Identifiant de la victime qu'on vient d'ajouter — sert juste à y faire défiler la vue une fois
+  // (décision utilisateur : l'affichage restait sur le bouton "+ Ajouter un impliqué", la nouvelle
+  // carte apparaissait hors écran sans qu'on la voie).
+  const [victimeAjouteeId, setVictimeAjouteeId] = useState(null)
+  useEffect(() => {
+    if (!victimeAjouteeId) return
+    document.getElementById(`carte-victime-${victimeAjouteeId}`)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    setVictimeAjouteeId(null)
+  }, [victimeAjouteeId])
+
+  /** Ajoute un impliqué saisi à la main (champs vierges) — pas connu de Track-Alerte, ex. un témoin
    * arrivé sur place et jamais remonté par l'appli mobile. Créé tout de suite côté Grist (même
    * logique que + Ajouter un effectif), pas seulement en local le temps d'un futur Enregistrer. */
   async function ajouterImplique() {
@@ -819,6 +850,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       const victimeVide = { id, local_id: prochainNumero }
       onFicheMaj((f) => ({ ...f, victimes: [...(f.victimes ?? []), victimeVide] }))
       setBrouillonVictimes((b) => ({ ...(b ?? {}), [id]: brouillonUneVictimeDepuis(victimeVide) }))
+      setVictimeAjouteeId(id)
     } catch (e) {
       setErreur(e.message)
     }
@@ -918,7 +950,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     const fenetre = window.open('', '_blank')
     try {
       const ficheAJour = await sauvegarderBrouillon()
-      const modele = construireModeleTO(ficheAJour, { sectionNom })
+      // effectifs (état local, tenu à jour par rafraichirEffectifs à chaque ajout/modif/suppression)
+      // plutôt que ficheAJour.effectifs_engages, qui peut être périmé ou vide selon la façon dont la
+      // fiche a été chargée au départ — sans ça, l'effectif CRS engagé pouvait manquer entièrement du
+      // TO généré alors qu'il s'affichait bien dans l'onglet Moyens engagés (bug remonté par l'utilisateur).
+      const modele = construireModeleTO({ ...ficheAJour, effectifs_engages: effectifs }, { sectionNom })
       const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
       await modifierIntervention(fiche.id, codesRequete, champs)
       onFicheMaj((f) => ({ ...f, ...champs }))
@@ -961,11 +997,49 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     await ajouterLigneEffectif(roleSnosmDepuis(entree.role), nomComplet)
   }
 
-  /** Secouristes engagés sur CETTE intervention côté Cim'Alerte (fiche.team) — pas de rôle connu, Secouriste par défaut. */
+  /** Secouristes engagés sur CETTE intervention côté Track-Alerte (fiche.team) — pas de rôle connu,
+   * Secouriste par défaut. Le nom brut Track-Alerte n'a jamais de grade : on le résout ici via
+   * l'annuaire (voir avecGradeDepuisNom) avant d'enregistrer, pour qu'une ligne ajoutée depuis l'équipe
+   * porte toujours le grade comme une ligne choisie à la main dans le menu déroulant. */
   async function ajouterDepuisEquipe(nom) {
-    if (effectifs.some((e) => e.personne === nom)) return
-    await ajouterLigneEffectif('Secouriste', nom)
+    const nomAvecGrade = avecGradeDepuisNom(nom)
+    if (effectifs.some((e) => normaliseNom(e.personne) === normaliseNom(nomAvecGrade) || normaliseNom(e.personne) === normaliseNom(nom))) return
+    await ajouterLigneEffectif('Secouriste', nomAvecGrade)
   }
+
+  /** Ajoute automatiquement, dès l'ouverture de la fiche, les secouristes engagés connus de
+   * Track-Alerte (fiche.team) comme lignes d'effectif — plus besoin de cliquer une bulle une par une
+   * (décision utilisateur, 09/10/2026). N'attend que secouristesParNom soit chargé pour que le grade
+   * soit résolu dès l'ajout, pas seulement après une resélection manuelle. */
+  useEffect(() => {
+    if (verrouillee || !fiche.team?.length || secouristesParNom.size === 0) return
+    let annule = false
+    async function ajouterManquants() {
+      const dejaPresents = new Set(effectifs.map((e) => normaliseNom(e.personne)))
+      for (const nom of fiche.team) {
+        if (annule) return
+        const nomAvecGrade = avecGradeDepuisNom(nom)
+        if (dejaPresents.has(normaliseNom(nomAvecGrade)) || dejaPresents.has(normaliseNom(nom))) continue
+        dejaPresents.add(normaliseNom(nomAvecGrade))
+        try {
+          await ajouterEffectifEngage(fiche.id, codesRequete, {
+            role: 'Secouriste',
+            personne: nomAvecGrade,
+            depassement_horaire: false,
+            heure_depassement: null,
+          })
+        } catch {
+          // Une ligne qui échoue à s'ajouter automatiquement reste ajoutable à la main ensuite.
+        }
+      }
+      if (!annule) await rafraichirEffectifs()
+    }
+    ajouterManquants()
+    return () => {
+      annule = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fiche.team, fiche.id, codesRequete, secouristesParNom, verrouillee])
 
   async function majEffectif(id, champs) {
     try {
@@ -1040,9 +1114,12 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
             )}
             <div className="section-fiche">
               <h4>Effectif CRS engagé</h4>
+              {/* Ajoutés automatiquement dans le tableau ci-dessous dès l'ouverture de la fiche (voir
+                  l'effet ci-dessus) — ces bulles ne servent plus qu'à réajouter un secouriste retiré
+                  par erreur, sans avoir à retaper son nom. */}
               {fiche.team?.length > 0 && (
                 <div className="effectif-jour-snosm">
-                  <span className="etiquette-effectif-jour-snosm">Secouristes engagés (Cim'Alerte) — cliquer pour ajouter :</span>
+                  <span className="etiquette-effectif-jour-snosm">Secouristes engagés (Track-Alerte) — cliquer pour réajouter si retiré :</span>
                   {fiche.team.map((nom) => (
                     <button
                       type="button"
@@ -1203,7 +1280,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 ? brouillonFiche.snosm_avalanche || brouillonVictimes[v.id]?.snosm_victime_avalanche
                 : fiche.snosm_avalanche || v.snosm_victime_avalanche
               return (
-                <div className="carte-victime" key={v.id}>
+                <div className="carte-victime" key={v.id} id={`carte-victime-${v.id}`}>
                   <div className="entete-carte-victime">
                     <IconePersonneVictime />
                     <strong>Impliqué(e) {v.local_id ?? ''}</strong>
@@ -1215,11 +1292,13 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                           description={CHAMP_STATUT_IMPLIQUE}
                           valeur={brouillonVictimes[v.id]?.snosm_statut}
                           onChange={(val) => majChampVictime(v.id, 'snosm_statut', val)}
+                          idPrefix={v.id}
                         />
                         <ChampSnosm
                           description={CHAMP_VICTIME_AVALANCHE}
                           valeur={brouillonVictimes[v.id]?.snosm_victime_avalanche}
                           onChange={(val) => majChampVictime(v.id, 'snosm_victime_avalanche', val)}
+                          idPrefix={v.id}
                         />
                       </div>
                       {GROUPES_IMPLIQUE.map((groupe, i) => (
@@ -1231,6 +1310,8 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                               valeur={brouillonVictimes[v.id]?.[c.cle]}
                               onChange={(val) => majChampVictime(v.id, c.cle, val)}
                               brouillon={brouillonVictimes[v.id]}
+                              idPrefix={v.id}
+                              destinations={destinationsEvac}
                             />
                           ))}
                         </div>
@@ -1246,6 +1327,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                                 valeur={brouillonVictimes[v.id]?.[c.cle]}
                                 onChange={(val) => majChampVictime(v.id, c.cle, val)}
                                 brouillon={brouillonVictimes[v.id]}
+                                idPrefix={v.id}
                               />
                             ))}
                           </div>
@@ -1403,12 +1485,13 @@ function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes 
   // était avant le clic (fermeture de closure figée sur l'ancien rendu) et écraserait
   // la sélection avec le texte tapé juste avant — une vraie régression déjà observée.
   const selectionViaSuggestionRef = useRef(false)
+  const ancreRef = useRef(null)
   const filtre = personne.trim().toLowerCase()
   const suggestions = (filtre ? (secouristes ?? []).filter((s) => s.toLowerCase().includes(filtre)) : secouristes ?? []).slice(0, 8)
 
   return (
     <div className="ligne-effectif-snosm">
-      <div className="champ-personne-effectif-snosm">
+      <div className="champ-personne-effectif-snosm" ref={ancreRef}>
         <input
           type="text"
           placeholder="Personne"
@@ -1429,24 +1512,22 @@ function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes 
             if (personne !== effectif.personne) onMaj(effectif.id, { personne })
           }}
         />
-        {ouvert && suggestions.length > 0 && (
-          <ul className="suggestions-autocomplete-snosm">
-            {suggestions.map((s) => (
-              <li key={s}>
-                <button
-                  type="button"
-                  onMouseDown={() => {
-                    selectionViaSuggestionRef.current = true
-                    setPersonne(s)
-                    onMaj(effectif.id, { personne: s })
-                  }}
-                >
-                  {s}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <MenuFlottant ancreRef={ancreRef} ouvert={ouvert && suggestions.length > 0}>
+          {suggestions.map((s) => (
+            <li key={s}>
+              <button
+                type="button"
+                onMouseDown={() => {
+                  selectionViaSuggestionRef.current = true
+                  setPersonne(s)
+                  onMaj(effectif.id, { personne: s })
+                }}
+              >
+                {s}
+              </button>
+            </li>
+          ))}
+        </MenuFlottant>
       </div>
       <select value={effectif.role ?? ''} disabled={verrouillee} onChange={(e) => onMaj(effectif.id, { role: e.target.value })}>
         <option value="">Rôle —</option>
