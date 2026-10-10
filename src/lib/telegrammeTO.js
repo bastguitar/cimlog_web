@@ -566,13 +566,19 @@ export async function genererPdfDepuisModele(modele) {
   } else {
     modele.victimes.forEach((v, i) => {
       if (i > 0) {
-        // Même écart de part et d'autre du trait séparateur (2 mm avant, 2 mm après) — la 2e identité
-        // (et les suivantes) collait directement sous le trait auparavant (bug remonté par l'utilisateur).
-        page.espace(6)
+        // Même écart VISUEL de part et d'autre du trait séparateur — pas le même nombre de mm de part
+        // et d'autre : jsPDF positionne le texte par sa ligne de base (le texte "monte" au-dessus de
+        // son y), alors que la ligne elle-même est tracée exactement à son y. Avancer `y` de la même
+        // valeur avant et après donnait donc un vrai espace visuel au-dessus du trait (entre le bas du
+        // texte précédent et le trait) mais quasi aucun en dessous (le haut du texte suivant touchait
+        // presque le trait, son corps remontant au-dessus de sa ligne de base) — corrigé en avançant
+        // davantage après le trait pour compenser cette remontée (bug remonté par l'utilisateur, capture
+        // à l'appui, après un premier correctif qui n'avait égalisé que les mm, pas le rendu visuel).
+        page.espace(8)
         page.y += 2
         doc.setDrawColor(...GRIS_CLAIR)
         doc.line(MARGE, page.y, page.largeur - MARGE, page.y)
-        page.y += 2
+        page.y += 4.5
       }
       page.champsDoubles([
         ['Statut : ', v.statut],
