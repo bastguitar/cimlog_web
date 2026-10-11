@@ -20,7 +20,13 @@ const classeVide = (vide) => (vide ? ' champ-vide-snosm' : '')
  * "Circonstances", un `<select>` natif que le navigateur affiche toujours par-dessus tout le reste).
  * Bascule au-dessus du champ s'il n'y a pas assez de place en dessous, comme un menu natif.
  */
-function useMenuFlottant(ref, ouvert) {
+/**
+ * `largeurFixe` : pour un petit bouton-ancre (ex. BoutonInfo, 15px de large), reprendre la largeur de
+ * l'ancre comme pour un champ de saisie donnerait un popover large de 15px (bug remonté par
+ * l'utilisateur, capture à l'appui — une simple bande verticale avec un ascenseur, quasi invisible).
+ * `left` est aussi borné pour ne jamais déborder à droite de la fenêtre dans ce cas.
+ */
+function useMenuFlottant(ref, ouvert, largeurFixe) {
   const [style, setStyle] = useState(null)
   useEffect(() => {
     if (!ouvert || !ref.current) {
@@ -30,13 +36,15 @@ function useMenuFlottant(ref, ouvert) {
     const recalculer = () => {
       if (!ref.current) return
       const r = ref.current.getBoundingClientRect()
+      const largeur = largeurFixe ?? r.width
       const espaceBas = window.innerHeight - r.bottom
       const espaceHaut = r.top
       const versHaut = espaceBas < 220 && espaceHaut > espaceBas
+      const left = Math.max(12, Math.min(r.left, window.innerWidth - largeur - 12))
       setStyle({
         position: 'fixed',
-        left: r.left,
-        width: r.width,
+        left,
+        width: largeur,
         zIndex: 10000,
         ...(versHaut ? { bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }),
       })
@@ -48,7 +56,7 @@ function useMenuFlottant(ref, ouvert) {
       window.removeEventListener('scroll', recalculer, true)
       window.removeEventListener('resize', recalculer)
     }
-  }, [ouvert, ref])
+  }, [ouvert, ref, largeurFixe])
   return style
 }
 
@@ -74,7 +82,7 @@ export function BoutonInfo({ titre, children }) {
   const [ouvert, setOuvert] = useState(false)
   const ancreRef = useRef(null)
   const popoverRef = useRef(null)
-  const style = useMenuFlottant(ancreRef, ouvert)
+  const style = useMenuFlottant(ancreRef, ouvert, 340)
 
   useEffect(() => {
     if (!ouvert) return
