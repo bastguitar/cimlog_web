@@ -2565,7 +2565,7 @@ main > * {
      plus s'étirer pour "pousser" la rosace tout à droite — ça laissait un grand vide entre les deux
      (bug remonté par l'utilisateur, capture à l'appui). */
   justify-content: flex-start;
-  gap: 18px;
+  gap: 48px;
   flex-wrap: wrap;
   margin-top: 10px;
 }
@@ -2791,7 +2791,10 @@ main > * {
   margin-left: 5px;
   border-radius: 50%;
   border: none;
-  background: var(--accent);
+  /* --rouge-alerte, pas --accent : dans .onglet-snosm-racine (formulaire SNOSM), --accent est
+     redéfini en bleu (voir plus haut dans ce fichier) -- ce bouton doit rester rouge quoi qu'il
+     arrive (décision utilisateur explicite). */
+  background: var(--rouge-alerte);
   color: #fff;
   font-size: 10px;
   font-style: italic;

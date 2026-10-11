@@ -10,6 +10,10 @@
   --border: #dde3ec;
   --accent: #b6242c;
   --accent-bg: rgba(182, 36, 44, 0.08);
+  /* Rouge fixe, insensible à la redéfinition de --accent en bleu dans .onglet-snosm-racine (voir
+     App.css) — pour les rares endroits qui doivent rester rouge même dans le formulaire SNOSM
+     (ex. bouton d'aide, décision utilisateur : "visible en rouge", pas le bleu du thème SNOSM). */
+  --rouge-alerte: #b6242c;
   --chaleur: #3b5a82;
   --chaleur-bg: rgba(59, 90, 130, 0.1);
   --chaleur-clair: #6f8fb3;
@@ -42,6 +46,7 @@
     --border: #2c3644;
     --accent: #e5646b;
     --accent-bg: rgba(229, 100, 107, 0.13);
+    --rouge-alerte: #e5646b;
     --chaleur: #7ea1c9;
     --chaleur-bg: rgba(126, 161, 201, 0.16);
     --chaleur-clair: #5b7ca3;
