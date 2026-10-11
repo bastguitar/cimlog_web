@@ -64,6 +64,57 @@ export function MenuFlottant({ ancreRef, ouvert, children }) {
   )
 }
 
+/**
+ * Petit bouton d'aide (« i ») affichant une explication au clic — ex. la classification officielle
+ * des tailles d'avalanche (SLF), pour aider un secouriste qui ne connaît pas bien la catégorisation
+ * (décision utilisateur, 11/10/2026). Même mécanisme de positionnement que MenuFlottant (portail +
+ * `position: fixed`), pour ne jamais être coupé par le bas de la fiche ; se ferme au clic en dehors.
+ */
+export function BoutonInfo({ titre, children }) {
+  const [ouvert, setOuvert] = useState(false)
+  const ancreRef = useRef(null)
+  const popoverRef = useRef(null)
+  const style = useMenuFlottant(ancreRef, ouvert)
+
+  useEffect(() => {
+    if (!ouvert) return
+    const surClicExterieur = (e) => {
+      if (ancreRef.current?.contains(e.target) || popoverRef.current?.contains(e.target)) return
+      setOuvert(false)
+    }
+    document.addEventListener('mousedown', surClicExterieur)
+    return () => document.removeEventListener('mousedown', surClicExterieur)
+  }, [ouvert])
+
+  return (
+    <>
+      <button
+        type="button"
+        className="bouton-info-snosm"
+        ref={ancreRef}
+        onClick={() => setOuvert((o) => !o)}
+        aria-label={`Aide : ${titre}`}
+      >
+        i
+      </button>
+      {ouvert &&
+        style &&
+        createPortal(
+          <div className="popover-info-snosm" style={style} ref={popoverRef}>
+            <div className="popover-info-snosm-entete">
+              <strong>{titre}</strong>
+              <button type="button" onClick={() => setOuvert(false)} aria-label="Fermer">
+                ×
+              </button>
+            </div>
+            <div className="popover-info-snosm-corps">{children}</div>
+          </div>,
+          document.body
+        )}
+    </>
+  )
+}
+
 export function ChampTexte({ label, valeur, onChange, icone, classe }) {
   return (
     <div className={`detail-fiche-edition${classe ? ' ' + classe : ''}${classeVide(!valeur)}`}>
@@ -361,11 +412,14 @@ export function ChampBulles({ label, valeur, onChange, options, avecFleche = fal
  * l'utilisateur. `<input type="range">` natif (drag + clic + flèches clavier) posé sur une piste
  * dégradée ; les graduations en dessous restent cliquables directement (pas besoin de faire glisser).
  */
-export function ChampEchelle({ label, valeur, onChange, options, couleurs }) {
+export function ChampEchelle({ label, valeur, onChange, options, couleurs, info }) {
   const index = options.indexOf(valeur)
   return (
     <div className="detail-fiche-edition detail-pleine-largeur champ-echelle-snosm">
-      <span className="etiquette-detail-fiche">{label}</span>
+      <span className="etiquette-detail-fiche">
+        {label}
+        {info && <BoutonInfo titre={label}>{info}</BoutonInfo>}
+      </span>
       <div className="piste-echelle-snosm" style={{ backgroundImage: `linear-gradient(to right, ${couleurs.join(', ')})` }}>
         <input
           type="range"
@@ -760,7 +814,17 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, destina
   if (type === 'bulles')
     return <ChampBulles label={label} valeur={valeur} onChange={onChange} options={options} avecFleche={description.avecFleche} />
   if (type === 'cases-multiples') return <ChampCasesMultiples label={label} valeur={valeur} onChange={onChange} options={options} />
-  if (type === 'echelle') return <ChampEchelle label={label} valeur={valeur} onChange={onChange} options={options} couleurs={description.couleurs} />
+  if (type === 'echelle')
+    return (
+      <ChampEchelle
+        label={label}
+        valeur={valeur}
+        onChange={onChange}
+        options={options}
+        couleurs={description.couleurs}
+        info={description.info}
+      />
+    )
   if (type === 'texte-unite') return <ChampTexteUnite label={label} valeur={valeur} onChange={onChange} unite={description.unite} />
   if (type === 'orientation') return <ChampOrientation label={label} valeur={valeur} onChange={onChange} />
   if (type === 'repliable')

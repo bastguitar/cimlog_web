@@ -2711,6 +2711,102 @@ main > * {
   font-weight: 600;
 }
 
+.bouton-info-snosm {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 15px;
+  height: 15px;
+  margin-left: 5px;
+  border-radius: 50%;
+  border: 1px solid var(--border);
+  background: var(--bg-alt);
+  color: var(--text);
+  font-size: 10px;
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0;
+  vertical-align: middle;
+}
+
+.bouton-info-snosm:hover {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border-color: var(--accent);
+}
+
+.popover-info-snosm {
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  max-height: 60vh;
+  overflow-y: auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow);
+  padding: 10px 12px;
+}
+
+.popover-info-snosm-entete {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 6px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.popover-info-snosm-entete strong {
+  font-size: 13px;
+  color: var(--text-h);
+}
+
+.popover-info-snosm-entete button {
+  border: none;
+  background: none;
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0 2px;
+}
+
+.popover-info-snosm-corps {
+  font-size: 12px;
+  color: var(--text-h);
+}
+
+.info-taille-avalanche-snosm dl {
+  margin: 0;
+}
+
+.info-taille-avalanche-snosm dt {
+  font-weight: 600;
+  margin-top: 8px;
+}
+
+.info-taille-avalanche-snosm dt:first-child {
+  margin-top: 0;
+}
+
+.info-taille-avalanche-snosm dd {
+  margin: 2px 0 0;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.info-taille-avalanche-source {
+  margin: 10px 0 0;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+  font-size: 11px;
+  font-style: italic;
+  color: var(--text);
+}
+
 .champ-orientation-snosm {
   display: block;
   width: 100%;

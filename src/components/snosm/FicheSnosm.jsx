@@ -319,12 +319,37 @@ const CHAMPS_AVALANCHE_NIVEAU_TYPE = [
   { cle: 'snosm_avalanche_niveau_risque', label: 'Niveau de risque', type: 'radio', options: OPTIONS_NIVEAU_RISQUE, icones: ICONES_NIVEAU_RISQUE },
   { cle: 'snosm_avalanche_type', label: 'Type d’avalanche', type: 'radio', options: OPTIONS_TYPE_AVALANCHE, icones: ICONES_TYPE_AVALANCHE },
 ]
+// Résumé de la classification officielle SLF (Institut suisse pour l'étude de la neige et des
+// avalanches) — demandé par l'utilisateur, 11/10/2026 : les secouristes ne connaissent pas toujours
+// bien la catégorisation, affiché via un petit bouton d'aide à côté du champ (voir BoutonInfo).
+// Source : https://www.slf.ch/fr/bulletin-davalanches-et-situation-nivologique/en-savoir-plus-sur-le-bulletin-davalanches/taille-davalanche/
+const INFO_TAILLE_AVALANCHE = (
+  <div className="info-taille-avalanche-snosm">
+    <dl>
+      <dt>1 — Coulée (petite avalanche)</dt>
+      <dd>Ensevelissement peu probable, sauf terrain piégeux (ravin, rochers) · moins de 50 m de long, environ 100 m³</dd>
+      <dt>2 — Avalanche moyenne</dt>
+      <dd>Peut ensevelir, blesser ou tuer — la majorité des accidents mortels se produisent dans cette catégorie · 50 à 200 m, environ 1 000 m³</dd>
+      <dt>3 — Grande avalanche</dt>
+      <dd>
+        Peut ensevelir et détruire des véhicules, endommager de gros poids lourds, détruire de petits bâtiments, casser des arbres · plusieurs
+        centaines de mètres, environ 10 000 m³
+      </dd>
+      <dt>4 — Très grande avalanche</dt>
+      <dd>Peut détruire des trains, de grands bâtiments et de petites forêts · 1 à 2 km, environ 100 000 m³</dd>
+      <dt>5 — Avalanche exceptionnelle</dt>
+      <dd>Potentiel de destruction catastrophique · plus de 2 km, plus de 100 000 m³</dd>
+    </dl>
+    <p className="info-taille-avalanche-source">Source : SLF (Institut pour l'étude de la neige et des avalanches, Suisse)</p>
+  </div>
+)
 const CHAMP_TAILLE_AVALANCHE = {
   cle: 'snosm_avalanche_taille',
   label: 'Taille d’avalanche',
   type: 'echelle',
   options: OPTIONS_TAILLE_AVALANCHE,
   couleurs: COULEURS_TAILLE_AVALANCHE,
+  info: INFO_TAILLE_AVALANCHE,
 }
 const CHAMP_ORIENTATION_AVALANCHE = { cle: 'snosm_avalanche_orientation', label: 'Orientation', type: 'orientation' }
 const CHAMPS_AVALANCHE_HORAIRES = [
