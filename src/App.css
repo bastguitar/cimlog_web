@@ -2786,13 +2786,13 @@ main > * {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 15px;
-  height: 15px;
+  width: 16px;
+  height: 16px;
   margin-left: 5px;
   border-radius: 50%;
-  border: 1px solid var(--border);
-  background: var(--bg-alt);
-  color: var(--text);
+  border: none;
+  background: var(--accent);
+  color: #fff;
   font-size: 10px;
   font-style: italic;
   font-weight: 700;
@@ -2803,9 +2803,7 @@ main > * {
 }
 
 .bouton-info-snosm:hover {
-  background: var(--accent-bg);
-  color: var(--accent);
-  border-color: var(--accent);
+  filter: brightness(1.12);
 }
 
 .popover-info-snosm {
