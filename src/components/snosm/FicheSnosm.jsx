@@ -327,18 +327,18 @@ const INFO_TAILLE_AVALANCHE = (
   <div className="info-taille-avalanche-snosm">
     <dl>
       <dt>1 — Coulée (petite avalanche)</dt>
-      <dd>Ensevelissement peu probable, sauf terrain piégeux (ravin, rochers) · moins de 50 m de long, environ 100 m³</dd>
+      <dd>Ensevelissement peu probable, sauf terrain piégeux (ravin, rochers) · moins de 50 m de long</dd>
       <dt>2 — Avalanche moyenne</dt>
-      <dd>Peut ensevelir, blesser ou tuer — la majorité des accidents mortels se produisent dans cette catégorie · 50 à 200 m, environ 1 000 m³</dd>
+      <dd>Peut ensevelir, blesser ou tuer — la majorité des accidents mortels se produisent dans cette catégorie · 50 à 200 m de long</dd>
       <dt>3 — Grande avalanche</dt>
       <dd>
         Peut ensevelir et détruire des véhicules, endommager de gros poids lourds, détruire de petits bâtiments, casser des arbres · plusieurs
-        centaines de mètres, environ 10 000 m³
+        centaines de mètres de long
       </dd>
       <dt>4 — Très grande avalanche</dt>
-      <dd>Peut détruire des trains, de grands bâtiments et de petites forêts · 1 à 2 km, environ 100 000 m³</dd>
+      <dd>Peut détruire des trains, de grands bâtiments et de petites forêts · 1 à 2 km de long</dd>
       <dt>5 — Avalanche exceptionnelle</dt>
-      <dd>Potentiel de destruction catastrophique · plus de 2 km, plus de 100 000 m³</dd>
+      <dd>Potentiel de destruction catastrophique · plus de 2 km de long</dd>
     </dl>
     <p className="info-taille-avalanche-source">Source : SLF (Institut pour l'étude de la neige et des avalanches, Suisse)</p>
   </div>
