@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { chargerTousSecouristes, chargerToutPersonnel } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
-import { ChampSnosm, ChampCheckbox, ChampDateTime, MenuFlottant } from './ChampsSnosm'
+import { ChampSnosm, ChampDateTime, MenuFlottant } from './ChampsSnosm'
 import SchemaAvalanche from './SchemaAvalanche'
 import { ICONES_TYPE_AVALANCHE, ICONES_NIVEAU_RISQUE, COULEURS_TAILLE_AVALANCHE } from './IconesAvalanche'
 import {
@@ -1240,44 +1240,57 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
         {sousOnglet === 'avalanche' && (
           <div className="section-fiche">
-            <h4>Avalanche</h4>
             {edition ? (
+              // Le formulaire reste visible dès l'ouverture de l'onglet (décision utilisateur,
+              // 11/10/2026), mais les champs restent verrouillés (grisés, non interactifs) tant que la
+              // bascule "Avalanche" n'est pas activée — remplace l'ancienne case à cocher qui masquait
+              // tout le formulaire : on voit maintenant ce qui serait demandé, sans pouvoir le remplir
+              // par erreur sur une intervention sans avalanche.
               <>
-                <ChampCheckbox label="Avalanche" valeur={brouillonFiche.snosm_avalanche} onChange={(v) => majChampFiche('snosm_avalanche', v)} />
-                {brouillonFiche.snosm_avalanche && (
-                  <>
-                    <div className="grille-details-fiche" style={{ marginTop: 10 }}>
-                      {CHAMPS_AVALANCHE_NIVEAU_TYPE.map((c) => (
-                        <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
-                      ))}
+                <label className="bascule-avalanche-snosm">
+                  <input
+                    type="checkbox"
+                    checked={Boolean(brouillonFiche.snosm_avalanche)}
+                    onChange={(e) => majChampFiche('snosm_avalanche', e.target.checked)}
+                  />
+                  <span className="bascule-avalanche-snosm-piste" aria-hidden="true" />
+                  <span className="bascule-avalanche-snosm-texte">Avalanche</span>
+                </label>
+                <div
+                  className={`champs-avalanche-snosm${brouillonFiche.snosm_avalanche ? '' : ' champs-avalanche-snosm-verrouilles'}`}
+                  aria-disabled={!brouillonFiche.snosm_avalanche}
+                >
+                  <div className="grille-details-fiche" style={{ marginTop: 10 }}>
+                    {CHAMPS_AVALANCHE_NIVEAU_TYPE.map((c) => (
+                      <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
+                    ))}
+                  </div>
+                  <div className="schemas-avalanche-cote-a-cote">
+                    <SchemaAvalanche valeurs={brouillonFiche} onChange={majChampFiche} />
+                    <div className="schemas-avalanche-colonne">
+                      <ChampSnosm
+                        description={CHAMP_ORIENTATION_AVALANCHE}
+                        valeur={brouillonFiche.snosm_avalanche_orientation}
+                        onChange={(v) => majChampFiche('snosm_avalanche_orientation', v)}
+                      />
+                      <ChampSnosm
+                        description={CHAMP_TAILLE_AVALANCHE}
+                        valeur={brouillonFiche.snosm_avalanche_taille}
+                        onChange={(v) => majChampFiche('snosm_avalanche_taille', v)}
+                      />
                     </div>
-                    <div className="schemas-avalanche-cote-a-cote">
-                      <SchemaAvalanche valeurs={brouillonFiche} onChange={majChampFiche} />
-                      <div className="schemas-avalanche-colonne">
-                        <ChampSnosm
-                          description={CHAMP_ORIENTATION_AVALANCHE}
-                          valeur={brouillonFiche.snosm_avalanche_orientation}
-                          onChange={(v) => majChampFiche('snosm_avalanche_orientation', v)}
-                        />
-                        <ChampSnosm
-                          description={CHAMP_TAILLE_AVALANCHE}
-                          valeur={brouillonFiche.snosm_avalanche_taille}
-                          onChange={(v) => majChampFiche('snosm_avalanche_taille', v)}
-                        />
-                      </div>
-                    </div>
-                    <div className="grille-details-fiche" style={{ marginTop: 10 }}>
-                      {CHAMPS_AVALANCHE_HORAIRES.map((c) => (
-                        <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
-                      ))}
-                    </div>
-                    <div className="grille-details-fiche" style={{ marginTop: 10 }}>
-                      {CHAMPS_AVALANCHE_BILAN.map((c) => (
-                        <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
-                      ))}
-                    </div>
-                  </>
-                )}
+                  </div>
+                  <div className="grille-details-fiche" style={{ marginTop: 10 }}>
+                    {CHAMPS_AVALANCHE_HORAIRES.map((c) => (
+                      <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
+                    ))}
+                  </div>
+                  <div className="grille-details-fiche" style={{ marginTop: 10 }}>
+                    {CHAMPS_AVALANCHE_BILAN.map((c) => (
+                      <ChampSnosm key={c.cle} description={c} valeur={brouillonFiche[c.cle]} onChange={(v) => majChampFiche(c.cle, v)} />
+                    ))}
+                  </div>
+                </div>
               </>
             ) : fiche.snosm_avalanche ? (
               <>

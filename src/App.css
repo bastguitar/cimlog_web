@@ -2561,14 +2561,20 @@ main > * {
 .schemas-avalanche-cote-a-cote {
   display: flex;
   align-items: flex-start;
-  justify-content: space-between;
+  /* flex-start plutôt que space-between : le schéma (flex-grow désactivé juste en dessous) ne doit
+     plus s'étirer pour "pousser" la rosace tout à droite — ça laissait un grand vide entre les deux
+     (bug remonté par l'utilisateur, capture à l'appui). */
+  justify-content: flex-start;
   gap: 18px;
   flex-wrap: wrap;
   margin-top: 10px;
 }
 
 .schemas-avalanche-cote-a-cote .schema-avalanche-snosm {
-  flex: 1 1 380px;
+  /* flex-grow à 0 (pas 1) : sans ça, ce bloc s'étirait bien au-delà de la largeur réelle du dessin
+     (plafonnée à 460px par .schema-avalanche-snosm plus haut), laissant un vide entre le schéma
+     visible et la rosace Orientation à sa droite. */
+  flex: 0 1 380px;
   margin: 0;
 }
 
@@ -2577,6 +2583,71 @@ main > * {
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/* Remplace l'ancienne case à cocher "Avalanche" — en haut de l'onglet, active/désactive la saisie
+   dans le reste du formulaire (décision utilisateur, 11/10/2026). */
+.bascule-avalanche-snosm {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 4px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-h);
+  cursor: pointer;
+  user-select: none;
+}
+
+.bascule-avalanche-snosm input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.bascule-avalanche-snosm-piste {
+  position: relative;
+  width: 38px;
+  height: 22px;
+  flex-shrink: 0;
+  border-radius: 11px;
+  background: var(--border);
+  transition: background 0.15s ease;
+}
+
+.bascule-avalanche-snosm-piste::before {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+  transition: transform 0.15s ease;
+}
+
+.bascule-avalanche-snosm input:checked + .bascule-avalanche-snosm-piste {
+  background: var(--accent);
+}
+
+.bascule-avalanche-snosm input:checked + .bascule-avalanche-snosm-piste::before {
+  transform: translateX(16px);
+}
+
+.bascule-avalanche-snosm input:focus-visible + .bascule-avalanche-snosm-piste {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+/* Champs visibles mais grisés et non interactifs tant que la bascule ci-dessus n'est pas activée —
+   montre ce qui serait demandé sans pouvoir le remplir par erreur sur une intervention sans avalanche. */
+.champs-avalanche-snosm-verrouilles {
+  opacity: 0.45;
+  pointer-events: none;
+  filter: grayscale(0.4);
 }
 
 .champ-texte-unite-snosm {
