@@ -1751,6 +1751,107 @@ main > * {
   color: color-mix(in srgb, var(--text) 65%, var(--bg-alt));
 }
 
+/* ------------------------------------------------------------------------------------------------
+   Registre — habillage sobre (octobre 2026, décision utilisateur) : même disposition, mêmes
+   colonnes, mêmes fonctions ; seuls les styles changent. Semaines et jours deviennent de simples
+   repères discrets au lieu de bandeaux colorés, les lignes respirent davantage, les séparateurs
+   s'allègent. Limité à .liste-registre / .tableau-registre pour ne rien changer ailleurs.
+   ------------------------------------------------------------------------------------------------ */
+.liste-registre {
+  --trait-registre: color-mix(in srgb, var(--border) 55%, var(--bg-card));
+  --discret-registre: color-mix(in srgb, var(--text) 55%, var(--bg-card));
+}
+
+.liste-registre .titre-semaine-registre {
+  /* Fond opaque obligatoire : en-tête collant, les lignes défilent dessous. */
+  padding: 14px 16px 6px;
+  background: var(--bg-card);
+  border-bottom: none;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  color: var(--discret-registre);
+  font-variant-numeric: tabular-nums;
+}
+
+.liste-registre > div:first-child .titre-semaine-registre {
+  padding-top: 10px;
+}
+
+.liste-registre .titre-jour-mc {
+  padding: 6px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--trait-registre);
+  color: var(--text-h);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0;
+  /* titreJournee() renvoie « LUNDI 12 OCTOBRE » — ramené à « Lundi 12 octobre », plus calme. */
+  text-transform: lowercase;
+}
+
+.liste-registre .titre-jour-mc::first-letter {
+  text-transform: uppercase;
+}
+
+.liste-registre .tableau-registre td {
+  padding: 11px 12px;
+  border-bottom: 1px solid var(--trait-registre);
+  line-height: 1.45;
+}
+
+.liste-registre .tableau-registre tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.liste-registre .tableau-registre tbody tr:hover {
+  background: color-mix(in srgb, var(--text) 5%, var(--bg-card));
+}
+
+.liste-registre .tableau-registre td:first-child {
+  white-space: nowrap;
+  color: var(--discret-registre);
+  font-variant-numeric: tabular-nums;
+}
+
+.liste-registre .tableau-registre .numero-mc {
+  white-space: nowrap;
+  font-weight: 600;
+  font-size: 12.5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.liste-registre .cellule-activite-registre {
+  font-weight: 500;
+}
+
+/* Liseré TO (rouge = à traiter, vert = généré) : même sens, trait plus fin. */
+.liste-registre .ligne-a-traiter-registre td:first-child {
+  box-shadow: inset 2px 0 0 0 var(--accent);
+}
+
+.liste-registre .ligne-traitee-registre td:first-child {
+  box-shadow: inset 2px 0 0 0 var(--succes);
+}
+
+.liste-registre .bouton-to-registre {
+  border-radius: 999px;
+  border-color: var(--trait-registre);
+  background: transparent;
+}
+
+.liste-registre .bouton-to-registre:hover:not(:disabled) {
+  border-color: var(--border);
+  background: color-mix(in srgb, var(--text) 6%, var(--bg-card));
+}
+
+.tableau-entete-registre th {
+  /* Même marge horizontale que les cellules de .liste-registre : colonnes alignées. */
+  padding: 9px 12px;
+  font-weight: 600;
+  letter-spacing: 0.07em;
+}
+
 .modale-fiche {
   width: 100%;
   max-width: 1240px;

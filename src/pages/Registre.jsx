@@ -161,7 +161,7 @@ export default function Registre({ fSections }) {
         </table>
       )}
 
-      <div className="liste-mc">
+      <div className="liste-mc liste-registre">
         {semaines.map((semaine) => (
           <div key={semaine.cle}>
             <div className="titre-semaine-registre">
