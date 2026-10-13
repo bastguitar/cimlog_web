@@ -23,8 +23,13 @@ export function sansCodePostal(com) {
  * convention NOM (majuscules) Prénom (Section) déjà utilisée côté
  * Cim'Alerte : les mots en tête entièrement en majuscules forment le nom.
  */
+/** « NOM Prénom (UNITE) » -> « NOM Prénom » — Cim'Alerte enregistre un même équipier avec ou sans son unité selon les fiches. */
+export function sansUnite(equipier) {
+  return (equipier ?? '').split(' (')[0].replace(/\s+/g, ' ').trim()
+}
+
 export function nomSeul(equipier) {
-  const sansSection = (equipier ?? '').split(' (')[0].trim()
+  const sansSection = sansUnite(equipier)
   const mots = sansSection.split(' ')
   const nom = []
   for (const mot of mots) {
