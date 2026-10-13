@@ -12,6 +12,8 @@ const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '
 const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
 // Cim'Alerte ne remplit plus accident_type (octobre 2026) : le motif est désormais saisi par victime
 // (victimes.circonstances). On garde accident_type pour les fiches plus anciennes qui le portent.
+// Pastille NON MED : seulement si un moyen a réellement été engagé — sans moyen, médicalisé ou non n'a pas de sens.
+const avecMoyenEngage = (s) => Boolean(s.helicopter?.trim()) && s.helicopter.trim() !== 'Pas de moyens engagés'
 const motifDe = (s) =>
   s.accident_type || [...new Set((s.victimes ?? []).map((v) => v.circonstances?.trim()).filter(Boolean))].join(', ')
 
@@ -203,7 +205,13 @@ export default function Registre({ fSections }) {
                         <td>{pathologiesDe(s) || '—'}</td>
                         <td>
                           {s.helicopter || '—'}
-                          {Boolean(s.is_med) && <span className="pastille-med-registre">MED</span>}
+                          {s.is_med ? (
+                            <span className="pastille-med-registre">MED</span>
+                          ) : (
+                            avecMoyenEngage(s) && (
+                              <span className="pastille-med-registre pastille-non-med-registre">NON MED</span>
+                            )
+                          )}
                         </td>
                         <td>{(s.team ?? []).map(nomSeul).join(', ') || '—'}</td>
                         <td>

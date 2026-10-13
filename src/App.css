@@ -1657,9 +1657,9 @@ main > * {
   width: 9%;
 }
 
-/* Pastille MED — affichée seulement si médicalisé (décision utilisateur : NON-MED n'apporte rien à
-   voir, seul un secours médicalisé mérite d'attirer l'œil). Toujours sur sa propre ligne sous le
-   moyen engagé (colonne étroite, pas la place pour rester sur la même ligne si le libellé est long). */
+/* Pastille MED (rouge) ou NON MED (verte, ajoutée en octobre 2026 à la demande de l'utilisateur —
+   seulement quand un moyen a été engagé). Toujours sur sa propre ligne sous le moyen engagé
+   (colonne étroite, pas la place pour rester sur la même ligne si le libellé est long). */
 .pastille-med-registre {
   display: block;
   width: fit-content;
@@ -1671,6 +1671,11 @@ main > * {
   letter-spacing: 0.03em;
   background: var(--accent-bg);
   color: var(--accent);
+}
+
+.pastille-non-med-registre {
+  background: var(--succes-bg);
+  color: var(--succes);
 }
 
 .tableau-registre .col-equipe-registre {
@@ -1780,9 +1785,10 @@ main > * {
 
 .liste-registre .titre-jour-mc {
   padding: 6px 16px;
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--trait-registre);
-  color: var(--text-h);
+  /* Léger voile bleu du thème, opaque (en-tête collant) — repère visible, loin de l'ancien bandeau plein. */
+  background: color-mix(in srgb, var(--chaleur) 9%, var(--bg-card));
+  border-bottom: 1px solid color-mix(in srgb, var(--chaleur) 18%, var(--bg-card));
+  color: color-mix(in srgb, var(--chaleur) 55%, var(--text-h));
   font-size: 12.5px;
   font-weight: 600;
   letter-spacing: 0;
@@ -1812,6 +1818,12 @@ main > * {
   white-space: nowrap;
   color: var(--discret-registre);
   font-variant-numeric: tabular-nums;
+}
+
+/* Heure et n° restent sur une ligne : sur écran très étroit, rognés plutôt que superposés à la colonne voisine. */
+.liste-registre .tableau-registre td:nth-child(-n + 2) {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .liste-registre .tableau-registre .numero-mc {
