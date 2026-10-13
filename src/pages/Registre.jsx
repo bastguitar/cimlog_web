@@ -10,6 +10,10 @@ import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
+// Cim'Alerte ne remplit plus accident_type (octobre 2026) : le motif est désormais saisi par victime
+// (victimes.circonstances). On garde accident_type pour les fiches plus anciennes qui le portent.
+const motifDe = (s) =>
+  s.accident_type || [...new Set((s.victimes ?? []).map((v) => v.circonstances?.trim()).filter(Boolean))].join(', ')
 
 /** Mêmes colonnes pour l'en-tête fixe et chaque table du jour — colgroup partagé pour un alignement garanti. */
 function colonnesRegistre(multiple) {
@@ -194,7 +198,7 @@ export default function Registre({ fSections }) {
                         <td>{s.lieu || '—'}</td>
                         <td>
                           <div className="cellule-principale-registre cellule-activite-registre">{s.activity || '—'}</div>
-                          {s.accident_type && <div className="cellule-sous-registre">{s.accident_type}</div>}
+                          {motifDe(s) && <div className="cellule-sous-registre">{motifDe(s)}</div>}
                         </td>
                         <td>{pathologiesDe(s) || '—'}</td>
                         <td>
