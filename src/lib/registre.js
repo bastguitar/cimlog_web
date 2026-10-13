@@ -28,6 +28,14 @@ export function sansUnite(equipier) {
   return (equipier ?? '').split(' (')[0].replace(/\s+/g, ' ').trim()
 }
 
+/**
+ * Clé de regroupement d'un équipier : sans unité, sans accents, sans casse. Les fiches importées de
+ * l'ancien logiciel écrivent parfois le même prénom sans accent (« Jerome » / « Jérôme »).
+ */
+export function cleEquipier(equipier) {
+  return sansUnite(equipier).normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase()
+}
+
 export function nomSeul(equipier) {
   const sansSection = sansUnite(equipier)
   const mots = sansSection.split(' ')

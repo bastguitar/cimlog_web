@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { regrouperParSemaine, debutSemaine } from '../lib/semaines'
-import { sansUnite } from '../lib/registre'
+import { sansUnite, cleEquipier } from '../lib/registre'
 
 /** Repéré par le sélecteur « Moyen » — voir estSansMoyen ci-dessous. */
 export const SANS_MOYEN = '__sans_moyen__'
@@ -61,7 +61,9 @@ export function filtrerEvenements(evenements, filtres, recherche = '') {
     if (mot && !correspond(s, mot)) return false
     if (numeroMot && String(s.local_id) !== numeroMot) return false
     if (communeMot && !(s.com ?? '').toLowerCase().includes(communeMot)) return false
-    if (filtres.secouriste && !(s.team ?? []).some((e) => sansUnite(e) === filtres.secouriste)) return false
+    if (filtres.secouriste && !(s.team ?? []).some((e) => cleEquipier(e) === cleEquipier(filtres.secouriste))) {
+      return false
+    }
     if (filtres.activite && s.activity !== filtres.activite) return false
     if (filtres.moyen === SANS_MOYEN) {
       if (!estSansMoyen(s.helicopter)) return false
@@ -89,11 +91,18 @@ export function useFiltresRegistre(evenements) {
 
   const semainesAnnee = useMemo(() => regrouperParSemaine(evenements), [evenements])
   const secouristes = useMemo(
-    // Une seule entrée par équipier, qu'il soit noté « NOM Prénom » ou « NOM Prénom (UNITE) ».
-    () =>
-      [...new Set(evenements.flatMap((s) => (s.team ?? []).map(sansUnite)).filter(Boolean))].sort((a, b) =>
-        a.localeCompare(b, 'fr')
-      ),
+    // Une seule entrée par équipier, qu'il soit noté avec ou sans unité, avec ou sans accents
+    // (cleEquipier) — on affiche la graphie accentuée quand elle existe, plus juste.
+    () => {
+      const parCle = new Map()
+      for (const nom of evenements.flatMap((s) => (s.team ?? []).map(sansUnite)).filter(Boolean)) {
+        const cle = cleEquipier(nom)
+        const actuel = parCle.get(cle)
+        const accents = (n) => n.normalize('NFD').length - n.length
+        if (!actuel || accents(nom) > accents(actuel)) parCle.set(cle, nom)
+      }
+      return [...parCle.values()].sort((a, b) => a.localeCompare(b, 'fr'))
+    },
     [evenements]
   )
   const moyens = useMemo(
