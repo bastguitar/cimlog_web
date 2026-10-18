@@ -1,20 +1,26 @@
 /**
- * Annuaire des personnels — projet Supabase distinct (fllhwnxrisofbgcehnux),
- * repris à l'identique de alerte_secours_web/src/lib/annuaire.js. Interrogé
- * en direct à chaque ouverture du formulaire, jamais recopié dans notre base
- * (mis à jour en permanence par ailleurs).
+ * Annuaire des personnels — jusqu'au 18/10/2026, interrogé en direct à
+ * chaque ouverture de formulaire sur un projet Supabase distinct
+ * (fllhwnxrisofbgcehnux, "Commande matériel"), qui reste la SEULE source
+ * qui écrit — mise à jour par Nico Robert (national matériel) via son
+ * propre outil.
  *
- * ⚠ On ne sélectionne QUE id / nom / prénom / section_id. La table expose
- *   aussi email, password_hash et access_pin : ces colonnes ne doivent
- *   jamais descendre dans le navigateur.
+ * Depuis le 18/10/2026, les LECTURES passent par un miroir restreint sur la
+ * base partagée avec alerte_secours_web (`annuaire_personnel`/
+ * `annuaire_sections_externes`), synchronisé une fois par jour
+ * (`synchroniser_annuaire_personnel`, `postgres_fdw` + `pg_cron`) — l'autre
+ * projet est sur un abonnement gratuit, plus fragile que celui-ci, et les
+ * effectifs changent moins de 3 fois par an : un miroir quotidien suffit
+ * largement, voir alerte_secours_web/src/lib/annuaire.js pour le détail
+ * complet (mise en place identique ici).
+ *
+ * ⚠ Le miroir ne contient QUE id / nom / prénom / type_personnel /
+ *   section_id. La table d'origine expose aussi `email`, `password_hash` et
+ *   `access_pin` : ces colonnes ne sont jamais recopiées ici, et ne doivent
+ *   toujours jamais descendre dans le navigateur.
  */
-import { createClient } from '@supabase/supabase-js'
+import { supabase } from './supabase'
 import { chargerGradesSecouristes } from './registre'
-
-const url = import.meta.env.VITE_ANNUAIRE_URL
-const anonKey = import.meta.env.VITE_ANNUAIRE_ANON_KEY
-
-export const annuaire = url && anonKey ? createClient(url, anonKey, { auth: { persistSession: false } }) : null
 
 // Grade (rang police) de chaque secouriste — demandé par l'utilisateur (02/10/2026) : préfixer le
 // nom partout où un secouriste est proposé/inscrit (Effectif engagé, Rédacteur, Signataire,
@@ -40,11 +46,10 @@ let cacheTous = null
 
 export async function chargerTousSecouristes(codesRequete) {
   if (cacheTous) return cacheTous
-  if (!annuaire) return []
 
   const [personnes, sections, grades] = await Promise.all([
-    annuaire.from('users').select('id, nom, prenom, section_id').eq('type_personnel', 'secouriste'),
-    annuaire.from('sections').select('id, nom'),
+    supabase.from('annuaire_personnel').select('id, nom, prenom, section_id').eq('type_personnel', 'secouriste'),
+    supabase.from('annuaire_sections_externes').select('id, nom'),
     gradesUneFois(codesRequete),
   ])
   if (personnes.error || sections.error) return []
@@ -72,11 +77,10 @@ let cacheToutPersonnel = null
 
 export async function chargerToutPersonnel(codesRequete) {
   if (cacheToutPersonnel) return cacheToutPersonnel
-  if (!annuaire) return []
 
   const [personnes, sections, grades] = await Promise.all([
-    annuaire.from('users').select('id, nom, prenom, section_id'),
-    annuaire.from('sections').select('id, nom'),
+    supabase.from('annuaire_personnel').select('id, nom, prenom, section_id'),
+    supabase.from('annuaire_sections_externes').select('id, nom'),
     gradesUneFois(codesRequete),
   ])
   if (personnes.error || sections.error) return []
