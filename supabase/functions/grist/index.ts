@@ -999,16 +999,17 @@ const CRS_DESTINATIONS: Array<[number, string]> = [
 // ⚠ Vérifié le 20/10/2026 contre le contenu RÉEL de ReferentielHelicos (23 appareils actifs) : 3 ne
 // figurent dans AUCUNE des 21 entrées du document de Lars (Choucas 74, Choucas 66, Dragon 13) — appareils
 // probablement entrés en service après la rédaction de son schéma. Volontairement laissés NON mappés
-// (null) plutôt que devinés — à signaler à Lars. YETI 1/YETI 2 (hélicoptères SAF, voir
-// SnosmEmploiHeliSAFJustification) ne sont pas nommés non plus chez lui, seulement "SAF 145"/"SAF 135"
-// génériques (id 20/21) — pas assez d'info pour savoir lequel correspond à quel YETI, donc non mappés
-// également plutôt que de risquer d'inverser les deux.
+// (null) plutôt que devinés — à signaler à Lars.
 const CRS_HELICOPTERES: Array<[number, string]> = [
   [1, 'CHOUCAS 04'], [2, 'CHOUCAS 05'], [3, 'CHOUCAS 09'], [4, 'CHOUCAS 65'], [5, 'CHOUCAS 69'], [6, 'CHOUCAS 73'],
   [7, 'DRAGON 34'], [8, 'DRAGON 38-1'], [9, 'DRAGON 38-2'], [10, 'DRAGON 64'], [11, 'DRAGON 65'], [12, 'DRAGON 66'],
   [13, 'DRAGON 69'], [14, 'DRAGON 74'], [15, 'SAMU'], [16, 'AUTRES'], [17, 'DRAGON 06'], [18, 'DRAGON 83'], [19, 'DRAGON 73'],
   [20, 'SAF 145'], [21, 'SAF 135'],
 ]
+// YETI 1/YETI 2 (hélicoptères SAF, voir SnosmEmploiHeliSAFJustification) ne sont pas nommés chez
+// Lars, seulement "SAF 145"/"SAF 135" génériques — confirmé par Lars (mail, 20/10/2026) : les deux
+// correspondent à SAF 145, le SAF ne vole plus en EC135 (= SAF 135, id 21, donc jamais utilisé ici).
+const ALIAS_HELICOPTERE: Record<string, number> = { 'YETI 1': 20, 'YETI 2': 20 }
 
 const TGA_METEOS: Array<[number, string]> = [
   [1, 'Ensoleillé / beau temps'], [2, 'Nuageux / couvert'], [3, 'Pluvieux'], [4, 'Venteux'], [5, 'Neigeux'],
@@ -1171,7 +1172,7 @@ function construireAccident(f: Record<string, unknown>) {
   }
 
   const liaisons = {
-    helicopteres: idsParTexteMultiple(f.SnosmHelicopteres, CRS_HELICOPTERES),
+    helicopteres: idsParTexteMultiple(f.SnosmHelicopteres, CRS_HELICOPTERES, ALIAS_HELICOPTERE),
     meteos: idsParTexteMultiple(f.SnosmMeteo, TGA_METEOS),
     secourismeEffectues: idsParTexteMultiple(f.SnosmGestesSecourisme, CRS_SECOURISME_EFFECTUES),
     techniquesEvacuations: idsParTexteMultiple(f.SnosmTechniquesEvacuation, CRS_TECHNIQUES_EVACUATIONS, ALIAS_TECHNIQUES_EVACUATION),
