@@ -500,7 +500,7 @@ const GROUPES_IMPLIQUE = [
       options: OPTIONS_TYPE_BLESSURE,
       maxSuggestions: OPTIONS_TYPE_BLESSURE.length,
     },
-    { cle: 'snosm_circonstances_liste', label: 'Circonstances', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
+    { cle: 'snosm_circonstances_liste', label: 'Circonstance SNOSM (victime)', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   ],
   [
     { cle: 'snosm_destination', label: 'Destination', type: 'destination', icone: <IconeMaison /> },
