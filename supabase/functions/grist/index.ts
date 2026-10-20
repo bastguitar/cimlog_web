@@ -737,41 +737,318 @@ async function anonymiserAnciennesInterventions(docId: string, apiKey: string) {
 }
 
 /**
- * Export périodique vers le SNOSM (Lars Fornel, ENSA Chamonix) — mail automatique avec un ZIP de
- * JSON, remplaçant l'extraction manuelle mensuelle que faisait jusqu'ici Manu Grigoletto depuis la
- * base police. Périmètre volontairement réduit par rapport à l'export actuel (voir échange mail avec
- * Lars, 07-09/10/2026) : Track'Log permet de saisir beaucoup plus d'informations que ce qui est
- * strictement nécessaire au SNOSM, certaines ne servant qu'au télégramme officiel interne — donc PAS
- * exportés : noms des fonctionnaires/secouristes (Rédacteur/Signataire/Directeur d'enquête/Effectif
- * engagé), identité complète des victimes (nom/prénom/adresse précise/téléphone/profession/
- * nationalité — seuls sexe/âge/code postal-commune/destination sont gardés), le compte-rendu
- * narratif (Circonstances), et tout l'onglet Avis (suivi judiciaire/autorités avisées/médias). Les
- * gestes de secourisme et techniques d'évacuation sont gardés (décision utilisateur, 09/10/2026).
+ * Export périodique vers le SNOSM (Lars Fornell, ENSA Chamonix) — mail automatique avec un ZIP de
+ * JSON au format EXACT attendu par leur import existant (voir CRS_schema_base.pdf, transmis par Lars
+ * le 20/10/2026) : une table par fichier, mêmes noms de tables/colonnes que leur base, et des
+ * identifiants numériques (pas nos libellés texte) pour les champs à choix fermé — leur import ne
+ * fait aucune résolution de son côté. Remplace l'extraction manuelle mensuelle que faisait jusqu'ici
+ * Manu Grigoletto depuis la base police.
  *
- * Valeurs envoyées en TEXTE CLAIR (jamais d'identifiant numérique interne à Track'Log/Grist) — Lars
- * n'a pas encore répondu sur ce point précis, mais c'est l'hypothèse de travail retenue (décision
- * utilisateur, 09/10/2026) : à son système d'import de faire la correspondance avec ses tables de
- * référence (tga_sexe, tga_commune, etc.) de son côté, à confirmer avec lui.
+ * Périmètre toujours volontairement réduit (voir échanges avec Lars, 07-20/10/2026) : PAS exportés —
+ * noms des fonctionnaires/secouristes (Rédacteur/Signataire/Directeur d'enquête/Effectif engagé, donc
+ * aucune ligne CrsAccidentsFonctionnaire), identité complète des victimes (nom/prénom/adresse précise/
+ * téléphone/profession/nationalité/pays — seuls sexe/âge calculé/code postal-commune/destination sont
+ * gardés), tout l'onglet Avis SAUF Circonstances (suivi judiciaire/autorités avisées/médias toujours
+ * exclus ; Circonstances incluse depuis le 20/10/2026 — Lars l'a signalée prioritaire côté SNOSM,
+ * contrairement à notre périmètre initial). Pas de PPSM ni d'autorités avisées (confirmé inutile par Lars).
+ *
+ * ⚠ tga_commune_id (commune de l'intervention ET du domicile victime) reste VIDE : Lars n'a pas encore
+ * transmis le contenu de tga_communes/tga_departements (redemandé le 20/10/2026, "référentiel national
+ * standard, disponible sur demande"). Pas un bug — juste une correspondance encore impossible à faire.
  *
  * Authentifié par le même secret cron que anonymiserAnciennesInterventions (job planifié, pas une
- * session de poste). Couvre TOUTES les sections par défaut (toutes les unités qui alimentent
- * Track'Log/Cim'Alerte) — c'est ce que fait déjà l'export actuel de Manu Grigoletto, que celui-ci
- * remplace (décision utilisateur, 09/10/2026) — voir TOUTES_SECTIONS dans exporterSnosm.
+ * session de poste). Couvre TOUTES les sections par défaut — voir TOUTES_SECTIONS_SNOSM plus bas.
  */
-const COLONNES_EXPORT_INTERVENTION = `id, EventId, NumeroIntervention, Statut, ClotureLe, AlerteLe, Departement, Massif, Commune, Lieu,
+
+// ---------------------------------------------------------------------------------------------
+// Correspondance vers les identifiants numériques SNOSM (CRS_schema_base.pdf, Lars Fornell, v1.0,
+// 20/10/2026) — une paire [id, libellé exact du document] par valeur possible. normTxte() ignore
+// accents/casse/ponctuation pour que notre vocabulaire (parfois formulé différemment) retrouve le
+// bon id malgré tout ; quand l'ordre de nos propres menus (voir src/lib/optionsSnosm.js) correspond
+// déjà exactement à celui du document, idParIndex() est utilisé à la place (plus sûr qu'un
+// rapprochement textuel quand le libellé diffère un peu).
+// ---------------------------------------------------------------------------------------------
+function normTxte(valeur: unknown): string {
+  return String(valeur ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .trim()
+}
+
+function idParTexte(valeur: unknown, paires: Array<[number, string]>): number | null {
+  const v = normTxte(valeur)
+  if (!v) return null
+  const trouve = paires.find(([, label]) => normTxte(label) === v)
+  return trouve ? trouve[0] : null
+}
+
+/** `options` dans le même ordre que le document Lars (vérifié un par un) — id = position + premierId. */
+function idParIndex(valeur: unknown, options: string[], premierId = 1): number | null {
+  const v = normTxte(valeur)
+  if (!v) return null
+  const i = options.findIndex((o) => normTxte(o) === v)
+  return i === -1 ? null : i + premierId
+}
+
+/** Pour les champs "choix multiples" (nos tags/cases séparés par ', ') -> plusieurs id. */
+function idsParTexteMultiple(valeur: unknown, paires: Array<[number, string]>): number[] {
+  const valeurs = String(valeur ?? '')
+    .split(',')
+    .map((v) => v.trim())
+    .filter(Boolean)
+  const ids: number[] = []
+  for (const v of valeurs) {
+    const id = idParTexte(v, paires)
+    if (id != null) ids.push(id)
+  }
+  return ids
+}
+
+function entierSi(valeur: unknown): number | null {
+  if (valeur == null || valeur === '') return null
+  const n = parseInt(String(valeur).replace(/[^0-9-]/g, ''), 10)
+  return Number.isFinite(n) ? n : null
+}
+
+// crs_unites (p.29) — un id par section mère ou poste nommé ; les postes sans entrée propre
+// (CRS38H Huez, CRS06V St-Martin-Vésubie, CRS65G/L/S Gavarnie/Luchon/St-Lary, CRS66B Bolquère)
+// retombent sur l'id de leur section mère, faute de ligne dédiée chez Lars.
+const CRS_UNITE_ID_PAR_GROUPE: Record<string, number> = { CRS73: 2, CRS05: 3, CRS38: 4, CRS06: 5, CRS65: 6, CRS66: 7 }
+const CRS_UNITE_ID_PAR_SQUAD_CODE: Record<string, number> = { CRS73M: 8, CRS73C: 9 }
+const GROUPES_SNOSM: Record<string, string> = {
+  CRS38: 'CRS38',
+  CRS38H: 'CRS38',
+  CRS05: 'CRS05',
+  CRS73: 'CRS73',
+  CRS73M: 'CRS73',
+  CRS73C: 'CRS73',
+  CRS06: 'CRS06',
+  CRS06S: 'CRS06',
+  CRS06V: 'CRS06',
+  CRS65: 'CRS65',
+  CRS65G: 'CRS65',
+  CRS65L: 'CRS65',
+  CRS65S: 'CRS65',
+  CRS66: 'CRS66',
+  CRS66B: 'CRS66',
+}
+function crsUniteId(squadCode: string): number | null {
+  return CRS_UNITE_ID_PAR_SQUAD_CODE[squadCode] ?? CRS_UNITE_ID_PAR_GROUPE[GROUPES_SNOSM[squadCode] ?? squadCode] ?? null
+}
+
+const CRS_ORIGINES_ORDRE = ['CODIS', 'SAMU', 'CORG', 'VICTIME TEMOIN', 'SERVICE DES PISTES', 'AUTRE']
+const CRS_NATURE_OPERATIONS_ORDRE = ['Secours en montagne', 'Mission SAMU', 'Plan secours spéléologie', 'Assistance judiciaire', 'Plan SATER']
+
+const CRS_NATURE_ACTIVITES: Array<[number, string]> = [
+  [1, 'AERONEF'], [2, 'ALPINISME MIXTE'], [3, 'ALPINISME NEIGE ET GLACE'], [4, 'ALPINISME ROCHER'], [5, 'ANIMAUX'],
+  [6, 'AUTRES ACTIVITES SPORTIVES'], [7, 'AUTRES DIVERS'], [8, 'AUTRES SPORTS DE GLISSE'], [9, 'BAIGNADE'], [10, 'BASE JUMP'],
+  [11, 'CANYON'], [12, 'CASCADE DE GLACE'], [13, 'CATASTROPHE NATURELLE'], [14, 'CERF VOLANT TRACTION'],
+  [15, 'CHASSE - PECHE - CHAMPIGNONS'], [16, 'CYCLE (AUTRES)'], [17, 'DELTAPLANE'], [18, 'ESCALADE ECOLE'], [19, 'EQUITATION'],
+  [20, 'FALAISE (PLUSIEURS LONGUEURS)'], [21, 'HYDROSPEED'], [22, 'KAYAK'], [23, 'LUGE'], [24, 'PARAPENTE'], [25, 'PLANEUR'],
+  [26, 'RANDONNEE PEDESTRE HORS SENTIER'], [27, 'RANDONNEE PEDESTRE (SUR SENTIER)'], [28, 'RAQUETTES A NEIGE'],
+  [29, "REFUGE - TENTE - RESTAURANT D'ALTITUDE"], [30, 'REMONTEE MECANIQUE'], [31, 'SANITAIRE'], [32, 'SKI DE FOND'],
+  [33, 'SKI DE MONTAGNE'], [34, 'SKI DE PENTE RAIDE'], [35, 'SKI DE PISTE'], [36, 'SKI DE RANDONNEE'], [37, 'SKI HORS PISTE'],
+  [38, 'SPEEDRIDING'], [39, 'SPELEOLOGIE'], [40, 'SUICIDE'], [41, 'SNOWBOARD HORS PISTE'], [42, 'SNOWBOARD SUR PISTE'],
+  [43, 'TRAIL'], [44, 'TRAVAIL EN HAUTEUR'], [45, 'TRAVAUX AGRICOLES'], [46, 'TRAVAUX FORESTIERS'], [47, 'ULM'],
+  [48, 'VEHICULE A MOTEUR'], [49, 'VELO DE ROUTE'], [50, 'VIA-FERRATA / VIA CORDATA'], [51, 'VTT CROSS COUNTRY'],
+  [52, 'VTT DH/ENDURO'], [53, 'WINGSUIT'], [54, 'AUTRE :'], [55, 'RAFTING'],
+]
+
+const TGA_MASSIFS: Array<[number, string]> = [
+  [1, 'ALBERES'], [2, 'AURE LOURON'], [3, 'AUTRE'], [4, 'BELLEDONNE'], [5, 'BEVERA-PAILLONS'], [6, 'CANIGOU'], [7, 'CAPCIR'],
+  [8, 'CERDAGNE'], [9, 'CHAMPSAUR'], [10, 'CHARTREUSE'], [11, 'CIANS'], [12, 'DEVOLUY'], [13, 'DIOIS'], [14, 'ECRINS'],
+  [15, 'EMBRUNNAIS'], [16, 'ESTEREL'], [17, 'ESTERON'], [18, 'FENOUILLEDES ROUSSILLON'], [19, 'GRANDES ROUSSES'],
+  [20, 'HAUT VAR'], [21, 'HAUT VERDON'], [22, 'HAUTE ROYA'], [23, 'HAUTE TINEE'], [24, 'HAUTE VESUBIE'], [25, 'HAUTE-BIGORRE'],
+  [26, 'LITTORAL'], [27, 'LUCHONNAIS'], [28, 'MAURES'], [29, 'MERCANTOUR'], [30, 'MOYENNE TINEE'], [31, 'PAYS GRASSOIS'],
+  [32, 'PAYS MENTONNAIS'], [33, 'PAYS NICOIS'], [34, 'PAYS VENCOIS'], [35, 'PELVOUX'], [36, 'PIEMONT 31'], [37, 'PIEMONT 65'],
+  [38, 'PUYMORENS'], [39, 'QUEYRAS'], [40, 'ROYA'], [41, 'TAILLEFER'], [42, 'THABOR'], [43, 'UBAYE'], [44, 'VALLESPIR'],
+  [45, 'VAR'], [46, 'VERCORS'], [47, 'VERDON'], [48, 'VESUBIE'], [49, 'BEAUFORTAIN'], [50, 'TARENTAISE'],
+  [51, 'HAUTE TARENTAISE'], [52, 'LAUZIERE'], [53, 'ENCOMBRES'], [54, 'VANOISE'], [55, 'MAURIENNE'], [56, 'HAUTE MAURIENNE'],
+  [57, 'LES GRANDES ROUSSES'], [58, 'LES CERCES'], [59, 'LE THABOR'], [60, 'LES BAUGES'], [61, 'LE MONT BLANC'],
+  [62, 'HURTIERES'], [63, 'ARAVIS'], [64, 'LE CONFLENT'], [65, 'Albanais'], [66, 'Chablais'], [67, 'Giffre'], [68, 'Môle'],
+  [69, 'Aiguilles Rouges'], [70, 'Salève'], [71, 'Bassin Chambérien'], [72, 'Jura'],
+]
+
+const TGA_ENCADREMENTS: Array<[number, string]> = [[1, 'Non encadré'], [2, 'Encadrement associatif'], [3, 'Encadrement professionnel']]
+
+const TGA_DIPLOME_ENCADRANTS: Array<[number, string]> = [
+  [1, 'Guide de haute montagne'],
+  [2, 'Moniteur / Monitrice de ski'],
+  [3, 'Accompagnateur / Accompagnatrice en moyenne montagne (AMM)'],
+  [4, 'DEJEPS Canyonisme'],
+  [5, 'DEJEPS Escalade'],
+  [6, 'Autres'],
+]
+/** "amm" chez nous est une abréviation du libellé complet de Lars — cas particulier avant le rapprochement par texte. */
+function idDiplomeEncadrant(valeur: unknown): number | null {
+  if (normTxte(valeur) === 'AMM') return 3
+  return idParTexte(valeur, TGA_DIPLOME_ENCADRANTS)
+}
+
+const TGA_TYPE_DOMAINES_ORDRE = [
+  'Domaine montagne', 'Domaine skiable sur piste', 'Domaine skiable hors-piste', 'Autre à préciser', 'Village / Fond de Vallée',
+]
+
+const TGA_LOCPISTES: Array<[number, string]> = [
+  [1, 'Piste verte'], [2, 'Piste bleue'], [3, 'Piste rouge'], [4, 'Piste noire'], [5, 'SnowPark et SnowCross'],
+  [6, 'Compétition'], [7, 'Hors piste gravitaire'], [8, 'Montagne'], [9, 'Village'],
+]
+
+const TGA_NEIGES: Array<[number, string]> = [
+  [1, 'Dure'], [2, 'Douce'], [3, 'Verglacée'], [4, 'Humide / de printemps'], [5, 'Poudreuse / fraiche'],
+  [6, 'Croutée'], [7, 'Bosselée'], [8, 'Faible enneigement'],
+]
+
+// On n'a que 8 directions (rose des vents SNOSM), Lars en a 16 : on prend le point cardinal exact,
+// jamais les intermédiaires. Libellés = son champ "point" (déjà en minuscules), pas "name".
+const TGA_POINT_CARDINALS: Array<[number, string]> = [
+  [1, 'nord'], [3, 'nord-est'], [5, 'est'], [7, 'sud-est'], [9, 'sud'], [11, 'sud-ouest'], [13, 'ouest'], [15, 'nord-ouest'],
+]
+
+const TGA_RAS_ORDRE = ['1-FAIBLE', '2-LIMITE', '3-MARQUE', '4-FORT', '5-TRES FORT']
+const TGA_AVALANCHE_TYPES_ORDRE = [
+  'neige fraiche',
+  'neige soufflee (neige ventee)',
+  'neige ancienne(sous couche fragile persistante)',
+  'avalanche mouillee (neige humide)',
+  'avalanche de glissement (avalanche de fond)',
+]
+
+/** "Taille d'avalanche" : comparé par le seul numéro 1-5 en tête du libellé — les deux formulations
+ * ("coulee (petite avalanche)" chez nous / "Petite avalanche (coulée)" chez Lars) diffèrent sinon. */
+function idTailleAvalanche(valeur: unknown): number | null {
+  const m = String(valeur ?? '').match(/\d/)
+  return m ? parseInt(m[0], 10) : null
+}
+
+const TGA_AVALANCHE_DURETES_ORDRE = ['faible (poing)', 'faible (4 doigts)', 'moyen (1 doigt)', 'forte (1 crayon)', 'forte (1 couteau)']
+const TGA_AVALANCHE_POSITIONS_ORDRE = [
+  'En surface',
+  'Enseveli total',
+  'Enseveli partiel critique (tête sous la neige)',
+  'Enseveli partiel non critique (tête en dehors de la neige)',
+]
+const TGA_AVALANCHE_POSITION_CORPS_ORDRE = ['Sur le ventre', 'Sur le dos', 'Sur le côté', 'Tête en haut', 'Tête en bas']
+const TGA_AVALANCHE_OBSTACLES_ORDRE = ['rocher', 'arbre', 'barre rocheuse', 'barre de serac', 'couloir', 'autre']
+
+// Nos 8 valeurs correspondent aux 7 premières de Lars + "crevasse / rimaye" -> son id 9 (il a en plus
+// "Replat", id 8, qu'on n'a pas dans notre menu).
+const TGA_AVALANCHE_ENVIRONNEMENTS: Array<[number, string]> = [
+  [1, 'ravine'], [2, 'thalweg'], [3, 'creux'], [4, 'doline'], [5, 'gypsiere'], [6, "cours d'eau"], [7, 'lac'], [9, 'crevasse / rimaye'],
+]
+
+const TGA_AVALANCHE_MOYENS: Array<[number, string]> = [
+  [1, 'DVA'], [2, 'Recco'], [3, 'Chien'], [4, 'Géolocalisation téléphone'], [5, 'Sondage'], [6, 'Indice de surface'], [7, 'Autre'],
+]
+
+const CRS_ETAT_MEDICALS_ORDRE = ['Décédé traumatique', 'Décédé non traumatique', 'Blessé', 'Disparu', 'Malade', 'Indemne']
+const CRS_STATUTS_ORDRE = ['Victime', 'Témoin', 'Encadrant']
+
+function idSexe(valeur: unknown): number | null {
+  const v = normTxte(valeur)
+  if (v === 'HOMME') return 1
+  if (v === 'FEMME') return 2
+  return null
+}
+
+const TGA_CIRCONSTANCES: Array<[number, string]> = [
+  [1, 'Avalanche'], [2, 'Chute de pierres'], [3, 'Chute de serac'], [4, 'Foudre'], [5, 'Rupture de matériel'],
+  [6, 'Décollage ou atterrissage'], [7, 'Vol'], [8, 'Condition physique insuffisante'], [9, 'Dévissage (personne encordée)'],
+  [10, 'Equipement du sujet non adapté'], [11, "Erreur d'itinéraire"], [12, 'Erreur technique'],
+  [13, 'Glissade ou chute (non usage de la corde)'], [14, 'Noyade'], [15, 'Chute en crevasse'], [16, 'Tempête'],
+  [17, 'Asphyxie hors avalanche'], [18, 'Autres'], [19, '(Domaine skiable) Chute solitaire'],
+  [20, '(Domaine skiable) Chute contre obstacle naturel'], [21, '(Domaine skiable) Chute contre obstacle artificiel'],
+  [22, '(Domaine skiable) Collision entre usagers'], [23, '(Domaine skiable) Avalanche départ spontané'],
+  [24, '(Domaine skiable) Avalanche déclenchement provoqué'], [25, '(Domaine skiable) Personne égarée'],
+  [26, '(Domaine skiable) Saut de barres'], [27, '(Domaine skiable) Glissade'], [28, '(Domaine skiable) Epuisement'],
+  [29, '(Domaine skiable) Hypothermie'], [30, '(Domaine skiable) Non traumatique'], [31, "Pathologies d'altitude"],
+]
+
+// Nos libellés viennent désormais de ref_destinations_evac (Supabase, voir chargerDestinationsEvac) —
+// texte libre proche mais pas forcément identique mot pour mot à ce que Lars nous a listé ici ; ce qui
+// ne matche pas reste simplement non renseigné (jamais deviné), à affiner avec lui après un premier test.
+const CRS_DESTINATIONS: Array<[number, string]> = [
+  [1, 'CH BRIANÇON'], [2, 'CH DIGNE'], [3, 'CH FOIX'], [4, 'CH GAP'], [5, 'CH LA MURE'], [6, 'CH LANNEMEZAN'], [7, 'CH LOURDES'],
+  [8, 'CH PAU'], [9, 'CH PERPIGNAN'], [10, 'CH PUICERDA'], [11, 'CH ST GAUDENS'], [12, 'CH TARBES'], [13, 'CHU AIX MARSEILLE'],
+  [14, 'CHU MONTPELLIER'], [15, 'CHU NORD LA TRONCHE'], [16, 'CHU RANGEUIL'], [17, 'CHU SUD GRENOBLE'], [18, 'CLINIQUE BELLEDONNE'],
+  [19, 'CLINIQUE CEDRES'], [20, 'CLINIQUE CERET'], [21, 'CLINIQUE PRADES'], [22, 'CHU PASTEUR'], [23, 'CH CANNE'], [24, 'CH GRASSE'],
+  [25, 'CHU LENVAL'], [26, 'INSTITUT ARNAUD TZANCK'], [27, 'CABINET MEDICAL'], [28, 'LIBRE'], [29, 'POMPES FUNÈBRES'], [30, 'AUTRE'],
+  [31, 'CH ALBERTVILLE'], [32, 'CH ST JEAN DE MAURIENNE'], [33, 'CH CHAMBERY'], [34, 'CH ANNECY'], [35, 'CH LYON'],
+  [36, 'CLINIQUE MEDIPOLE'], [37, 'CH GENEVE'], [38, 'CH BOURG ST MAURICE'],
+]
+
+// Nos libellés viennent de ReferentielHelicos (Cim'Alerte, voir chargerReferentiels), déjà proches des siens.
+const CRS_HELICOPTERES: Array<[number, string]> = [
+  [1, 'CHOUCAS 04'], [2, 'CHOUCAS 05'], [3, 'CHOUCAS 09'], [4, 'CHOUCAS 65'], [5, 'CHOUCAS 69'], [6, 'CHOUCAS 73'],
+  [7, 'DRAGON 34'], [8, 'DRAGON 38-1'], [9, 'DRAGON 38-2'], [10, 'DRAGON 64'], [11, 'DRAGON 65'], [12, 'DRAGON 66'],
+  [13, 'DRAGON 69'], [14, 'DRAGON 74'], [15, 'SAMU'], [16, 'AUTRES'], [17, 'DRAGON 06'], [18, 'DRAGON 83'], [19, 'DRAGON 73'],
+  [20, 'SAF 145'], [21, 'SAF 135'],
+]
+
+const TGA_METEOS: Array<[number, string]> = [
+  [1, 'Ensoleillé / beau temps'], [2, 'Nuageux / couvert'], [3, 'Pluvieux'], [4, 'Venteux'], [5, 'Neigeux'],
+  [6, 'Brouillard'], [7, 'Jour Blanc'], [8, 'Tempête de neige'], [9, 'Nuit'], [10, 'Autre'],
+]
+
+// Libellés formulés un peu différemment des nôtres (ex. "POSE D'UNE ATTELLE DE BRAS" chez Lars vs
+// "POSE ATTELLE DE BRAS" chez nous) : paires explicites plutôt qu'un rapprochement automatique.
+const CRS_SECOURISME_EFFECTUES: Array<[number, string]> = [
+  [1, 'POSE ATTELLE DE BRAS'], [2, 'POSE ATTELLE JAMBE'], [3, 'POSE ATTELLE EPAULE'],
+  [4, 'POSE ATTELLE CERVICO-THORACIQUE'], [5, 'POSE COLLIER CERVICAL'], [6, 'POSE CEINTURE PELVIENNE'],
+  [7, 'CONDITIONNEMENT MATELAS COQUILLE'], [8, 'RELEVAGE/CONDITIONNEMENT PERCHE'], [9, 'AIDE A LA MEDICALISATION'],
+  [10, 'MISE EN POSITION LATERALE DE SECURITE'], [11, 'REANIMATION CARDIO-PULMONAIRE'],
+  [12, 'POSE PANSEMENT COMPRESSIF / GARROT'], [13, 'REALISATION PANSEMENT'], [14, 'BILAN SECOURISME'], [15, 'NEANT'],
+]
+
+const CRS_TECHNIQUES_EVACUATIONS: Array<[number, string]> = [
+  [1, "HELITREUILLAGE CULOTTE/SANGLE D'EVACUATION"], [2, 'HELITREUILLAGE PERCHE'], [3, 'RECUPERATION HELITREUILLAGE SUR RELAIS'],
+  [4, 'RECUPERATION EN APPUI PATIN'], [5, 'MISE EN OEUVRE MAIN COURANTE'], [6, 'MISE EN OEUVRE TYROLIENNE / BALANCIER'],
+  [7, 'EVACUATION EN PAROI / CACOLET'], [8, 'DESCENTE TRAINEAU'], [9, 'PORTAGE/BRANCARDAGE'], [10, 'DEPLACEMENT ENCORDE'],
+]
+
+const TGA_BLESSURES: Array<[number, string]> = [
+  [1, 'Suspicion de fracture fermée'], [2, 'Suspicion de luxation'], [3, "Suspicion d'entorse"], [4, 'Plaie hémoragique'],
+  [5, 'Suspicion de fracture ouverte'], [6, 'Contusion / Hématome'], [7, 'Brûlure'], [8, 'Gelûre'],
+  [9, "Suspicion d'hémorragie interne"], [10, 'Problèmes musculaires'], [11, 'Trauma crânien avec perte de connaissance'],
+  [12, 'Trauma crânien sans perte de connaissance'], [13, 'Décifit neurologique (de type AVC)'], [14, 'Malaise'], [15, 'Décès'],
+  [16, "Crise d'épilepsie"], [17, "Crise d'angoisse / tétanie / spasmophilie"], [18, 'Nausées / vomissement'],
+  [19, 'Condition physique (fatigue, hypoglycémie)'], [20, 'Arrêt cardio-respiratoire (ACR)'], [21, 'Choc émotionnel'],
+  [22, 'Problème respiratoire'], [23, 'Autre'], [24, 'Problème ophtalmologique'], [25, "Suspicion d'alcoolémie / drogue"],
+  [26, 'Hypothermie associée'], [27, 'Dermabrasion'], [28, 'Douleurs thoraciques'], [29, 'Hypothermie isolée'],
+  [30, 'Indemnes'], [31, 'MAM'], [32, 'Plaie non hémoragique'],
+]
+
+const TGA_LOCALISATIONBLESSURES: Array<[number, string]> = [
+  [1, 'Visage'], [2, 'Cou'], [3, 'Rachis cervical'], [4, 'Tête'], [5, 'Thorax'], [6, 'Rachis lombaire'], [7, 'Abdomen'],
+  [8, 'Épaule'], [9, 'Clavicule'], [10, 'Bras'], [11, 'Coude'], [12, 'Poignet'], [13, 'Avant-bras'], [14, 'Main'],
+  [15, 'Rachis dorsal'], [16, 'Bassin'], [17, 'Doigts'], [18, 'Fémur'], [19, 'Genou'], [20, 'Tibia péroné'], [21, 'Cheville'],
+  [22, 'Pied'], [23, 'Organes génitaux'], [24, 'Indemne'], [25, 'Non traumatique'], [26, 'Polytraumatismes'], [27, 'Autres'],
+]
+
+// ---------------------------------------------------------------------------------------------
+// Chargement + construction des objets d'export.
+// ---------------------------------------------------------------------------------------------
+const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, AlerteLe, Departement, Massif, Commune, Lieu,
+  CirconstancesGenerales,
   SnosmNumeroTexte, SnosmOrigineAlerte, SnosmOrigineAlerteAutre, SnosmAlerteLe, SnosmDepartLe, SnosmArriveeLieuxLe, SnosmFinOperationLe,
   SnosmNatureOperation, Activite, Altitude, SnosmMeteo, SnosmTypeDomaine, SnosmLocalisationPiste, SnosmNeige, SnosmEncadrement, SnosmDiplomeEncadrant,
-  SnosmTypeOperationMoyens, SnosmGestesSecourisme, SnosmTechniquesEvacuation,
+  SnosmTypeOperationMoyens, SnosmGestesSecourisme, SnosmTechniquesEvacuation, SnosmMedicalisation,
   SnosmRenfortGendarmes, SnosmRenfortPompiers, SnosmRenfortPisteurs, SnosmRenfortMedecins, SnosmRenfortAutres,
   SnosmEquipesCynophilesCiviles, SnosmEquipesCynophilesGendarmerie, SnosmEquipesCynophilesPompiers, SnosmEquipesCynophilesPisteurs,
+  SnosmEquipesCynophilesCRS, SnosmHelicopteres, SnosmEmploiHeliSAFJustification,
   SnosmAvalanche, SnosmAvalancheType, SnosmAvalancheTaille, SnosmAvalancheNiveauRisque, SnosmAvalancheDeclenchementLe, SnosmAvalanchePointDepartGPS,
   SnosmAvalancheLongueur, SnosmAvalancheLargeurCassure, SnosmAvalancheHauteurCassure, SnosmAvalancheLargeurDepot, SnosmAvalancheAltitude, SnosmAvalanchePente, SnosmAvalancheDenivele, SnosmAvalancheOrientation,
-  SnosmAvalancheNombreImpliques, SnosmAvalancheNombreVictimes, SnosmAvalancheNombreBlesses, SnosmAvalancheNombreIndemnes, SnosmAvalancheNombreDecedes`
+  SnosmAvalancheNombreImpliques, SnosmAvalancheNombreBlesses, SnosmAvalancheNombreIndemnes, SnosmAvalancheNombreDecedes`
 
-const COLONNES_EXPORT_VICTIME = `v.EventId, v.NumeroVictime, v.Sexe, v.DateNaissance, v.Age, v.SnosmCodePostal, v.SnosmCommune, v.SnosmDestination, v.SnosmVictimeAvalanche,
+const COLONNES_EXPORT_VICTIME = `v.id, v.EventId, v.NumeroVictime, v.Sexe, v.DateNaissance, v.Age, v.SnosmStatut, v.SnosmEtatMedical,
+  v.SnosmCodePostal, v.SnosmCommune, v.SnosmDestination, v.SnosmFinPriseEnChargeLe, v.SnosmCirconstancesListe,
+  v.SnosmLocalisationBlessure, v.SnosmTypeBlessure, v.SnosmVictimeAvalanche,
   v.SnosmAvalancheMoyensLocalisation, v.SnosmAvalancheDistanceM, v.SnosmAvalancheProfondeurCm, v.SnosmAvalancheDureeMn, v.SnosmAvalancheBouchonNeige, v.SnosmAvalanchePocheAir,
   v.SnosmAvalanchePosition1, v.SnosmAvalanchePosition2, v.SnosmAvalancheDureteNeige, v.SnosmAvalancheObstacles, v.SnosmAvalancheEnvironnement, v.SnosmAvalancheMateriel,
-  v.SnosmAvalancheSacAirbag, v.SnosmAvalancheMarqueModele, v.SnosmAvalancheAlimentation, v.SnosmAvalancheGonflage, v.SnosmAvalanchePositionVictime, v.SnosmAvalancheSacEtVictime`
+  v.SnosmAvalancheSacAirbag, v.SnosmAvalancheMarqueModele, v.SnosmAvalancheAlimentation, v.SnosmAvalancheGonflage, v.SnosmAvalanchePositionVictime, v.SnosmAvalancheSacEtVictime,
+  v.SnosmAvalancheDVAPresent, v.SnosmAvalancheDVAEnMarche`
 
 /** Âge À LA DATE DE L'INTERVENTION (pas aujourd'hui) — on envoie l'âge, jamais la date de naissance elle-même (trop identifiante). */
 function calculerAge(dateNaissanceIso: string | null, dateReferenceIso: string | null): number | null {
@@ -787,96 +1064,127 @@ function calculerAge(dateNaissanceIso: string | null, dateReferenceIso: string |
   return age
 }
 
-function victimeExport(f: Record<string, unknown>, alerteLeIso: string | null, numeroIntervention: unknown) {
-  const ageCalcule = calculerAge((f.DateNaissance as string) || null, alerteLeIso)
-  return {
-    // Corrélation avec interventions.json — jamais l'id interne Grist (EventId), toujours notre
-    // numéro d'intervention lisible (même logique que le reste de l'export : rien d'interne à
-    // Track'Log/Grist ne doit fuiter dans le fichier envoyé).
-    numero_intervention: numeroIntervention,
-    numero: f.NumeroVictime,
-    sexe: f.Sexe || null,
-    age: ageCalcule ?? (f.Age || null),
-    code_postal: f.SnosmCodePostal || null,
-    commune: f.SnosmCommune || null,
-    destination: f.SnosmDestination || null,
-    victime_avalanche: depuisGrist(f.SnosmVictimeAvalanche, 'bool'),
-    avalanche_moyens_localisation: f.SnosmAvalancheMoyensLocalisation || null,
-    avalanche_distance_m: f.SnosmAvalancheDistanceM || null,
-    avalanche_profondeur_cm: f.SnosmAvalancheProfondeurCm || null,
-    avalanche_duree_mn: f.SnosmAvalancheDureeMn || null,
-    avalanche_bouchon_neige: f.SnosmAvalancheBouchonNeige || null,
-    avalanche_poche_air: f.SnosmAvalanchePocheAir || null,
-    avalanche_position1: f.SnosmAvalanchePosition1 || null,
-    avalanche_position2: f.SnosmAvalanchePosition2 || null,
-    avalanche_durete_neige: f.SnosmAvalancheDureteNeige || null,
-    avalanche_obstacles: f.SnosmAvalancheObstacles || null,
-    avalanche_environnement: f.SnosmAvalancheEnvironnement || null,
-    avalanche_materiel: f.SnosmAvalancheMateriel || null,
-    avalanche_sac_airbag: f.SnosmAvalancheSacAirbag || null,
-    avalanche_marque_modele: f.SnosmAvalancheMarqueModele || null,
-    avalanche_alimentation: f.SnosmAvalancheAlimentation || null,
-    avalanche_gonflage: f.SnosmAvalancheGonflage || null,
-    avalanche_position_victime: f.SnosmAvalanchePositionVictime || null,
-    avalanche_sac_et_victime: f.SnosmAvalancheSacEtVictime || null,
+/** Une intervention -> crs_accidents (champs qu'on peut remplir) + les id de ses tables de liaison. */
+function construireAccident(f: Record<string, unknown>) {
+  const accident = {
+    // "id" = notre identifiant interne stable (EventId Grist, jamais réattribué) — sert à la fois de
+    // clé de liaison dans ce même export et de "identifiant stable" demandé par Lars (20/10/2026) pour
+    // mettre à jour une intervention déjà importée.
+    id: f.EventId,
+    crs_unite_id: crsUniteId(f.Section as string),
+    no_texte: f.SnosmNumeroTexte || f.NumeroIntervention || null,
+    crs_origine_id: idParIndex(f.SnosmOrigineAlerte, CRS_ORIGINES_ORDRE),
+    origine: f.SnosmOrigineAlerteAutre || null,
+    gdh_alerte: depuisGrist(f.SnosmAlerteLe, 'datetime'),
+    gdh_debut: depuisGrist(f.SnosmDepartLe, 'datetime'),
+    gdh_fin: depuisGrist(f.SnosmFinOperationLe, 'datetime'),
+    gdh_sur_lieux: depuisGrist(f.SnosmArriveeLieuxLe, 'datetime'),
+    tga_massif_id: idParTexte(f.Massif, TGA_MASSIFS),
+    // En attente de tga_communes (voir mail Lars, 20/10/2026) — toujours null pour l'instant.
+    tga_commune_id: null,
+    lieu_compl: f.Lieu || null,
+    crs_nature_operation_id: idParIndex(f.SnosmNatureOperation, CRS_NATURE_OPERATIONS_ORDRE),
+    crs_nature_activite_id: idParTexte(f.Activite, CRS_NATURE_ACTIVITES),
+    altitude: entierSi(f.Altitude),
+    tga_encadrement_id: idParTexte(f.SnosmEncadrement, TGA_ENCADREMENTS),
+    tga_diplome_encadrant_id: idDiplomeEncadrant(f.SnosmDiplomeEncadrant),
+    tga_type_domaine_id: idParIndex(f.SnosmTypeDomaine, TGA_TYPE_DOMAINES_ORDRE),
+    tga_locpiste_id: idParTexte(f.SnosmLocalisationPiste, TGA_LOCPISTES),
+    tga_neige_id: idParTexte(f.SnosmNeige, TGA_NEIGES),
+    crs_operation: idParIndex(f.SnosmTypeOperationMoyens, ['Héliportée', 'Terrestre', 'Mixte']),
+    medicalisation: idParIndex(f.SnosmMedicalisation, ['Oui', 'Non', 'Non obtenue']),
+    cyno_crs: entierSi(f.SnosmEquipesCynophilesCRS),
+    helicoptere_prive_raison: f.SnosmEmploiHeliSAFJustification || null,
+    circonstances: f.CirconstancesGenerales || null,
+    sec_pghm: entierSi(f.SnosmRenfortGendarmes),
+    sec_pompiers: entierSi(f.SnosmRenfortPompiers),
+    sec_pisteurs: entierSi(f.SnosmRenfortPisteurs),
+    sec_autres: entierSi(f.SnosmRenfortAutres),
+    medecin: entierSi(f.SnosmRenfortMedecins),
+    cyno_gie: entierSi(f.SnosmEquipesCynophilesGendarmerie),
+    cyno_pompiers: entierSi(f.SnosmEquipesCynophilesPompiers),
+    cyno_autres: entierSi(f.SnosmEquipesCynophilesCiviles),
+    cyno_pisteurs: entierSi(f.SnosmEquipesCynophilesPisteurs),
+    avalanche: depuisGrist(f.SnosmAvalanche, 'bool') ? 1 : 0,
+    tga_avalanche_type_depot_id: idTailleAvalanche(f.SnosmAvalancheTaille),
+    tga_avalanche_type_id: idParIndex(f.SnosmAvalancheType, TGA_AVALANCHE_TYPES_ORDRE),
+    tga_ra_id: idParIndex(f.SnosmAvalancheNiveauRisque, TGA_RAS_ORDRE),
+    avalanche_heure_declenchement: depuisGrist(f.SnosmAvalancheDeclenchementLe, 'datetime'),
+    avalanche_pd_gps: f.SnosmAvalanchePointDepartGPS || null,
+    avalanche_longueur: entierSi(f.SnosmAvalancheLongueur),
+    avalanche_largeur: entierSi(f.SnosmAvalancheLargeurCassure),
+    avalanche_hauteur_cassure: entierSi(f.SnosmAvalancheHauteurCassure),
+    avalanche_largeur_depot: entierSi(f.SnosmAvalancheLargeurDepot),
+    avalanche_altitude: entierSi(f.SnosmAvalancheAltitude),
+    avalanche_denivele_total: entierSi(f.SnosmAvalancheDenivele),
+    avalanche_pente: f.SnosmAvalanchePente || null,
+    tga_point_cardinal_id: idParTexte(f.SnosmAvalancheOrientation, TGA_POINT_CARDINALS),
+    avalanche_nb_impliques: entierSi(f.SnosmAvalancheNombreImpliques),
+    avalanche_nb_blesses: entierSi(f.SnosmAvalancheNombreBlesses),
+    avalanche_nb_indemnes: entierSi(f.SnosmAvalancheNombreIndemnes),
+    avalanche_nb_decedes: entierSi(f.SnosmAvalancheNombreDecedes),
   }
+
+  const liaisons = {
+    helicopteres: idsParTexteMultiple(f.SnosmHelicopteres, CRS_HELICOPTERES),
+    meteos: idsParTexteMultiple(f.SnosmMeteo, TGA_METEOS),
+    secourismeEffectues: idsParTexteMultiple(f.SnosmGestesSecourisme, CRS_SECOURISME_EFFECTUES),
+    techniquesEvacuations: idsParTexteMultiple(f.SnosmTechniquesEvacuation, CRS_TECHNIQUES_EVACUATIONS),
+  }
+
+  return { accident, liaisons }
 }
 
-function interventionExport(f: Record<string, unknown>) {
-  return {
-    numero_intervention: f.NumeroIntervention,
-    numero_texte: f.SnosmNumeroTexte || null,
-    departement: f.Departement || null,
-    massif: f.Massif || null,
-    commune: f.Commune || null,
-    lieu: f.Lieu || null,
-    origine_alerte: f.SnosmOrigineAlerte || null,
-    origine_alerte_autre: f.SnosmOrigineAlerteAutre || null,
-    alerte_le: depuisGrist(f.SnosmAlerteLe, 'datetime'),
-    depart_le: depuisGrist(f.SnosmDepartLe, 'datetime'),
-    arrivee_lieux_le: depuisGrist(f.SnosmArriveeLieuxLe, 'datetime'),
-    fin_operation_le: depuisGrist(f.SnosmFinOperationLe, 'datetime'),
-    nature_operation: f.SnosmNatureOperation || null,
-    activite: f.Activite || null,
-    altitude: f.Altitude || null,
-    meteo: f.SnosmMeteo || null,
-    type_domaine: f.SnosmTypeDomaine || null,
-    localisation_piste: f.SnosmLocalisationPiste || null,
-    neige: f.SnosmNeige || null,
-    encadrement: f.SnosmEncadrement || null,
-    diplome_encadrant: f.SnosmDiplomeEncadrant || null,
-    type_operation: f.SnosmTypeOperationMoyens || null,
-    gestes_secourisme: f.SnosmGestesSecourisme || null,
-    techniques_evacuation: f.SnosmTechniquesEvacuation || null,
-    renfort_gendarmes: f.SnosmRenfortGendarmes || null,
-    renfort_pompiers: f.SnosmRenfortPompiers || null,
-    renfort_pisteurs: f.SnosmRenfortPisteurs || null,
-    renfort_medecins: f.SnosmRenfortMedecins || null,
-    renfort_autres: f.SnosmRenfortAutres || null,
-    equipes_cynophiles_civiles: f.SnosmEquipesCynophilesCiviles || null,
-    equipes_cynophiles_gendarmerie: f.SnosmEquipesCynophilesGendarmerie || null,
-    equipes_cynophiles_pompiers: f.SnosmEquipesCynophilesPompiers || null,
-    equipes_cynophiles_pisteurs: f.SnosmEquipesCynophilesPisteurs || null,
-    avalanche: depuisGrist(f.SnosmAvalanche, 'bool'),
-    avalanche_type: f.SnosmAvalancheType || null,
-    avalanche_taille: f.SnosmAvalancheTaille || null,
-    avalanche_niveau_risque: f.SnosmAvalancheNiveauRisque || null,
-    avalanche_declenchement_le: depuisGrist(f.SnosmAvalancheDeclenchementLe, 'datetime'),
-    avalanche_point_depart_gps: f.SnosmAvalanchePointDepartGPS || null,
-    avalanche_longueur: f.SnosmAvalancheLongueur || null,
-    avalanche_largeur_cassure: f.SnosmAvalancheLargeurCassure || null,
-    avalanche_hauteur_cassure: f.SnosmAvalancheHauteurCassure || null,
-    avalanche_largeur_depot: f.SnosmAvalancheLargeurDepot || null,
-    avalanche_altitude: f.SnosmAvalancheAltitude || null,
-    avalanche_pente: f.SnosmAvalanchePente || null,
-    avalanche_denivele: f.SnosmAvalancheDenivele || null,
-    avalanche_orientation: f.SnosmAvalancheOrientation || null,
-    avalanche_nb_impliques: f.SnosmAvalancheNombreImpliques || null,
-    avalanche_nb_victimes: f.SnosmAvalancheNombreVictimes || null,
-    avalanche_nb_blesses: f.SnosmAvalancheNombreBlesses || null,
-    avalanche_nb_indemnes: f.SnosmAvalancheNombreIndemnes || null,
-    avalanche_nb_decedes: f.SnosmAvalancheNombreDecedes || null,
+/** Une victime -> crs_victimes (champs qu'on peut remplir) + les id de ses tables de liaison. */
+function construireVictime(v: Record<string, unknown>, alerteLeIso: string | null) {
+  const ageCalcule = calculerAge((v.DateNaissance as string) || null, alerteLeIso)
+  // Pelle/Sonde/RECCO : 3 colonnes séparées chez Lars (crs_victimes), un seul champ "Matériel utilisé"
+  // à choix multiple chez nous — 1/2 seulement si le champ a été renseigné (sinon vide, pas "Non" par défaut).
+  const materielBrut = String(v.SnosmAvalancheMateriel ?? '').toLowerCase()
+  const materielRenseigne = materielBrut.trim().length > 0
+
+  const victime = {
+    id: v.id,
+    crs_accident_id: v.EventId,
+    crs_statut_id: idParIndex(v.SnosmStatut, CRS_STATUTS_ORDRE) ?? 1,
+    crs_etat_medical_id: idParIndex(v.SnosmEtatMedical, CRS_ETAT_MEDICALS_ORDRE),
+    // En attente de tga_communes (commune de résidence) — voir construireAccident.
+    tga_commune_id: null,
+    tga_circonstance_id: idParTexte(v.SnosmCirconstancesListe, TGA_CIRCONSTANCES),
+    crs_destination_id: idParTexte(v.SnosmDestination, CRS_DESTINATIONS),
+    age: ageCalcule ?? entierSi(v.Age),
+    tga_sexe_id: idSexe(v.Sexe),
+    heure_fin_prise_charge: depuisGrist(v.SnosmFinPriseEnChargeLe, 'datetime'),
+    avalanche_distance: entierSi(v.SnosmAvalancheDistanceM),
+    avalanche_profondeur: entierSi(v.SnosmAvalancheProfondeurCm),
+    avalanche_bouchon: idParIndex(v.SnosmAvalancheBouchonNeige, ['oui', 'non', 'ne sais pas']),
+    avalanche_duree: entierSi(v.SnosmAvalancheDureeMn),
+    avalanche_poche: idParIndex(v.SnosmAvalanchePocheAir, ['oui', 'non', 'ne sais pas']),
+    tga_avalanche_position_id: idParIndex(v.SnosmAvalanchePosition1, TGA_AVALANCHE_POSITIONS_ORDRE),
+    tga_avalanche_durete_id: idParIndex(v.SnosmAvalancheDureteNeige, TGA_AVALANCHE_DURETES_ORDRE),
+    avalanche_dva: idParIndex(v.SnosmAvalancheDVAPresent, ['oui', 'non']),
+    avalanche_dva_en_marche: idParIndex(v.SnosmAvalancheDVAEnMarche, ['oui', 'non']),
+    avalanche_pelle: materielRenseigne ? (materielBrut.includes('pelle') ? 1 : 2) : null,
+    avalanche_sonde: materielRenseigne ? (materielBrut.includes('sonde') ? 1 : 2) : null,
+    avalanche_recco: materielRenseigne ? (materielBrut.includes('recco') ? 1 : 2) : null,
+    avalanche_sac_airbag: idParIndex(v.SnosmAvalancheSacAirbag, ['oui', 'non']),
+    avalanche_sac_airbag_marque_modele: v.SnosmAvalancheMarqueModele || null,
+    avalanche_sac_airbag_alimentation: idParIndex(v.SnosmAvalancheAlimentation, ['cartouche', 'électrique']),
+    avalanche_sac_airbag_gonfle: idParIndex(v.SnosmAvalancheGonflage, ['complètement', 'partiellement', 'non']),
+    avalanche_sac_airbag_sur_victime: idParIndex(v.SnosmAvalanchePositionVictime, ['avec ventrale', 'sans ventrale', 'non']),
+    avalanche_sac_airbag_lies_separes: idParIndex(v.SnosmAvalancheSacEtVictime, ['liés', 'séparés']),
   }
+
+  const liaisons = {
+    blessures: idsParTexteMultiple(v.SnosmTypeBlessure, TGA_BLESSURES),
+    localisationsBlessures: idsParTexteMultiple(v.SnosmLocalisationBlessure, TGA_LOCALISATIONBLESSURES),
+    environnement: idParTexte(v.SnosmAvalancheEnvironnement, TGA_AVALANCHE_ENVIRONNEMENTS),
+    moyen: idParTexte(v.SnosmAvalancheMoyensLocalisation, TGA_AVALANCHE_MOYENS),
+    obstacle: idParIndex(v.SnosmAvalancheObstacles, TGA_AVALANCHE_OBSTACLES_ORDRE),
+    positionCorps: idParIndex(v.SnosmAvalanchePosition2, TGA_AVALANCHE_POSITION_CORPS_ORDRE),
+  }
+
+  return { victime, liaisons }
 }
 
 async function construireZip(fichiers: Record<string, unknown>): Promise<Uint8Array> {
@@ -918,25 +1226,14 @@ async function envoyerEmailSnosm(expediteur: string, destinataire: string, sujet
   return await r.json()
 }
 
-async function exporterSnosm(
-  docId: string,
-  apiKey: string,
-  params: { debut?: string; fin?: string; destinataire?: string; squadCodes?: string[] }
-) {
-  const config = await lireConfigEnvoiSnosm()
-  const destinataire = params.destinataire || config.snosm_email_destinataire
-  if (!destinataire) throw new ErreurHttp(400, 'Aucun destinataire (ni params.destinataire, ni snosm_email_destinataire).')
+const TOUTES_SECTIONS_SNOSM = [
+  'CRS38', 'CRS38H', 'CRS05', 'CRS73', 'CRS73M', 'CRS73C',
+  'CRS06', 'CRS06S', 'CRS06V', 'CRS65', 'CRS65G', 'CRS65L', 'CRS65S', 'CRS66', 'CRS66B',
+]
 
-  // Toutes les sections connues (voir GROUPES dans src/lib/sections.js — pas d'import inter-fichier
-  // possible ici, déploiement en copier-coller d'un seul fichier) : contrairement à l'intuition
-  // initiale, cet export doit couvrir TOUTES les unités qui alimentent Track'Log/Cim'Alerte, pas
-  // seulement CRS05 — c'est ce que fait déjà l'export actuel de Manu Grigoletto (toute la base,
-  // sans filtre de section), que celui-ci remplace (décision utilisateur, 09/10/2026).
-  const TOUTES_SECTIONS = [
-    'CRS38', 'CRS38H', 'CRS05', 'CRS73', 'CRS73M', 'CRS73C',
-    'CRS06', 'CRS06S', 'CRS06V', 'CRS65', 'CRS65G', 'CRS65L', 'CRS65S', 'CRS66', 'CRS66B',
-  ]
-  const squadCodes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS
+/** Construit les fichiers JSON (format Lars) pour une période donnée — utilisé par exporterSnosm (ZIP + mail) et apercuSnosm (debug, sans mail). */
+async function construireExportSnosm(docId: string, apiKey: string, params: { debut?: string; fin?: string; squadCodes?: string[] }) {
+  const squadCodes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS_SNOSM
   const fin = params.fin ? new Date(params.fin) : new Date()
   const debut = params.debut ? new Date(params.debut) : new Date(fin.getTime() - 31 * 24 * 3600 * 1000)
   const debutEpoch = Math.floor(debut.getTime() / 1000)
@@ -961,88 +1258,107 @@ async function exporterSnosm(
   const parEventId = new Map<number, Record<string, unknown>>()
   for (const f of lignesInterventions) parEventId.set(f.EventId as number, f)
 
-  // Deux fichiers séparés dans le ZIP (interventions.json / victimes.json), corrélés par
-  // numero_intervention — plus proche dans l'esprit du vrai export (plusieurs fichiers JSON par
-  // entité) que notre premier essai (tout imbriqué dans un seul fichier), SANS reprendre les noms
-  // de table ni les colonnes à identifiants numériques (CrsAccident.json, tga_sexe_id, etc.) de ce
-  // vrai export : on n'a pas les tables de référence pour les remplir correctement (voir mails à
-  // Lars, 07-09/10/2026) — risque d'erreur silencieuse côté import si on imite juste le nom de
-  // fichier sans le contenu attendu derrière.
-  const victimes = (lignesVictimes as Array<Record<string, unknown> & { EventId: number }>).map((v) => {
+  const CrsAccident: unknown[] = []
+  const CrsAccidentsHelicoptere: unknown[] = []
+  const CrsAccidentsMeteo: unknown[] = []
+  const CrsAccidentsSecourismeEffectue: unknown[] = []
+  const CrsAccidentsTechniquesEvacuation: unknown[] = []
+  let idLiaison = 1
+
+  for (const f of lignesInterventions) {
+    const { accident, liaisons } = construireAccident(f)
+    CrsAccident.push(accident)
+    for (const helicoId of liaisons.helicopteres)
+      CrsAccidentsHelicoptere.push({ id: idLiaison++, crs_accident_id: accident.id, crs_helicoptere_id: helicoId })
+    for (const meteoId of liaisons.meteos) CrsAccidentsMeteo.push({ id: idLiaison++, crs_accident_id: accident.id, tga_meteo_id: meteoId })
+    for (const gesteId of liaisons.secourismeEffectues)
+      CrsAccidentsSecourismeEffectue.push({ id: idLiaison++, crs_accident_id: accident.id, crs_secourisme_effectue_id: gesteId })
+    for (const techId of liaisons.techniquesEvacuations)
+      CrsAccidentsTechniquesEvacuation.push({ id: idLiaison++, crs_accident_id: accident.id, crs_techniques_evacuation_id: techId })
+  }
+
+  const CrsVictime: unknown[] = []
+  const CrsVictimesBlessure: unknown[] = []
+  const CrsVictimesLocalisationblessure: unknown[] = []
+  const CrsVictimesAvalancheEnvironnement: unknown[] = []
+  const CrsVictimesAvalancheMoyen: unknown[] = []
+  const CrsVictimesAvalancheObstacle: unknown[] = []
+  const CrsVictimesAvalanchePositionCorp: unknown[] = []
+
+  for (const v of lignesVictimes as Array<Record<string, unknown> & { EventId: number }>) {
     const interv = parEventId.get(v.EventId)
     const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
-    return victimeExport(v, alerteLeIso, interv?.NumeroIntervention ?? null)
-  })
+    const { victime, liaisons } = construireVictime(v, alerteLeIso)
+    CrsVictime.push(victime)
+    for (const blessureId of liaisons.blessures)
+      CrsVictimesBlessure.push({ id: idLiaison++, crs_victime_id: victime.id, tga_blessure_id: blessureId })
+    for (const locId of liaisons.localisationsBlessures)
+      CrsVictimesLocalisationblessure.push({ id: idLiaison++, crs_victime_id: victime.id, tga_localisationblessure_id: locId })
+    if (liaisons.environnement != null)
+      CrsVictimesAvalancheEnvironnement.push({ id: idLiaison++, crs_victime_id: victime.id, tga_avalanche_environnement_id: liaisons.environnement })
+    if (liaisons.moyen != null)
+      CrsVictimesAvalancheMoyen.push({ id: idLiaison++, crs_victime_id: victime.id, tga_avalanche_moyen_id: liaisons.moyen })
+    if (liaisons.obstacle != null)
+      CrsVictimesAvalancheObstacle.push({ id: idLiaison++, crs_victime_id: victime.id, tga_avalanche_obstacle_id: liaisons.obstacle })
+    if (liaisons.positionCorps != null)
+      CrsVictimesAvalanchePositionCorp.push({
+        id: idLiaison++,
+        crs_victime_id: victime.id,
+        tga_avalanche_position_corp_id: liaisons.positionCorps,
+      })
+  }
 
-  const interventions = lignesInterventions.map((f) => interventionExport(f))
+  return {
+    periode: `${debut.toISOString().slice(0, 10)}_au_${fin.toISOString().slice(0, 10)}`,
+    fichiers: {
+      'CrsAccident.json': CrsAccident,
+      'CrsVictime.json': CrsVictime,
+      'CrsAccidentsHelicoptere.json': CrsAccidentsHelicoptere,
+      'CrsAccidentsMeteo.json': CrsAccidentsMeteo,
+      'CrsAccidentsSecourismeEffectue.json': CrsAccidentsSecourismeEffectue,
+      'CrsAccidentsTechniquesEvacuation.json': CrsAccidentsTechniquesEvacuation,
+      'CrsVictimesBlessure.json': CrsVictimesBlessure,
+      'CrsVictimesLocalisationblessure.json': CrsVictimesLocalisationblessure,
+      'CrsVictimesAvalancheEnvironnement.json': CrsVictimesAvalancheEnvironnement,
+      'CrsVictimesAvalancheMoyen.json': CrsVictimesAvalancheMoyen,
+      'CrsVictimesAvalancheObstacle.json': CrsVictimesAvalancheObstacle,
+      'CrsVictimesAvalanchePositionCorp.json': CrsVictimesAvalanchePositionCorp,
+    },
+    nombreInterventions: CrsAccident.length,
+    nombreVictimes: CrsVictime.length,
+  }
+}
 
-  const periode = `${debut.toISOString().slice(0, 10)}_au_${fin.toISOString().slice(0, 10)}`
+async function exporterSnosm(
+  docId: string,
+  apiKey: string,
+  params: { debut?: string; fin?: string; destinataire?: string; squadCodes?: string[] }
+) {
+  const config = await lireConfigEnvoiSnosm()
+  const destinataire = params.destinataire || config.snosm_email_destinataire
+  if (!destinataire) throw new ErreurHttp(400, 'Aucun destinataire (ni params.destinataire, ni snosm_email_destinataire).')
+
+  const { periode, fichiers, nombreInterventions, nombreVictimes } = await construireExportSnosm(docId, apiKey, params)
+
   // Préfixe "CRS" + horodatage de génération (pas la période couverte) : convention demandée par
   // Lars, qui reprend le format de l'export actuel (ex. CRS_2026-09-11_122947.zip).
   const maintenant = new Date()
   const iso = maintenant.toISOString()
-  const dateDuJour = iso.slice(0, 10) // AAAA-MM-JJ
-  const heureDuJour = iso.slice(11, 19).replace(/:/g, '') // HHMMSS
+  const dateDuJour = iso.slice(0, 10)
+  const heureDuJour = iso.slice(11, 19).replace(/:/g, '')
   const nomFichierZip = `CRS_${dateDuJour}_${heureDuJour}.zip`
-  const octetsZip = await construireZip({ 'interventions.json': interventions, 'victimes.json': victimes })
+  const octetsZip = await construireZip(fichiers)
   const zipBase64 = versBase64(octetsZip)
 
   await envoyerEmailSnosm(config.snosm_email_expediteur, destinataire, `Export SNOSM Track'Log — ${periode}`, nomFichierZip, zipBase64)
 
-  return { nombreInterventions: interventions.length, nombreVictimes: victimes.length, destinataire, periode }
+  return { nombreInterventions, nombreVictimes, destinataire, periode, fichiers: Object.keys(fichiers) }
 }
 
-/**
- * Debug/vérification — mêmes requêtes et mêmes transformations que exporterSnosm, mais renvoyées
- * directement dans la réponse HTTP (pas de ZIP, pas de mail) : sert à inspecter le contenu réel de
- * l'export sans attendre un envoi. Priorise les interventions dont la fiche SNOSM a été remplie dans
- * Track'Log (beaucoup de fiches anciennes n'ont que les champs de base poussés par Cim'Alerte — tout
- * le reste reste vide tant que personne n'a ouvert l'onglet SNOSM de cette intervention précise).
- */
-async function apercuSnosm(
-  docId: string,
-  apiKey: string,
-  params: { debut?: string; fin?: string; squadCodes?: string[]; limite?: number }
-) {
-  const TOUTES_SECTIONS = [
-    'CRS38', 'CRS38H', 'CRS05', 'CRS73', 'CRS73M', 'CRS73C',
-    'CRS06', 'CRS06S', 'CRS06V', 'CRS65', 'CRS65G', 'CRS65L', 'CRS65S', 'CRS66', 'CRS66B',
-  ]
-  const squadCodes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS
-  const fin = params.fin ? new Date(params.fin) : new Date()
-  const debut = params.debut ? new Date(params.debut) : new Date(fin.getTime() - 31 * 24 * 3600 * 1000)
-  const debutEpoch = Math.floor(debut.getTime() / 1000)
-  const finEpoch = Math.floor(fin.getTime() / 1000)
-  const placeholders = squadCodes.map(() => '?').join(', ')
-  const limite = params.limite ?? 5
-
-  const lignesInterventions = await requeteGrist(
-    docId,
-    apiKey,
-    `select ${COLONNES_EXPORT_INTERVENTION} from Interventions where Section in (${placeholders}) and Statut != 'brouillon' and ClotureLe is not null and AlerteLe >= ? and AlerteLe < ? and (SnosmOrigineAlerte is not null and SnosmOrigineAlerte != '') order by AlerteLe desc limit ?`,
-    [...squadCodes, debutEpoch, finEpoch, limite]
-  )
-
-  const eventIds = lignesInterventions.map((f) => f.EventId as number)
-  const lignesVictimes = eventIds.length
-    ? await requeteGrist(
-        docId,
-        apiKey,
-        `select ${COLONNES_EXPORT_VICTIME} from Victimes v where v.EventId in (${eventIds.map(() => '?').join(', ')})`,
-        eventIds
-      )
-    : []
-
-  const parEventId = new Map<number, Record<string, unknown>>()
-  for (const f of lignesInterventions) parEventId.set(f.EventId as number, f)
-
-  const victimes = (lignesVictimes as Array<Record<string, unknown> & { EventId: number }>).map((v) => {
-    const interv = parEventId.get(v.EventId)
-    const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
-    return victimeExport(v, alerteLeIso, interv?.NumeroIntervention ?? null)
-  })
-
-  return { interventions: lignesInterventions.map((f) => interventionExport(f)), victimes }
+/** Debug — mêmes données que exporterSnosm, renvoyées directement dans la réponse HTTP (pas de ZIP, pas de mail). */
+async function apercuSnosm(docId: string, apiKey: string, params: { debut?: string; fin?: string; squadCodes?: string[] }) {
+  const { fichiers, nombreInterventions, nombreVictimes } = await construireExportSnosm(docId, apiKey, params)
+  return { fichiers, nombreInterventions, nombreVictimes }
 }
 
 Deno.serve(async (requete) => {
