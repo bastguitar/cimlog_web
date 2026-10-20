@@ -1076,7 +1076,7 @@ const ALIAS_LOCALISATION_BLESSURE: Record<string, number> = { AUTRE: 27 }
 // ---------------------------------------------------------------------------------------------
 // Chargement + construction des objets d'export.
 // ---------------------------------------------------------------------------------------------
-const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, AlerteLe, Departement, Massif, Commune, Lieu,
+const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, AlerteLe, Departement, Massif, Commune, Lieu, CoordonneesGPS,
   CirconstancesGenerales,
   SnosmNumeroTexte, SnosmOrigineAlerte, SnosmOrigineAlerteAutre, SnosmAlerteLe, SnosmDepartLe, SnosmArriveeLieuxLe, SnosmFinOperationLe,
   SnosmNatureOperation, Activite, Altitude, SnosmMeteo, SnosmTypeDomaine, SnosmLocalisationPiste, SnosmNeige, SnosmEncadrement, SnosmDiplomeEncadrant,
@@ -1086,7 +1086,7 @@ const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, 
   SnosmEquipesCynophilesCRS, SnosmHelicopteres, SnosmEmploiHeliSAFJustification,
   SnosmAvalanche, SnosmAvalancheType, SnosmAvalancheTaille, SnosmAvalancheNiveauRisque, SnosmAvalancheDeclenchementLe, SnosmAvalanchePointDepartGPS,
   SnosmAvalancheLongueur, SnosmAvalancheLargeurCassure, SnosmAvalancheHauteurCassure, SnosmAvalancheLargeurDepot, SnosmAvalancheAltitude, SnosmAvalanchePente, SnosmAvalancheDenivele, SnosmAvalancheOrientation,
-  SnosmAvalancheNombreImpliques, SnosmAvalancheNombreBlesses, SnosmAvalancheNombreIndemnes, SnosmAvalancheNombreDecedes`
+  SnosmAvalancheNombreImpliques, SnosmAvalancheNombreVictimes, SnosmAvalancheNombreBlesses, SnosmAvalancheNombreIndemnes, SnosmAvalancheNombreDecedes`
 
 const COLONNES_EXPORT_VICTIME = `v.id, v.EventId, v.NumeroVictime, v.Sexe, v.DateNaissance, v.Age, v.SnosmStatut, v.SnosmEtatMedical,
   v.SnosmCodePostal, v.SnosmCommune, v.SnosmDestination, v.SnosmFinPriseEnChargeLe, v.SnosmCirconstancesListe,
@@ -1156,6 +1156,8 @@ function construireAccident(f: Record<string, unknown>) {
     // En attente de tga_communes (voir mail Lars, 20/10/2026) — toujours null pour l'instant.
     tga_commune_id: null,
     lieu_compl: f.Lieu || null,
+    // varchar(50), "texte libre (formats variés)" chez Lars — pas de reformatage, on transmet tel quel.
+    gps: f.CoordonneesGPS || null,
     crs_nature_operation_id: idParIndex(f.SnosmNatureOperation, CRS_NATURE_OPERATIONS_ORDRE),
     crs_nature_activite_id: idParTexte(f.Activite, CRS_NATURE_ACTIVITES, ALIAS_NATURE_ACTIVITE),
     altitude: entierSi(f.Altitude),
@@ -1192,6 +1194,9 @@ function construireAccident(f: Record<string, unknown>) {
     avalanche_denivele_total: entierSi(f.SnosmAvalancheDenivele),
     avalanche_pente: f.SnosmAvalanchePente || null,
     tga_point_cardinal_id: idParTexte(f.SnosmAvalancheOrientation, TGA_POINT_CARDINALS),
+    // "Nombre de victimes" chez Lars (avalanche_nb_participants) — distinct de avalanche_nb_impliques
+    // ("Nombre d'impliqués") juste en dessous, deux champs séparés dans son schéma.
+    avalanche_nb_participants: entierSi(f.SnosmAvalancheNombreVictimes),
     avalanche_nb_impliques: entierSi(f.SnosmAvalancheNombreImpliques),
     avalanche_nb_blesses: entierSi(f.SnosmAvalancheNombreBlesses),
     avalanche_nb_indemnes: entierSi(f.SnosmAvalancheNombreIndemnes),
