@@ -1096,6 +1096,33 @@ const COLONNES_EXPORT_VICTIME = `v.id, v.EventId, v.NumeroVictime, v.Sexe, v.Dat
   v.SnosmAvalancheSacAirbag, v.SnosmAvalancheMarqueModele, v.SnosmAvalancheAlimentation, v.SnosmAvalancheGonflage, v.SnosmAvalanchePositionVictime, v.SnosmAvalancheSacEtVictime,
   v.SnosmAvalancheDVAPresent, v.SnosmAvalancheDVAEnMarche`
 
+/**
+ * Format EXACT attendu par Lars pour toute date ("AAAA-MM-JJ HH:MM:SS", heure locale française, voir
+ * "Conventions" de CRS_schema_base.pdf) — jamais l'ISO 8601 UTC de depuisGrist() (ex.
+ * "2026-10-20T14:30:00.000Z"), qui ne sert qu'en interne à l'app. `epochSecondes` = valeur brute
+ * d'une colonne Grist DateTime (secondes depuis epoch, UTC) ; Europe/Paris gère automatiquement
+ * l'heure d'été/hiver, pas de décalage fixe à coder en dur.
+ */
+function versDateSnosm(epochSecondes: unknown): string | null {
+  if (epochSecondes == null || epochSecondes === '') return null
+  const date = new Date(Number(epochSecondes) * 1000)
+  if (Number.isNaN(date.getTime())) return null
+  const parties = new Intl.DateTimeFormat('fr-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const get = (type: string) => parties.find((p) => p.type === type)?.value ?? '00'
+  // Certains moteurs JS rendent "24" pour minuit avec hour12:false (quirk connu d'Intl) au lieu de "00".
+  const heure = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')} ${heure}:${get('minute')}:${get('second')}`
+}
+
 /** Âge À LA DATE DE L'INTERVENTION (pas aujourd'hui) — on envoie l'âge, jamais la date de naissance elle-même (trop identifiante). */
 function calculerAge(dateNaissanceIso: string | null, dateReferenceIso: string | null): number | null {
   if (!dateNaissanceIso || !dateReferenceIso) return null
@@ -1121,10 +1148,10 @@ function construireAccident(f: Record<string, unknown>) {
     no_texte: f.SnosmNumeroTexte || f.NumeroIntervention || null,
     crs_origine_id: idParIndex(f.SnosmOrigineAlerte, CRS_ORIGINES_ORDRE),
     origine: f.SnosmOrigineAlerteAutre || null,
-    gdh_alerte: depuisGrist(f.SnosmAlerteLe, 'datetime'),
-    gdh_debut: depuisGrist(f.SnosmDepartLe, 'datetime'),
-    gdh_fin: depuisGrist(f.SnosmFinOperationLe, 'datetime'),
-    gdh_sur_lieux: depuisGrist(f.SnosmArriveeLieuxLe, 'datetime'),
+    gdh_alerte: versDateSnosm(f.SnosmAlerteLe),
+    gdh_debut: versDateSnosm(f.SnosmDepartLe),
+    gdh_fin: versDateSnosm(f.SnosmFinOperationLe),
+    gdh_sur_lieux: versDateSnosm(f.SnosmArriveeLieuxLe),
     tga_massif_id: idParTexte(f.Massif, TGA_MASSIFS),
     // En attente de tga_communes (voir mail Lars, 20/10/2026) — toujours null pour l'instant.
     tga_commune_id: null,
@@ -1155,7 +1182,7 @@ function construireAccident(f: Record<string, unknown>) {
     tga_avalanche_type_depot_id: idTailleAvalanche(f.SnosmAvalancheTaille),
     tga_avalanche_type_id: idParIndex(f.SnosmAvalancheType, TGA_AVALANCHE_TYPES_ORDRE),
     tga_ra_id: idParIndex(f.SnosmAvalancheNiveauRisque, TGA_RAS_ORDRE),
-    avalanche_heure_declenchement: depuisGrist(f.SnosmAvalancheDeclenchementLe, 'datetime'),
+    avalanche_heure_declenchement: versDateSnosm(f.SnosmAvalancheDeclenchementLe),
     avalanche_pd_gps: f.SnosmAvalanchePointDepartGPS || null,
     avalanche_longueur: entierSi(f.SnosmAvalancheLongueur),
     avalanche_largeur: entierSi(f.SnosmAvalancheLargeurCassure),
@@ -1200,7 +1227,7 @@ function construireVictime(v: Record<string, unknown>, alerteLeIso: string | nul
     crs_destination_id: idParTexte(v.SnosmDestination, CRS_DESTINATIONS),
     age: ageCalcule ?? entierSi(v.Age),
     tga_sexe_id: idSexe(v.Sexe),
-    heure_fin_prise_charge: depuisGrist(v.SnosmFinPriseEnChargeLe, 'datetime'),
+    heure_fin_prise_charge: versDateSnosm(v.SnosmFinPriseEnChargeLe),
     avalanche_distance: entierSi(v.SnosmAvalancheDistanceM),
     avalanche_profondeur: entierSi(v.SnosmAvalancheProfondeurCm),
     avalanche_bouchon: idParIndex(v.SnosmAvalancheBouchonNeige, ['oui', 'non', 'ne sais pas']),
