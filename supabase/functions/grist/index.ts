@@ -777,9 +777,10 @@ function normTxte(valeur: unknown): string {
     .trim()
 }
 
-function idParTexte(valeur: unknown, paires: Array<[number, string]>): number | null {
+function idParTexte(valeur: unknown, paires: Array<[number, string]>, alias: Record<string, number> = {}): number | null {
   const v = normTxte(valeur)
   if (!v) return null
+  if (alias[v] != null) return alias[v]
   const trouve = paires.find(([, label]) => normTxte(label) === v)
   return trouve ? trouve[0] : null
 }
@@ -792,15 +793,21 @@ function idParIndex(valeur: unknown, options: string[], premierId = 1): number |
   return i === -1 ? null : i + premierId
 }
 
-/** Pour les champs "choix multiples" (nos tags/cases séparés par ', ') -> plusieurs id. */
-function idsParTexteMultiple(valeur: unknown, paires: Array<[number, string]>): number[] {
+/**
+ * Pour les champs "choix multiples" (nos tags/cases séparés par ', ') -> plusieurs id. `alias`
+ * couvre les cas où notre libellé (menu src/lib/optionsSnosm.js) et celui de Lars (CRS_schema_base.pdf)
+ * désignent la même chose mais avec des mots différents (accord, mot manquant, coquille de son PDF) —
+ * le simple rapprochement texte normalisé (idParTexte) ne suffit pas, vérifié un par un par
+ * comparaison exhaustive des deux vocabulaires (20/10/2026), voir les dictionnaires ALIAS_* ci-dessous.
+ */
+function idsParTexteMultiple(valeur: unknown, paires: Array<[number, string]>, alias: Record<string, number> = {}): number[] {
   const valeurs = String(valeur ?? '')
     .split(',')
     .map((v) => v.trim())
     .filter(Boolean)
   const ids: number[] = []
   for (const v of valeurs) {
-    const id = idParTexte(v, paires)
+    const id = idParTexte(v, paires, alias)
     if (id != null) ids.push(id)
   }
   return ids
@@ -855,6 +862,9 @@ const CRS_NATURE_ACTIVITES: Array<[number, string]> = [
   [48, 'VEHICULE A MOTEUR'], [49, 'VELO DE ROUTE'], [50, 'VIA-FERRATA / VIA CORDATA'], [51, 'VTT CROSS COUNTRY'],
   [52, 'VTT DH/ENDURO'], [53, 'WINGSUIT'], [54, 'AUTRE :'], [55, 'RAFTING'],
 ]
+// ReferentielActivites (Cim'Alerte/Track'Alerte, vérifié en direct sur Grist le 20/10/2026) porte
+// "Cycles (autres)" au pluriel, Lars "CYCLE (AUTRES)" au singulier.
+const ALIAS_NATURE_ACTIVITE: Record<string, number> = { 'CYCLES AUTRES': 16 }
 
 const TGA_MASSIFS: Array<[number, string]> = [
   [1, 'ALBERES'], [2, 'AURE LOURON'], [3, 'AUTRE'], [4, 'BELLEDONNE'], [5, 'BEVERA-PAILLONS'], [6, 'CANIGOU'], [7, 'CAPCIR'],
@@ -881,9 +891,11 @@ const TGA_DIPLOME_ENCADRANTS: Array<[number, string]> = [
   [5, 'DEJEPS Escalade'],
   [6, 'Autres'],
 ]
-/** "amm" chez nous est une abréviation du libellé complet de Lars — cas particulier avant le rapprochement par texte. */
+/** "amm" chez nous est une abréviation du libellé complet de Lars, "autre" (notre singulier) vs "Autres" (son pluriel) — cas particuliers avant le rapprochement par texte. */
 function idDiplomeEncadrant(valeur: unknown): number | null {
-  if (normTxte(valeur) === 'AMM') return 3
+  const v = normTxte(valeur)
+  if (v === 'AMM') return 3
+  if (v === 'AUTRE') return 6
   return idParTexte(valeur, TGA_DIPLOME_ENCADRANTS)
 }
 
@@ -965,6 +977,10 @@ const TGA_CIRCONSTANCES: Array<[number, string]> = [
   [26, '(Domaine skiable) Saut de barres'], [27, '(Domaine skiable) Glissade'], [28, '(Domaine skiable) Epuisement'],
   [29, '(Domaine skiable) Hypothermie'], [30, '(Domaine skiable) Non traumatique'], [31, "Pathologies d'altitude"],
 ]
+// Notre option ("tableur SNOSM" historique) a une coquille jamais corrigée : "atterissage" (1 r) au
+// lieu de "atterrissage" — on la fait correspondre telle quelle plutôt que de la "corriger" ici (le
+// champ reste modifiable en texte libre côté formulaire, toute autre valeur passe par idParTexte).
+const ALIAS_CIRCONSTANCE_VICTIME: Record<string, number> = { 'DECOLLAGE OU ATTERISSAGE': 6 }
 
 // Nos libellés viennent désormais de ref_destinations_evac (Supabase, voir chargerDestinationsEvac) —
 // texte libre proche mais pas forcément identique mot pour mot à ce que Lars nous a listé ici ; ce qui
@@ -979,7 +995,14 @@ const CRS_DESTINATIONS: Array<[number, string]> = [
   [36, 'CLINIQUE MEDIPOLE'], [37, 'CH GENEVE'], [38, 'CH BOURG ST MAURICE'],
 ]
 
-// Nos libellés viennent de ReferentielHelicos (Cim'Alerte, voir chargerReferentiels), déjà proches des siens.
+// Nos libellés viennent de ReferentielHelicos (Track'Alerte, voir chargerReferentiels), déjà proches des siens.
+// ⚠ Vérifié le 20/10/2026 contre le contenu RÉEL de ReferentielHelicos (23 appareils actifs) : 3 ne
+// figurent dans AUCUNE des 21 entrées du document de Lars (Choucas 74, Choucas 66, Dragon 13) — appareils
+// probablement entrés en service après la rédaction de son schéma. Volontairement laissés NON mappés
+// (null) plutôt que devinés — à signaler à Lars. YETI 1/YETI 2 (hélicoptères SAF, voir
+// SnosmEmploiHeliSAFJustification) ne sont pas nommés non plus chez lui, seulement "SAF 145"/"SAF 135"
+// génériques (id 20/21) — pas assez d'info pour savoir lequel correspond à quel YETI, donc non mappés
+// également plutôt que de risquer d'inverser les deux.
 const CRS_HELICOPTERES: Array<[number, string]> = [
   [1, 'CHOUCAS 04'], [2, 'CHOUCAS 05'], [3, 'CHOUCAS 09'], [4, 'CHOUCAS 65'], [5, 'CHOUCAS 69'], [6, 'CHOUCAS 73'],
   [7, 'DRAGON 34'], [8, 'DRAGON 38-1'], [9, 'DRAGON 38-2'], [10, 'DRAGON 64'], [11, 'DRAGON 65'], [12, 'DRAGON 66'],
@@ -1007,6 +1030,9 @@ const CRS_TECHNIQUES_EVACUATIONS: Array<[number, string]> = [
   [4, 'RECUPERATION EN APPUI PATIN'], [5, 'MISE EN OEUVRE MAIN COURANTE'], [6, 'MISE EN OEUVRE TYROLIENNE / BALANCIER'],
   [7, 'EVACUATION EN PAROI / CACOLET'], [8, 'DESCENTE TRAINEAU'], [9, 'PORTAGE/BRANCARDAGE'], [10, 'DEPLACEMENT ENCORDE'],
 ]
+// Notre option "HELITREUILLAGE SUR RELAIS" (OPTIONS_TECHNIQUES_EVACUATION) correspond à son
+// "RECUPERATION HELITREUILLAGE SUR RELAIS" (id 3) — mot "RECUPERATION" absent chez nous.
+const ALIAS_TECHNIQUES_EVACUATION: Record<string, number> = { 'HELITREUILLAGE SUR RELAIS': 3 }
 
 const TGA_BLESSURES: Array<[number, string]> = [
   [1, 'Suspicion de fracture fermée'], [2, 'Suspicion de luxation'], [3, "Suspicion d'entorse"], [4, 'Plaie hémoragique'],
@@ -1019,6 +1045,23 @@ const TGA_BLESSURES: Array<[number, string]> = [
   [26, 'Hypothermie associée'], [27, 'Dermabrasion'], [28, 'Douleurs thoraciques'], [29, 'Hypothermie isolée'],
   [30, 'Indemnes'], [31, 'MAM'], [32, 'Plaie non hémoragique'],
 ]
+// Vérifié un par un contre OPTIONS_TYPE_BLESSURE (20/10/2026) : mots manquants côté Lars ou côté nous
+// ("de"/"d'"), accords différents (pluriel chez lui, singulier chez nous), coquilles de son PDF
+// ("hémoragique" 1 r, "Décifit" au lieu de "Déficit") — rapprochement texte insuffisant, alias explicites.
+const ALIAS_BLESSURE: Record<string, number> = {
+  'ARRET CARDIO RESPIRATOIRE': 20,
+  'DEFICIT NEUROLOGIQUE DE TYPE AVC': 13,
+  INDEMNE: 30,
+  'NAUSEE VOMISSEMENT': 18,
+  'PLAIE HEMORRAGIQUE': 4,
+  'PLAIE NON HEMORRAGIQUE': 32,
+  'PROBLEME MUSCULAIRE': 10,
+  'SUSPICION ALCOOLEMIE DROGUE': 25,
+  'SUSPICION HEMORRAGIE INTERNE': 9,
+  'SUSPICION ENTORSE': 3,
+  'SUSPICION FRACTURE FERMEE': 1,
+  'SUSPICION FRACTURE OUVERTE': 5,
+}
 
 const TGA_LOCALISATIONBLESSURES: Array<[number, string]> = [
   [1, 'Visage'], [2, 'Cou'], [3, 'Rachis cervical'], [4, 'Tête'], [5, 'Thorax'], [6, 'Rachis lombaire'], [7, 'Abdomen'],
@@ -1026,6 +1069,8 @@ const TGA_LOCALISATIONBLESSURES: Array<[number, string]> = [
   [15, 'Rachis dorsal'], [16, 'Bassin'], [17, 'Doigts'], [18, 'Fémur'], [19, 'Genou'], [20, 'Tibia péroné'], [21, 'Cheville'],
   [22, 'Pied'], [23, 'Organes génitaux'], [24, 'Indemne'], [25, 'Non traumatique'], [26, 'Polytraumatismes'], [27, 'Autres'],
 ]
+// Notre option "Autre" (OPTIONS_LOCALISATION_BLESSURE) vs son "Autres" au pluriel (id 27).
+const ALIAS_LOCALISATION_BLESSURE: Record<string, number> = { AUTRE: 27 }
 
 // ---------------------------------------------------------------------------------------------
 // Chargement + construction des objets d'export.
@@ -1084,7 +1129,7 @@ function construireAccident(f: Record<string, unknown>) {
     tga_commune_id: null,
     lieu_compl: f.Lieu || null,
     crs_nature_operation_id: idParIndex(f.SnosmNatureOperation, CRS_NATURE_OPERATIONS_ORDRE),
-    crs_nature_activite_id: idParTexte(f.Activite, CRS_NATURE_ACTIVITES),
+    crs_nature_activite_id: idParTexte(f.Activite, CRS_NATURE_ACTIVITES, ALIAS_NATURE_ACTIVITE),
     altitude: entierSi(f.Altitude),
     tga_encadrement_id: idParTexte(f.SnosmEncadrement, TGA_ENCADREMENTS),
     tga_diplome_encadrant_id: idDiplomeEncadrant(f.SnosmDiplomeEncadrant),
@@ -1129,7 +1174,7 @@ function construireAccident(f: Record<string, unknown>) {
     helicopteres: idsParTexteMultiple(f.SnosmHelicopteres, CRS_HELICOPTERES),
     meteos: idsParTexteMultiple(f.SnosmMeteo, TGA_METEOS),
     secourismeEffectues: idsParTexteMultiple(f.SnosmGestesSecourisme, CRS_SECOURISME_EFFECTUES),
-    techniquesEvacuations: idsParTexteMultiple(f.SnosmTechniquesEvacuation, CRS_TECHNIQUES_EVACUATIONS),
+    techniquesEvacuations: idsParTexteMultiple(f.SnosmTechniquesEvacuation, CRS_TECHNIQUES_EVACUATIONS, ALIAS_TECHNIQUES_EVACUATION),
   }
 
   return { accident, liaisons }
@@ -1150,7 +1195,7 @@ function construireVictime(v: Record<string, unknown>, alerteLeIso: string | nul
     crs_etat_medical_id: idParIndex(v.SnosmEtatMedical, CRS_ETAT_MEDICALS_ORDRE),
     // En attente de tga_communes (commune de résidence) — voir construireAccident.
     tga_commune_id: null,
-    tga_circonstance_id: idParTexte(v.SnosmCirconstancesListe, TGA_CIRCONSTANCES),
+    tga_circonstance_id: idParTexte(v.SnosmCirconstancesListe, TGA_CIRCONSTANCES, ALIAS_CIRCONSTANCE_VICTIME),
     crs_destination_id: idParTexte(v.SnosmDestination, CRS_DESTINATIONS),
     age: ageCalcule ?? entierSi(v.Age),
     tga_sexe_id: idSexe(v.Sexe),
@@ -1176,8 +1221,8 @@ function construireVictime(v: Record<string, unknown>, alerteLeIso: string | nul
   }
 
   const liaisons = {
-    blessures: idsParTexteMultiple(v.SnosmTypeBlessure, TGA_BLESSURES),
-    localisationsBlessures: idsParTexteMultiple(v.SnosmLocalisationBlessure, TGA_LOCALISATIONBLESSURES),
+    blessures: idsParTexteMultiple(v.SnosmTypeBlessure, TGA_BLESSURES, ALIAS_BLESSURE),
+    localisationsBlessures: idsParTexteMultiple(v.SnosmLocalisationBlessure, TGA_LOCALISATIONBLESSURES, ALIAS_LOCALISATION_BLESSURE),
     environnement: idParTexte(v.SnosmAvalancheEnvironnement, TGA_AVALANCHE_ENVIRONNEMENTS),
     moyen: idParTexte(v.SnosmAvalancheMoyensLocalisation, TGA_AVALANCHE_MOYENS),
     obstacle: idParIndex(v.SnosmAvalancheObstacles, TGA_AVALANCHE_OBSTACLES_ORDRE),

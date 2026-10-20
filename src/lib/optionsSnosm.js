@@ -200,7 +200,7 @@ export const OPTIONS_TYPE_BLESSURE = [
   'arrêt cardio-respiratoire',
   'brûlure',
   'choc émotionnel',
-  'condition physique (fatigue, hypoglycémie)',
+  'condition physique (fatigue / hypoglycémie)',
   'contusion / hématome',
   "crise d'angoisse / tétanie / spasmophilie",
   "crise d'épilepsie",
