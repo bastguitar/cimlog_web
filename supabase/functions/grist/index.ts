@@ -1137,8 +1137,50 @@ function calculerAge(dateNaissanceIso: string | null, dateReferenceIso: string |
   return age
 }
 
+/**
+ * tga_commune_id — référentiel transmis par Lars (mail du 21/10/2026, dump SQL des 39192 communes
+ * INSEE), importé dans la table Supabase `ref_tga_communes` (nom, code_postal) plutôt que codé en dur
+ * ici (bien trop volumineux pour un fichier collé à la main dans le dashboard). Appariement par
+ * (code postal, nom normalisé) — jamais par nom seul (des dizaines de communes françaises partagent
+ * le même nom dans des départements différents) : sans code postal fiable, on laisse null plutôt que
+ * de deviner.
+ */
+
+/** "Village - 38380" (format Commune, niveau intervention, voir sansCodePostal dans src/lib/registre.js) -> {nom, codePostal}. */
+function communeEtCodePostal(valeur: unknown): { nom: string; codePostal: string | null } {
+  const texte = String(valeur ?? '').trim()
+  const m = texte.match(/^(.*?)\s*-\s*(\d{5})\s*$/)
+  if (m) return { nom: m[1].trim(), codePostal: m[2] }
+  return { nom: texte, codePostal: null }
+}
+
+/** Charge en un seul aller-retour toutes les communes dont on a besoin pour ce lot d'export (pas une requête par ligne). */
+async function chargerCommunesParCodePostal(codesPostaux: string[]): Promise<Map<string, number>> {
+  const carte = new Map<string, number>()
+  if (codesPostaux.length === 0) return carte
+  const { data, error } = await service.from('ref_tga_communes').select('id, nom, code_postal').in('code_postal', codesPostaux)
+  if (error) throw new ErreurHttp(500, `ref_tga_communes : ${error.message}`)
+  // Le dump de Lars contient des lignes dupliquées pour une même commune (même code INSEE, même nom,
+  // même code postal, juste un id différent — vérifié le 21/10/2026, ~10% des communes concernées) :
+  // on garde toujours le plus petit id, pour un résultat stable d'un export à l'autre plutôt que
+  // dépendant de l'ordre de retour de la requête.
+  for (const r of (data ?? []) as Array<{ id: number; nom: string; code_postal: string | null }>) {
+    if (!r.code_postal) continue
+    const cle = `${r.code_postal}|${normTxte(r.nom)}`
+    const existant = carte.get(cle)
+    if (existant == null || r.id < existant) carte.set(cle, r.id)
+  }
+  return carte
+}
+
+function idCommune(nom: string | null, codePostal: string | null, carteCommunes: Map<string, number>): number | null {
+  if (!nom || !codePostal) return null
+  return carteCommunes.get(`${codePostal}|${normTxte(nom)}`) ?? null
+}
+
 /** Une intervention -> crs_accidents (champs qu'on peut remplir) + les id de ses tables de liaison. */
-function construireAccident(f: Record<string, unknown>) {
+function construireAccident(f: Record<string, unknown>, carteCommunes: Map<string, number>) {
+  const { nom: communeNom, codePostal: communeCp } = communeEtCodePostal(f.Commune)
   const accident = {
     // "id" = notre identifiant interne stable (EventId Grist, jamais réattribué) — sert à la fois de
     // clé de liaison dans ce même export et de "identifiant stable" demandé par Lars (20/10/2026) pour
@@ -1153,8 +1195,7 @@ function construireAccident(f: Record<string, unknown>) {
     gdh_fin: versDateSnosm(f.SnosmFinOperationLe),
     gdh_sur_lieux: versDateSnosm(f.SnosmArriveeLieuxLe),
     tga_massif_id: idParTexte(f.Massif, TGA_MASSIFS),
-    // En attente de tga_communes (voir mail Lars, 20/10/2026) — toujours null pour l'instant.
-    tga_commune_id: null,
+    tga_commune_id: idCommune(communeNom, communeCp, carteCommunes),
     lieu_compl: f.Lieu || null,
     // varchar(50), "texte libre (formats variés)" chez Lars — pas de reformatage, on transmet tel quel.
     gps: f.CoordonneesGPS || null,
@@ -1214,7 +1255,7 @@ function construireAccident(f: Record<string, unknown>) {
 }
 
 /** Une victime -> crs_victimes (champs qu'on peut remplir) + les id de ses tables de liaison. */
-function construireVictime(v: Record<string, unknown>, alerteLeIso: string | null) {
+function construireVictime(v: Record<string, unknown>, alerteLeIso: string | null, carteCommunes: Map<string, number>) {
   const ageCalcule = calculerAge((v.DateNaissance as string) || null, alerteLeIso)
   // Pelle/Sonde/RECCO : 3 colonnes séparées chez Lars (crs_victimes), un seul champ "Matériel utilisé"
   // à choix multiple chez nous — 1/2 seulement si le champ a été renseigné (sinon vide, pas "Non" par défaut).
@@ -1226,8 +1267,10 @@ function construireVictime(v: Record<string, unknown>, alerteLeIso: string | nul
     crs_accident_id: v.EventId,
     crs_statut_id: idParIndex(v.SnosmStatut, CRS_STATUTS_ORDRE) ?? 1,
     crs_etat_medical_id: idParIndex(v.SnosmEtatMedical, CRS_ETAT_MEDICALS_ORDRE),
-    // En attente de tga_communes (commune de résidence) — voir construireAccident.
-    tga_commune_id: null,
+    tga_commune_id: idCommune((v.SnosmCommune as string) || null, (v.SnosmCodePostal as string) || null, carteCommunes),
+    // tga_nationalites toujours vide dans le dump de Lars (mail du 21/10/2026) — en attente qu'il nous
+    // transmette la table remplie pour construire la correspondance, comme pour les communes.
+    tga_nationalite_id: null,
     tga_circonstance_id: idParTexte(v.SnosmCirconstancesListe, TGA_CIRCONSTANCES, ALIAS_CIRCONSTANCE_VICTIME),
     crs_destination_id: idParTexte(v.SnosmDestination, CRS_DESTINATIONS),
     age: ageCalcule ?? entierSi(v.Age),
@@ -1336,6 +1379,12 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   const parEventId = new Map<number, Record<string, unknown>>()
   for (const f of lignesInterventions) parEventId.set(f.EventId as number, f)
 
+  // Un seul aller-retour vers ref_tga_communes pour tout le lot (pas une requête par intervention/victime).
+  const codesPostauxInterventions = lignesInterventions.map((f) => communeEtCodePostal(f.Commune).codePostal)
+  const codesPostauxVictimes = (lignesVictimes as Array<Record<string, unknown>>).map((v) => (v.SnosmCodePostal as string) || null)
+  const codesPostauxDistincts = [...new Set([...codesPostauxInterventions, ...codesPostauxVictimes].filter((cp): cp is string => Boolean(cp)))]
+  const carteCommunes = await chargerCommunesParCodePostal(codesPostauxDistincts)
+
   const CrsAccident: unknown[] = []
   const CrsAccidentsHelicoptere: unknown[] = []
   const CrsAccidentsMeteo: unknown[] = []
@@ -1344,7 +1393,7 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   let idLiaison = 1
 
   for (const f of lignesInterventions) {
-    const { accident, liaisons } = construireAccident(f)
+    const { accident, liaisons } = construireAccident(f, carteCommunes)
     CrsAccident.push(accident)
     for (const helicoId of liaisons.helicopteres)
       CrsAccidentsHelicoptere.push({ id: idLiaison++, crs_accident_id: accident.id, crs_helicoptere_id: helicoId })
@@ -1366,7 +1415,7 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   for (const v of lignesVictimes as Array<Record<string, unknown> & { EventId: number }>) {
     const interv = parEventId.get(v.EventId)
     const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
-    const { victime, liaisons } = construireVictime(v, alerteLeIso)
+    const { victime, liaisons } = construireVictime(v, alerteLeIso, carteCommunes)
     CrsVictime.push(victime)
     for (const blessureId of liaisons.blessures)
       CrsVictimesBlessure.push({ id: idLiaison++, crs_victime_id: victime.id, tga_blessure_id: blessureId })
