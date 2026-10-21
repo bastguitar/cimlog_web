@@ -713,6 +713,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   useEffect(() => {
     setOngletsVus((v) => (v.has(sousOnglet) ? v : new Set(v).add(sousOnglet)))
   }, [sousOnglet])
+  // Remonte en haut du corps de l'onglet à chaque changement — sans ça, rester scrollé en bas d'un
+  // long onglet (ex. Avalanche) et passer au suivant affichait ce dernier déjà défilé, ses premiers
+  // champs invisibles (bug remonté par l'utilisateur). C'est `.corps-sous-onglet-snosm` qui défile
+  // (overflow-y: auto, voir App.css), pas la fenêtre — `window.scrollTo` n'aurait rien fait ici.
+  const corpsOngletRef = useRef(null)
+  useEffect(() => {
+    corpsOngletRef.current?.scrollTo({ top: 0 })
+  }, [sousOnglet])
   const verrouillee = Boolean(fiche.toEnvoyeLe)
   const [edition, setEdition] = useState(!verrouillee)
   // Référentiels hélicoptères/activités : Cim'Alerte fait foi (voir optionsSnosm.js), plus aucune
@@ -1118,7 +1126,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         ))}
       </div>
 
-      <div className="corps-sous-onglet-snosm">
+      <div className="corps-sous-onglet-snosm" ref={corpsOngletRef}>
         {sousOnglet === 'general' &&
           (edition ? (
             <BlocChamps groupes={groupesAvecReferentiels(GROUPES_GENERAL, referentiels)} brouillon={brouillonFiche} majChamp={majChampFiche} />
