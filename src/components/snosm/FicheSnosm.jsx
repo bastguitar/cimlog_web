@@ -637,12 +637,17 @@ function brouillonFicheDepuis(fiche, referentiels) {
   // sens-là. `is_med` peut arriver en booléen strict ou en équivalent (chaîne/0-1) selon ce que Grist renvoie —
   // comparaison volontairement large plutôt que `typeof … === 'boolean'`, qui ratait le préremplissage si ce n'était pas le cas.
   if (!bf.snosm_medicalisation && fiche.is_med != null) bf.snosm_medicalisation = fiche.is_med === true || fiche.is_med === 'true' || fiche.is_med === 1 ? 'Oui' : 'Non'
-  // Circonstances / description (onglet Intervention) : brouillon généré depuis les victimes (sexe/âge/circonstances/
-  // cinétique) et l'activité — juste un point de départ, jamais réécrit si déjà rempli, toujours modifiable ensuite.
-  if (!bf.description) {
-    const genere = genererCirconstancesGlobales(fiche)
-    if (genere) bf.description = genere
-  }
+  // Circonstances / description (onglet Intervention) : TOUJOURS généré depuis les victimes (sexe/âge/
+  // circonstances/cinétique) et l'activité quand c'est possible, jamais laissé à la valeur brute poussée
+  // par Track'Alerte (CirconstancesGenerales = "Informations complémentaires"). Ce champ Track'Alerte
+  // n'a jamais été pensé comme une description officielle — confirmé avec la session Track'Alerte le
+  // 21/10/2026 : il sert de bloc-notes logistique (nombre de personnes, repères vestimentaires…) et
+  // contient très souvent des numéros de téléphone / noms complets de victimes, témoins ou famille, qui
+  // n'ont rien à faire dans un champ "Circonstances" exporté vers le SNOSM. L'export (Edge Function)
+  // applique la même règle indépendamment de ce qui est affiché ici — voir genererCirconstancesBrut.
+  // Reste modifiable ensuite si l'agent veut enrichir/corriger le texte généré.
+  const circonstancesGenerees = genererCirconstancesGlobales(fiche)
+  if (circonstancesGenerees) bf.description = circonstancesGenerees
   // Autorités avisées : point de départ selon la section/le département (DCCRS, zone, CRS région,
   // préfecture du département de l'intervention) — juste un point de départ, toujours modifiable.
   if (!bf.snosm_autorites_avisees) {
