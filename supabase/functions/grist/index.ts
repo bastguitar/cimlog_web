@@ -1190,8 +1190,67 @@ function idCommune(nom: string | null, codePostal: string | null, carteCommunes:
   return carteCommunes.get(`${codePostal}|${normTxteCommune(nom)}`) ?? null
 }
 
+/**
+ * Repli quand le champ Commune de Track'Alerte n'a PAS de code postal accolé (arrive régulièrement
+ * selon comment la commune a été saisie à la prise d'alerte — pas systématique, vérifié le 21/10/2026
+ * sur une vraie intervention de test où ça bloquait tga_commune_id malgré une saisie normale) : on
+ * cherche le nom parmi les seules communes du département de l'intervention (Departement, ex. "05") —
+ * l'INSEE interdit deux communes du même nom dans un même département, donc un nom unique dans ce
+ * périmètre reste fiable sans code postal. tga_departements étant vide chez Lars, on déduit le
+ * département directement des deux premiers chiffres de code_postal dans ref_tga_communes (vrai pour
+ * toute la France métropolitaine utile ici), pas besoin de cette table.
+ */
+/**
+ * Track'Alerte stocke parfois le département sans le zéro initial ("5" au lieu de "05", vérifié
+ * le 21/10/2026) — sans ce padding, la requête par préfixe de code postal visait "5%" (Manche,
+ * Calvados…) au lieu de "05%" (Hautes-Alpes) : mauvais département entièrement, pas juste une
+ * correspondance manquée. Ne touche pas à la Corse (2A/2B) ni aux codes à 3 chiffres (outre-mer,
+ * hors périmètre CRS Alpes/Pyrénées), qui ne matchent pas le format \d{1,2}.
+ */
+function normDepartement(valeur: unknown): string {
+  const d = String(valeur ?? '').trim()
+  return /^\d{1,2}$/.test(d) ? d.padStart(2, '0') : d
+}
+
+async function chargerCommunesParDepartement(departements: string[]): Promise<Map<string, number>> {
+  const carte = new Map<string, number>()
+  if (departements.length === 0) return carte
+  const motifs = departements.map((d) => `code_postal.like.${d}%`).join(',')
+  const { data, error } = await service.from('ref_tga_communes').select('id, nom, code_insee, code_postal').or(motifs)
+  if (error) throw new ErreurHttp(500, `ref_tga_communes (département) : ${error.message}`)
+  const parCle = new Map<string, Array<{ id: number; codeInsee: string | null }>>()
+  for (const r of (data ?? []) as Array<{ id: number; nom: string; code_insee: string | null; code_postal: string | null }>) {
+    if (!r.code_postal) continue
+    const cle = `${r.code_postal.slice(0, 2)}|${normTxteCommune(r.nom)}`
+    if (!parCle.has(cle)) parCle.set(cle, [])
+    parCle.get(cle)!.push({ id: r.id, codeInsee: r.code_insee })
+  }
+  for (const [cle, lignes] of parCle) {
+    // Même garde-fou que chargerCommunesParCodePostal : si deux codes INSEE différents partagent le
+    // même nom dans ce département (vraie ambiguïté, jamais observée mais possible), on ne devine pas.
+    if (new Set(lignes.map((l) => l.codeInsee)).size > 1) continue
+    carte.set(cle, Math.min(...lignes.map((l) => l.id)))
+  }
+  return carte
+}
+
+/** Essaie d'abord (code postal, nom) exact, puis par nom seul dans le département de l'intervention. */
+function idCommuneIntervention(
+  nom: string,
+  codePostal: string | null,
+  departement: unknown,
+  carteCommunesCp: Map<string, number>,
+  carteCommunesDept: Map<string, number>
+): number | null {
+  const direct = idCommune(nom, codePostal, carteCommunesCp)
+  if (direct != null) return direct
+  const dept = normDepartement(departement)
+  if (!dept) return null
+  return carteCommunesDept.get(`${dept}|${normTxteCommune(nom)}`) ?? null
+}
+
 /** Une intervention -> crs_accidents (champs qu'on peut remplir) + les id de ses tables de liaison. */
-function construireAccident(f: Record<string, unknown>, carteCommunes: Map<string, number>) {
+function construireAccident(f: Record<string, unknown>, carteCommunesCp: Map<string, number>, carteCommunesDept: Map<string, number>) {
   const { nom: communeNom, codePostal: communeCp } = communeEtCodePostal(f.Commune)
   const accident = {
     // "id" = notre identifiant interne stable (EventId Grist, jamais réattribué) — sert à la fois de
@@ -1207,7 +1266,7 @@ function construireAccident(f: Record<string, unknown>, carteCommunes: Map<strin
     gdh_fin: versDateSnosm(f.SnosmFinOperationLe),
     gdh_sur_lieux: versDateSnosm(f.SnosmArriveeLieuxLe),
     tga_massif_id: idParTexte(f.Massif, TGA_MASSIFS),
-    tga_commune_id: idCommune(communeNom, communeCp, carteCommunes),
+    tga_commune_id: idCommuneIntervention(communeNom, communeCp, f.Departement, carteCommunesCp, carteCommunesDept),
     lieu_compl: f.Lieu || null,
     // varchar(50), "texte libre (formats variés)" chez Lars — pas de reformatage, on transmet tel quel.
     gps: f.CoordonneesGPS || null,
@@ -1395,7 +1454,14 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   const codesPostauxInterventions = lignesInterventions.map((f) => communeEtCodePostal(f.Commune).codePostal)
   const codesPostauxVictimes = (lignesVictimes as Array<Record<string, unknown>>).map((v) => (v.SnosmCodePostal as string) || null)
   const codesPostauxDistincts = [...new Set([...codesPostauxInterventions, ...codesPostauxVictimes].filter((cp): cp is string => Boolean(cp)))]
-  const carteCommunes = await chargerCommunesParCodePostal(codesPostauxDistincts)
+  // Départements de TOUTES les interventions (pas seulement celles sans code postal dans le texte) :
+  // sert aussi de repli quand le code postal présent dans le texte ne matche pas (ex. article "Le/La"
+  // manquant) — toujours plus utile qu'un simple null.
+  const departementsDistincts = [...new Set(lignesInterventions.map((f) => normDepartement(f.Departement)).filter(Boolean))]
+  const [carteCommunesCp, carteCommunesDept] = await Promise.all([
+    chargerCommunesParCodePostal(codesPostauxDistincts),
+    chargerCommunesParDepartement(departementsDistincts),
+  ])
 
   const CrsAccident: unknown[] = []
   const CrsAccidentsHelicoptere: unknown[] = []
@@ -1405,7 +1471,7 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   let idLiaison = 1
 
   for (const f of lignesInterventions) {
-    const { accident, liaisons } = construireAccident(f, carteCommunes)
+    const { accident, liaisons } = construireAccident(f, carteCommunesCp, carteCommunesDept)
     CrsAccident.push(accident)
     for (const helicoId of liaisons.helicopteres)
       CrsAccidentsHelicoptere.push({ id: idLiaison++, crs_accident_id: accident.id, crs_helicoptere_id: helicoId })
@@ -1427,7 +1493,7 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   for (const v of lignesVictimes as Array<Record<string, unknown> & { EventId: number }>) {
     const interv = parEventId.get(v.EventId)
     const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
-    const { victime, liaisons } = construireVictime(v, alerteLeIso, carteCommunes)
+    const { victime, liaisons } = construireVictime(v, alerteLeIso, carteCommunesCp)
     CrsVictime.push(victime)
     for (const blessureId of liaisons.blessures)
       CrsVictimesBlessure.push({ id: idLiaison++, crs_victime_id: victime.id, tga_blessure_id: blessureId })
