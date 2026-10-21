@@ -1154,6 +1154,18 @@ function communeEtCodePostal(valeur: unknown): { nom: string; codePostal: string
   return { nom: texte, codePostal: null }
 }
 
+/**
+ * Le référentiel de Lars abrège systématiquement "Saint"/"Sainte" en "St"/"Ste" (convention INSEE
+ * standard) — jamais chez nous, où le nom est saisi/affiché en toutes lettres. Sans cette
+ * normalisation spécifique aux communes, toute commune "Saint-…"/"Sainte-…" (une bonne partie des
+ * communes françaises) ne trouvait aucune correspondance — vérifié le 21/10/2026 sur un vrai export
+ * (Saint-Sorlin-d'Arves, Saint-Christophe-en-Oisans…). Volontairement séparée de normTxte() (utilisée
+ * par toutes les autres listes) pour ne pas risquer d'effet de bord ailleurs.
+ */
+function normTxteCommune(valeur: unknown): string {
+  return normTxte(valeur).replace(/\bSAINTE\b/g, 'STE').replace(/\bSAINT\b/g, 'ST')
+}
+
 /** Charge en un seul aller-retour toutes les communes dont on a besoin pour ce lot d'export (pas une requête par ligne). */
 async function chargerCommunesParCodePostal(codesPostaux: string[]): Promise<Map<string, number>> {
   const carte = new Map<string, number>()
@@ -1166,7 +1178,7 @@ async function chargerCommunesParCodePostal(codesPostaux: string[]): Promise<Map
   // dépendant de l'ordre de retour de la requête.
   for (const r of (data ?? []) as Array<{ id: number; nom: string; code_postal: string | null }>) {
     if (!r.code_postal) continue
-    const cle = `${r.code_postal}|${normTxte(r.nom)}`
+    const cle = `${r.code_postal}|${normTxteCommune(r.nom)}`
     const existant = carte.get(cle)
     if (existant == null || r.id < existant) carte.set(cle, r.id)
   }
@@ -1175,7 +1187,7 @@ async function chargerCommunesParCodePostal(codesPostaux: string[]): Promise<Map
 
 function idCommune(nom: string | null, codePostal: string | null, carteCommunes: Map<string, number>): number | null {
   if (!nom || !codePostal) return null
-  return carteCommunes.get(`${codePostal}|${normTxte(nom)}`) ?? null
+  return carteCommunes.get(`${codePostal}|${normTxteCommune(nom)}`) ?? null
 }
 
 /** Une intervention -> crs_accidents (champs qu'on peut remplir) + les id de ses tables de liaison. */
