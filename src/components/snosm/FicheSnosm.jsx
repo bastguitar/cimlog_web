@@ -236,16 +236,13 @@ const GROUPES_INTERVENTION = [
   {
     titre: 'Compte rendu',
     champs: [
-      // Récit à transmettre au SNOSM (demande explicite de Lars, 27/10/2026 : ce qui s'est passé, ce
-      // qui a conduit à l'accident) — jamais "description" (Informations complémentaires
-      // Track'Alerte, juste en dessous), un bloc-notes logistique terrain qui contient très souvent
-      // des données personnelles (voir le commentaire de brouillonFicheDepuis plus haut).
-      { cle: 'snosm_circonstances_recit', label: 'Circonstances (récit SNOSM)', type: 'texte-long' },
-      {
-        cle: 'description',
-        label: 'Informations complémentaires (Track’Alerte, non transmis au SNOSM)',
-        type: 'texte-long',
-      },
+      // Un seul champ "Circonstances / description", comme avant (décision utilisateur, 27/10/2026 :
+      // garder le formulaire tel quel) — mais adossé à snosm_circonstances_recit (champ dédié,
+      // jamais écrit par Track'Alerte) plutôt qu'à "description" (CirconstancesGenerales =
+      // Informations complémentaires Track'Alerte, un bloc-notes logistique terrain qui contient très
+      // souvent des données personnelles, voir le commentaire de brouillonFicheDepuis plus haut) :
+      // Lars veut le vrai récit rédigé par l'agent, jamais exposé au risque de fuite de ce champ-là.
+      { cle: 'snosm_circonstances_recit', label: 'Circonstances / description', type: 'texte-long' },
       {
         cle: 'snosm_gestes_secourisme',
         label: 'Geste(s) de secourisme effectué(s)',
@@ -650,16 +647,14 @@ function brouillonFicheDepuis(fiche, referentiels) {
   // sens-là. `is_med` peut arriver en booléen strict ou en équivalent (chaîne/0-1) selon ce que Grist renvoie —
   // comparaison volontairement large plutôt que `typeof … === 'boolean'`, qui ratait le préremplissage si ce n'était pas le cas.
   if (!bf.snosm_medicalisation && fiche.is_med != null) bf.snosm_medicalisation = fiche.is_med === true || fiche.is_med === 'true' || fiche.is_med === 1 ? 'Oui' : 'Non'
-  // Circonstances SNOSM (onglet Avis) : champ dédié (snosm_circonstances_recit), jamais écrit par
-  // Track'Alerte — contrairement à "description" (CirconstancesGenerales = "Informations
+  // Circonstances / description (onglet Intervention) : adossé à snosm_circonstances_recit, jamais
+  // écrit par Track'Alerte — contrairement à "description" (CirconstancesGenerales = "Informations
   // complémentaires" Track'Alerte), un bloc-notes logistique terrain (nombre de personnes, repères
   // vestimentaires…) qui contient très souvent des numéros de téléphone / noms complets de victimes,
-  // témoins ou famille, confirmé avec la session Track'Alerte le 21/10/2026 — jamais une description
-  // officielle, donc jamais exportée vers le SNOSM (voir supabase/functions/grist/index.ts). Lars a
-  // précisé le 27/10/2026 qu'il veut le vrai récit rédigé par l'agent : pré-rempli ici avec un
-  // brouillon généré depuis les victimes (sexe/âge/circonstances/cinétique) et l'activité SEULEMENT
-  // si le champ est encore vide — jamais écrasé ensuite, l'agent est censé le relire et le réécrire
-  // en un vrai récit avant de valider le TO.
+  // témoins ou famille, confirmé avec la session Track'Alerte le 21/10/2026 — jamais pris pour
+  // "circonstances" exporté vers le SNOSM (voir supabase/functions/grist/index.ts). Préremplissage
+  // avec un brouillon généré depuis les victimes (sexe/âge/circonstances/cinétique) et l'activité
+  // SEULEMENT si le champ est encore vide — jamais écrasé ensuite, modifiable par l'agent comme avant.
   if (!bf.snosm_circonstances_recit) {
     const circonstancesGenerees = genererCirconstancesGlobales(fiche)
     if (circonstancesGenerees) bf.snosm_circonstances_recit = circonstancesGenerees
