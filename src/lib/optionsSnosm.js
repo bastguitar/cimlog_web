@@ -743,9 +743,25 @@ function circonstanceEtCinetique(circonstancesBrut, cinetiqueBrut) {
   return [circonstancesBrut, complement].filter(Boolean).join(' ')
 }
 
-function texteCirconstancesVictime(v) {
+/** Âge à la date de l'alerte, calculé depuis la date de naissance — même logique que côté export SNOSM. */
+function calculerAge(dateNaissanceIso, dateReferenceIso) {
+  if (!dateNaissanceIso || !dateReferenceIso) return null
+  const naissance = new Date(dateNaissanceIso)
+  const reference = new Date(dateReferenceIso)
+  if (Number.isNaN(naissance.getTime()) || Number.isNaN(reference.getTime())) return null
+  let age = reference.getFullYear() - naissance.getFullYear()
+  const avantAnniversaire =
+    reference.getMonth() < naissance.getMonth() || (reference.getMonth() === naissance.getMonth() && reference.getDate() < naissance.getDate())
+  if (avantAnniversaire) age--
+  return age
+}
+
+function texteCirconstancesVictime(v, alerteLeIso) {
   const morceaux = []
-  const sexeAge = [sexeDepuis(v.sexe), v.age ? `${v.age} ans` : null].filter(Boolean).join(' ')
+  // Priorité à l'âge calculé depuis la date de naissance — sinon le texte perd l'âge dès que seul
+  // ce champ est renseigné (le champ "age" brut, saisi à la main, reste souvent vide).
+  const age = calculerAge(v.date_naissance, alerteLeIso) ?? v.age
+  const sexeAge = [sexeDepuis(v.sexe), age ? `${age} ans` : null].filter(Boolean).join(' ')
   if (sexeAge) morceaux.push(sexeAge)
   const circonstance = circonstanceEtCinetique(String(v.circonstances ?? '').trim(), String(v.cinetique ?? '').trim())
   if (circonstance) morceaux.push(circonstance)
@@ -756,12 +772,14 @@ function texteCirconstancesVictime(v) {
  * Message de circonstances globales généré depuis les victimes (sexe, âge,
  * circonstances, cinétique — champs Cim'Alerte déjà connus) et l'activité de
  * l'intervention, ex. « Femme 28 ans, Chute à haute cinétique en VTT cross
- * country ». Préremplissage du champ "Circonstances / description" (onglet
+ * country ». Préremplissage du champ "Circonstances (récit SNOSM)" (onglet
  * Intervention) seulement s'il est vide, jamais figé — toujours réécrit à la
- * main ensuite si le brouillon généré ne convient pas.
+ * main ensuite si le brouillon généré ne convient pas, l'agent devant le
+ * transformer en un vrai récit avant de valider le TO (demande de Lars, 27/10/2026).
  */
 export function genererCirconstancesGlobales(fiche) {
-  const phrases = (fiche.victimes ?? []).map(texteCirconstancesVictime).filter(Boolean)
+  const alerteLeIso = fiche.snosm_alerte_le || fiche.alert_at
+  const phrases = (fiche.victimes ?? []).map((v) => texteCirconstancesVictime(v, alerteLeIso)).filter(Boolean)
   const base = phrases.join(' ; ')
   return [base, fiche.activity ? `en ${fiche.activity}` : null].filter(Boolean).join(' ')
 }

@@ -236,7 +236,16 @@ const GROUPES_INTERVENTION = [
   {
     titre: 'Compte rendu',
     champs: [
-      { cle: 'description', label: 'Circonstances / description', type: 'texte-long' },
+      // Récit à transmettre au SNOSM (demande explicite de Lars, 27/10/2026 : ce qui s'est passé, ce
+      // qui a conduit à l'accident) — jamais "description" (Informations complémentaires
+      // Track'Alerte, juste en dessous), un bloc-notes logistique terrain qui contient très souvent
+      // des données personnelles (voir le commentaire de brouillonFicheDepuis plus haut).
+      { cle: 'snosm_circonstances_recit', label: 'Circonstances (récit SNOSM)', type: 'texte-long' },
+      {
+        cle: 'description',
+        label: 'Informations complémentaires (Track’Alerte, non transmis au SNOSM)',
+        type: 'texte-long',
+      },
       {
         cle: 'snosm_gestes_secourisme',
         label: 'Geste(s) de secourisme effectué(s)',
@@ -615,7 +624,11 @@ function brouillonFicheDepuis(fiche, referentiels) {
   // n'importe quel champ, jamais réécrits sur Cim'Alerte lui-même (colonnes Snosm* dédiées côté Grist).
   if (!bf.snosm_alerte_le && fiche.created_at) bf.snosm_alerte_le = fiche.created_at
   if (!bf.snosm_depart_le && fiche.depart_le) bf.snosm_depart_le = fiche.depart_le
-  if (!bf.snosm_arrivee_lieux_le && fiche.arrivee_le) bf.snosm_arrivee_lieux_le = fiche.arrivee_le
+  // "Sur les lieux" n'a pas toujours de statut ASL horodaté dans la main courante (terrain rapide, bouton
+  // non pressé) — plutôt que de laisser le champ entièrement vide (saisie à la main risquant une erreur
+  // de date, constaté le 25/10/2026 : 3 jours d'écart tapés par erreur), on reprend au moins le jour du
+  // départ ou de l'alerte comme point de départ, à corriger ensuite si l'heure exacte diffère.
+  if (!bf.snosm_arrivee_lieux_le) bf.snosm_arrivee_lieux_le = fiche.arrivee_le || fiche.depart_le || fiche.created_at || null
   if (!bf.snosm_fin_operation_le && fiche.fin_le) bf.snosm_fin_operation_le = fiche.fin_le
   // Opération (héliportée/terrestre/mixte) : reprend le type d'intervention Cim'Alerte (reclassé —
   // poussé en minuscules côté Cim'Alerte, "mixte" ≠ "Mixte" pour la comparaison stricte du radio).
@@ -637,17 +650,20 @@ function brouillonFicheDepuis(fiche, referentiels) {
   // sens-là. `is_med` peut arriver en booléen strict ou en équivalent (chaîne/0-1) selon ce que Grist renvoie —
   // comparaison volontairement large plutôt que `typeof … === 'boolean'`, qui ratait le préremplissage si ce n'était pas le cas.
   if (!bf.snosm_medicalisation && fiche.is_med != null) bf.snosm_medicalisation = fiche.is_med === true || fiche.is_med === 'true' || fiche.is_med === 1 ? 'Oui' : 'Non'
-  // Circonstances / description (onglet Intervention) : TOUJOURS généré depuis les victimes (sexe/âge/
-  // circonstances/cinétique) et l'activité quand c'est possible, jamais laissé à la valeur brute poussée
-  // par Track'Alerte (CirconstancesGenerales = "Informations complémentaires"). Ce champ Track'Alerte
-  // n'a jamais été pensé comme une description officielle — confirmé avec la session Track'Alerte le
-  // 21/10/2026 : il sert de bloc-notes logistique (nombre de personnes, repères vestimentaires…) et
-  // contient très souvent des numéros de téléphone / noms complets de victimes, témoins ou famille, qui
-  // n'ont rien à faire dans un champ "Circonstances" exporté vers le SNOSM. L'export (Edge Function)
-  // applique la même règle indépendamment de ce qui est affiché ici — voir genererCirconstancesBrut.
-  // Reste modifiable ensuite si l'agent veut enrichir/corriger le texte généré.
-  const circonstancesGenerees = genererCirconstancesGlobales(fiche)
-  if (circonstancesGenerees) bf.description = circonstancesGenerees
+  // Circonstances SNOSM (onglet Avis) : champ dédié (snosm_circonstances_recit), jamais écrit par
+  // Track'Alerte — contrairement à "description" (CirconstancesGenerales = "Informations
+  // complémentaires" Track'Alerte), un bloc-notes logistique terrain (nombre de personnes, repères
+  // vestimentaires…) qui contient très souvent des numéros de téléphone / noms complets de victimes,
+  // témoins ou famille, confirmé avec la session Track'Alerte le 21/10/2026 — jamais une description
+  // officielle, donc jamais exportée vers le SNOSM (voir supabase/functions/grist/index.ts). Lars a
+  // précisé le 27/10/2026 qu'il veut le vrai récit rédigé par l'agent : pré-rempli ici avec un
+  // brouillon généré depuis les victimes (sexe/âge/circonstances/cinétique) et l'activité SEULEMENT
+  // si le champ est encore vide — jamais écrasé ensuite, l'agent est censé le relire et le réécrire
+  // en un vrai récit avant de valider le TO.
+  if (!bf.snosm_circonstances_recit) {
+    const circonstancesGenerees = genererCirconstancesGlobales(fiche)
+    if (circonstancesGenerees) bf.snosm_circonstances_recit = circonstancesGenerees
+  }
   // Autorités avisées : point de départ selon la section/le département (DCCRS, zone, CRS région,
   // préfecture du département de l'intervention) — juste un point de départ, toujours modifiable.
   if (!bf.snosm_autorites_avisees) {
@@ -948,7 +964,8 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   async function enregistrer() {
     setEnregistrement(true)
     try {
-      await sauvegarderBrouillon()
+      const ficheAJour = await sauvegarderBrouillon()
+      await resynchroniserTOSiExistant(ficheAJour)
       setErreur(null)
       setConfirmationSauvegarde(true)
       setTimeout(() => setConfirmationSauvegarde(false), 2500)
@@ -964,7 +981,8 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   async function passerAuSuivant(cleSuivante) {
     setEnregistrement(true)
     try {
-      await sauvegarderBrouillon()
+      const ficheAJour = await sauvegarderBrouillon()
+      await resynchroniserTOSiExistant(ficheAJour)
       setErreur(null)
       setSousOnglet(cleSuivante)
     } catch (e) {
@@ -974,11 +992,37 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     }
   }
 
-  /** Génère le TO à partir des données SNOSM actuelles, l'enregistre (snosm_to_texte,
-   * snosm_to_cree_le — pas de verrou associé, la fiche reste modifiable) et l'ouvre directement
-   * dans un nouvel onglet, sans étape d'édition intermédiaire (décision utilisateur — l'aperçu
-   * éditable ajoutait un clic superflu pour le cas courant). La fenêtre est ouverte tout de suite,
-   * avant l'attente réseau, pour rester dans le geste utilisateur et échapper au blocage de popup. */
+  /** Reconstruit le modèle du TO depuis la fiche à jour et l'enregistre (snosm_to_texte,
+   * snosm_to_cree_le) — partagé entre "Créer le TO" (ci-dessous, qui génère et ouvre le PDF en plus)
+   * et la resynchronisation silencieuse après un "Enregistrer"/"Suivant" (voir plus bas) : dans les
+   * deux cas, le contenu du TO doit refléter la fiche telle qu'elle vient d'être sauvegardée. */
+  async function regenererModeleTO(ficheAJour) {
+    // effectifs (état local, tenu à jour par rafraichirEffectifs à chaque ajout/modif/suppression)
+    // plutôt que ficheAJour.effectifs_engages, qui peut être périmé ou vide selon la façon dont la
+    // fiche a été chargée au départ — sans ça, l'effectif CRS engagé pouvait manquer entièrement du
+    // TO généré alors qu'il s'affichait bien dans l'onglet Moyens engagés (bug remonté par l'utilisateur).
+    const modele = construireModeleTO({ ...ficheAJour, effectifs_engages: effectifs }, { sectionNom })
+    const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
+    await modifierIntervention(fiche.id, codesRequete, champs)
+    onFicheMaj((f) => ({ ...f, ...champs }))
+    return modele
+  }
+
+  /** Si un TO a déjà été créé au moins une fois, le régénère en silence après un simple
+   * "Enregistrer"/passage à l'onglet suivant — sans ça, une correction faite APRÈS la création du TO
+   * (ex. une date corrigée) n'était reprise que si l'agent repassait explicitement par "Créer le TO"
+   * (onglet Avis) : sinon le PDF déjà généré restait avec l'ancienne valeur, source d'erreur silencieuse
+   * remontée par l'utilisateur le 25/10/2026. Jamais de PDF régénéré/téléchargé ici, juste le contenu
+   * JSON tenu à jour — le PDF à jour n'est (re)téléchargé que si l'agent reclique "Créer le TO". */
+  async function resynchroniserTOSiExistant(ficheAJour) {
+    if (!fiche.snosm_to_cree_le) return
+    await regenererModeleTO(ficheAJour)
+  }
+
+  /** Génère le TO à partir des données SNOSM actuelles, l'enregistre et l'ouvre directement dans un
+   * nouvel onglet, sans étape d'édition intermédiaire (décision utilisateur — l'aperçu éditable
+   * ajoutait un clic superflu pour le cas courant). La fenêtre est ouverte tout de suite, avant
+   * l'attente réseau, pour rester dans le geste utilisateur et échapper au blocage de popup. */
   /** "Créer le TO" — enregistre d'abord ce qui a été saisi (comme "Enregistrer"),
    * puis construit le modèle depuis la fiche fraîchement sauvegardée : sans ça, une modification pas
    * encore enregistrée manquerait dans le TO généré. */
@@ -988,14 +1032,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     const fenetre = window.open('', '_blank')
     try {
       const ficheAJour = await sauvegarderBrouillon()
-      // effectifs (état local, tenu à jour par rafraichirEffectifs à chaque ajout/modif/suppression)
-      // plutôt que ficheAJour.effectifs_engages, qui peut être périmé ou vide selon la façon dont la
-      // fiche a été chargée au départ — sans ça, l'effectif CRS engagé pouvait manquer entièrement du
-      // TO généré alors qu'il s'affichait bien dans l'onglet Moyens engagés (bug remonté par l'utilisateur).
-      const modele = construireModeleTO({ ...ficheAJour, effectifs_engages: effectifs }, { sectionNom })
-      const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
-      await modifierIntervention(fiche.id, codesRequete, champs)
-      onFicheMaj((f) => ({ ...f, ...champs }))
+      const modele = await regenererModeleTO(ficheAJour)
       const doc = await genererPdfDepuisModele(modele)
       const nom = nomFichierTO(fiche, modele)
       // Métadonnée PDF "Titre" — nomme l'onglet du navigateur d'après le fichier plutôt que l'URL blob illisible.

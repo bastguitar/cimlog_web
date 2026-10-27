@@ -173,6 +173,13 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_autorites_avisees', 'SnosmAutoritesAvisees', 'text'],
   ['snosm_medias_informes', 'SnosmMediasInformes', 'text'],
   ['snosm_avis_divers', 'SnosmAvisDivers', 'text'],
+  // Récit des circonstances à destination du SNOSM, écrit par l'agent (ce qui s'est passé et ce qui
+  // a conduit à l'accident — demande explicite de Lars, 27/10/2026). Volontairement SÉPARÉ de
+  // CirconstancesGenerales (= "Informations complémentaires" Track'Alerte, repères logistiques
+  // terrain, souvent contaminé par des données personnelles — voir le commentaire au-dessus de
+  // crs_accidents.circonstances, plus bas) : un champ propre à Track'Log, jamais écrit par
+  // Track'Alerte, ne peut pas hériter de cette contamination.
+  ['snosm_circonstances_recit', 'SnosmCirconstancesRecit', 'text'],
   ['snosm_redacteur', 'SnosmRedacteur', 'text'],
   ['snosm_signataire', 'SnosmSignataire', 'text'],
   // Contenu édité du TO (JSON) et date de dernière validation — posés par "Valider et créer le TO"
@@ -965,6 +972,34 @@ function idSexe(valeur: unknown): number | null {
   return null
 }
 
+// tga_nationalites (table de Lars, transmise remplie le 23/10/2026 — vide dans son premier envoi
+// du 20/10/2026) : notre menu Nationalité (OPTIONS_NATIONALITE, src/lib/optionsSnosm.js) n'a que 16
+// valeurs fixes au féminin ("Française"), les siennes sont au masculin avec suffixe ("Français-e") —
+// pas de rapprochement texte automatique fiable sur un si petit nombre de valeurs, correspondance
+// vérifiée une par une plutôt qu'un référentiel complet comme pour les communes (39192 lignes, celui-là
+// justifie une table Supabase ; 16 valeurs ne le justifient pas). "Autre" (notre 16e option) n'a pas
+// d'équivalent chez lui — volontairement laissé non mappé (null) plutôt que deviné.
+const TGA_NATIONALITE_ID_PAR_LIBELLE: Record<string, number> = {
+  FRANCAISE: 64,
+  BRITANNIQUE: 145,
+  ALLEMANDE: 5,
+  ITALIENNE: 87,
+  ESPAGNOLE: 58,
+  SUISSE: 160,
+  BELGE: 21,
+  NEERLANDAISE: 135,
+  PORTUGAISE: 140,
+  AUTRICHIENNE: 13,
+  POLONAISE: 138,
+  AMERICAINE: 60,
+  CANADIENNE: 35,
+  IRLANDAISE: 84,
+  RUSSE: 146,
+}
+function idNationalite(valeur: unknown): number | null {
+  return TGA_NATIONALITE_ID_PAR_LIBELLE[normTxte(valeur)] ?? null
+}
+
 const TGA_CIRCONSTANCES: Array<[number, string]> = [
   [1, 'Avalanche'], [2, 'Chute de pierres'], [3, 'Chute de serac'], [4, 'Foudre'], [5, 'Rupture de matériel'],
   [6, 'Décollage ou atterrissage'], [7, 'Vol'], [8, 'Condition physique insuffisante'], [9, 'Dévissage (personne encordée)'],
@@ -1076,8 +1111,51 @@ const ALIAS_LOCALISATION_BLESSURE: Record<string, number> = { AUTRE: 27 }
 // ---------------------------------------------------------------------------------------------
 // Chargement + construction des objets d'export.
 // ---------------------------------------------------------------------------------------------
-const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, AlerteLe, Departement, Massif, Commune, Lieu, CoordonneesGPS,
-  CirconstancesGenerales,
+// Lars (24/10/2026, point bloquant) : tout id exporté doit être stable d'un export à l'autre pour
+// une même intervention/victime/choix. Affiné le 27/10/2026 : tous les id SNOSM sont des entiers 32
+// bits non signés (max 4 294 967 295) — un simple décalage arithmétique de l'EventId Grist ne suffit
+// pas (nos EventId ne sont pas bornés, voir scripts/intervention-test.mjs : pas de plage garantie,
+// certains dépassent déjà le milliard). Solution : une table de correspondance Supabase par type
+// (ref_snosm_id_intervention / ref_snosm_id_victime, voir sql/ref_snosm_id.sql) qui attribue à
+// chaque EventId/victime un petit entier UNE SEULE FOIS (séquence démarrant à 20 000, jamais
+// réattribué) — stable par construction, quelle que soit la taille de l'identifiant Grist source.
+// Nouvelle règle de Lars pour les tables de liaison (remplace sa demande du 23/10) : id >= 100 000,
+// formule = id_parent (déjà résolu via la table de correspondance) * 1000 + id_choix — toujours
+// >= 20 000 000 puisque le parent est déjà >= 20 000, donc toujours au-dessus de son plancher sans
+// calcul supplémentaire, et toujours << 4 294 967 295 tant qu'on reste sous ~4,29 millions d'interventions/
+// victimes distinctes un jour exportées (marge considérable).
+async function obtenirIdsSnosm(table: string, colonneCle: string, cles: number[]): Promise<Map<number, number>> {
+  const carte = new Map<number, number>()
+  const clesDistinctes = [...new Set(cles)]
+  if (clesDistinctes.length === 0) return carte
+  const { data: existantes, error: erreurLecture } = await service.from(table).select(`${colonneCle}, snosm_id`).in(colonneCle, clesDistinctes)
+  if (erreurLecture) throw new ErreurHttp(500, `${table} (lecture) : ${erreurLecture.message}`)
+  for (const r of (existantes ?? []) as Array<Record<string, number>>) carte.set(r[colonneCle], r.snosm_id)
+  const manquantes = clesDistinctes.filter((c) => !carte.has(c))
+  if (manquantes.length > 0) {
+    // ignoreDuplicates : au cas où deux exports tenteraient d'attribuer un id à la même clé en même
+    // temps (improbable, jamais observé, mais sans conséquence si ça arrivait) — on relit ensuite
+    // pour récupérer l'id réellement attribué, qu'il vienne de cet appel ou d'un appel concurrent.
+    const { error: erreurInsertion } = await service
+      .from(table)
+      .upsert(manquantes.map((c) => ({ [colonneCle]: c })), { onConflict: colonneCle, ignoreDuplicates: true })
+    if (erreurInsertion) throw new ErreurHttp(500, `${table} (insertion) : ${erreurInsertion.message}`)
+    const { data: resolues, error: erreurRelecture } = await service.from(table).select(`${colonneCle}, snosm_id`).in(colonneCle, manquantes)
+    if (erreurRelecture) throw new ErreurHttp(500, `${table} (relecture) : ${erreurRelecture.message}`)
+    for (const r of (resolues ?? []) as Array<Record<string, number>>) carte.set(r[colonneCle], r.snosm_id)
+  }
+  return carte
+}
+
+/** Id stable pour une ligne de table de liaison : id du parent (DÉJÀ résolu via obtenirIdsSnosm, donc
+ * petit et stable) * 1000 + id du choix sélectionné — formule exacte demandée par Lars (27/10/2026).
+ * Un même parent ne peut pas sélectionner deux fois le même choix (idsParTexteMultiple déduplique),
+ * donc ce couple est toujours unique dans sa propre table. */
+function idLiaisonStable(idParentPetit: number, idChoix: number): number {
+  return idParentPetit * 1000 + idChoix
+}
+const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, Statut, ClotureLe, AlerteLe, DepartLe, ArriveeLe, FinLe, Departement, Massif, Commune, Lieu, CoordonneesGPS,
+  CirconstancesGenerales, SnosmCirconstancesRecit,
   SnosmNumeroTexte, SnosmOrigineAlerte, SnosmOrigineAlerteAutre, SnosmAlerteLe, SnosmDepartLe, SnosmArriveeLieuxLe, SnosmFinOperationLe,
   SnosmNatureOperation, Activite, Altitude, SnosmMeteo, SnosmTypeDomaine, SnosmLocalisationPiste, SnosmNeige, SnosmEncadrement, SnosmDiplomeEncadrant,
   SnosmTypeOperationMoyens, SnosmGestesSecourisme, SnosmTechniquesEvacuation, SnosmMedicalisation,
@@ -1088,7 +1166,7 @@ const COLONNES_EXPORT_INTERVENTION = `id, EventId, Section, NumeroIntervention, 
   SnosmAvalancheLongueur, SnosmAvalancheLargeurCassure, SnosmAvalancheHauteurCassure, SnosmAvalancheLargeurDepot, SnosmAvalancheAltitude, SnosmAvalanchePente, SnosmAvalancheDenivele, SnosmAvalancheOrientation,
   SnosmAvalancheNombreImpliques, SnosmAvalancheNombreVictimes, SnosmAvalancheNombreBlesses, SnosmAvalancheNombreIndemnes, SnosmAvalancheNombreDecedes`
 
-const COLONNES_EXPORT_VICTIME = `v.id, v.EventId, v.NumeroVictime, v.Sexe, v.DateNaissance, v.Age, v.Circonstances, v.Cinetique, v.SnosmStatut, v.SnosmEtatMedical,
+const COLONNES_EXPORT_VICTIME = `v.id, v.EventId, v.NumeroVictime, v.Sexe, v.DateNaissance, v.Age, v.Nationalite, v.Circonstances, v.Cinetique, v.SnosmStatut, v.SnosmEtatMedical,
   v.SnosmCodePostal, v.SnosmCommune, v.SnosmDestination, v.SnosmFinPriseEnChargeLe, v.SnosmCirconstancesListe,
   v.SnosmLocalisationBlessure, v.SnosmTypeBlessure, v.SnosmVictimeAvalanche,
   v.SnosmAvalancheMoyensLocalisation, v.SnosmAvalancheDistanceM, v.SnosmAvalancheProfondeurCm, v.SnosmAvalancheDureeMn, v.SnosmAvalancheBouchonNeige, v.SnosmAvalanchePocheAir,
@@ -1250,68 +1328,43 @@ function idCommuneIntervention(
 }
 
 /**
- * crs_accidents.circonstances — construit TOUJOURS à partir des champs propres et structurés par
- * victime (Circonstances/Cinétique/Sexe/Age, ex. "Chute"/"Faible cinétique") + l'activité, JAMAIS
- * depuis CirconstancesGenerales (= "Informations complémentaires" côté Track'Alerte). Vérifié avec
- * la session Track'Alerte le 21/10/2026 (AlertForm.jsx:2418, commentaire du 09/10/2026) : ce champ
- * est délibérément réservé à des repères logistiques pour l'équipe sur le terrain (nombre de
- * personnes, couleur vestimentaire, emplacement véhicule…), jamais pensé comme une description
- * officielle — en pratique il contient très souvent des numéros de téléphone et noms complets de
- * victimes/témoins/famille (confirmé sur un vrai export de test, 426 interventions). Le prendre pour
- * "circonstances" aurait fait fuir ces données nominatives vers le SNOSM, à l'exact opposé de
- * l'exclusion vie privée déjà en place sur les champs structurés (nom/téléphone/adresse victime).
- * Reprend exactement la logique de genererCirconstancesGlobales()/texteCirconstancesVictime()
- * (src/lib/optionsSnosm.js) — dupliquée ici car l'Edge Function ne peut pas importer le code
- * frontend (runtime Deno séparé).
+ * crs_accidents.circonstances — Lars (27/10/2026) : doit contenir le récit rédigé par l'agent (ce
+ * qui s'est passé, ce qui a conduit à l'accident), jamais un texte généré automatiquement. Exporté
+ * directement depuis SnosmCirconstancesRecit, un champ dédié à Track'Log, jamais écrit par
+ * Track'Alerte — contrairement à CirconstancesGenerales (= "Informations complémentaires"
+ * Track'Alerte), délibérément réservé à des repères logistiques terrain et souvent contaminé par
+ * des données personnelles (confirmé sur un vrai export de test, 426 interventions, 21/10/2026) :
+ * AlertForm.jsx:2418 côté Track'Alerte. SnosmCirconstancesRecit ne pouvant jamais hériter de cette
+ * contamination (Track'Alerte n'y écrit jamais), aucune vérification supplémentaire n'est nécessaire
+ * ici. Pré-rempli côté formulaire (src/components/snosm/FicheSnosm.jsx) avec un brouillon généré
+ * depuis les champs structurés des victimes (genererCirconstancesGlobales, src/lib/optionsSnosm.js),
+ * que l'agent est censé relire et réécrire en un vrai récit avant de valider le TO.
  */
-function sexeDepuisBrut(sexe: unknown): string | null {
-  const s = String(sexe ?? '').trim().toUpperCase()
-  if (s === 'F' || s === 'FEMME' || s === 'FEMININ') return 'Femme'
-  if (s === 'M' || s === 'HOMME' || s === 'MASCULIN') return 'Homme'
-  return (sexe as string) || null
-}
-function circonstanceEtCinetiqueBrut(circonstancesBrut: string, cinetiqueBrut: string): string | null {
-  if (!cinetiqueBrut) return circonstancesBrut || null
-  if (circonstancesBrut.toLowerCase().includes(cinetiqueBrut.toLowerCase())) return circonstancesBrut || null
-  const complement = /cin[ée]tique/i.test(cinetiqueBrut) ? `à ${cinetiqueBrut.toLowerCase()}` : `à ${cinetiqueBrut.toLowerCase()} cinétique`
-  return [circonstancesBrut, complement].filter(Boolean).join(' ')
-}
-function texteCirconstancesVictimeBrut(v: Record<string, unknown>): string {
-  const morceaux: string[] = []
-  const sexeAge = [sexeDepuisBrut(v.Sexe), v.Age ? `${v.Age} ans` : null].filter(Boolean).join(' ')
-  if (sexeAge) morceaux.push(sexeAge)
-  const circonstance = circonstanceEtCinetiqueBrut(String(v.Circonstances ?? '').trim(), String(v.Cinetique ?? '').trim())
-  if (circonstance) morceaux.push(circonstance)
-  return morceaux.join(', ')
-}
-function genererCirconstancesBrut(victimesDeLIntervention: Array<Record<string, unknown>>, activite: unknown): string | null {
-  const phrases = victimesDeLIntervention.map(texteCirconstancesVictimeBrut).filter(Boolean)
-  const base = phrases.join(' ; ')
-  const resultat = [base, activite ? `en ${activite}` : null].filter(Boolean).join(' ')
-  return resultat || null
-}
 
 /** Une intervention -> crs_accidents (champs qu'on peut remplir) + les id de ses tables de liaison. */
 function construireAccident(
   f: Record<string, unknown>,
   carteCommunesCp: Map<string, number>,
   carteCommunesDept: Map<string, number>,
-  victimesParEventId: Map<number, Array<Record<string, unknown>>>
+  idSnosmAccident: number
 ) {
   const { nom: communeNom, codePostal: communeCp } = communeEtCodePostal(f.Commune)
   const accident = {
-    // "id" = notre identifiant interne stable (EventId Grist, jamais réattribué) — sert à la fois de
-    // clé de liaison dans ce même export et de "identifiant stable" demandé par Lars (20/10/2026) pour
-    // mettre à jour une intervention déjà importée.
-    id: f.EventId,
+    // Id résolu via ref_snosm_id_intervention (voir obtenirIdsSnosm) — stable d'un export à l'autre
+    // pour une même intervention, demande de Lars (20/10/2026, précisée le 27/10/2026 : petit entier
+    // 32 bits, pas un simple décalage de l'EventId Grist qui peut déjà être arbitrairement grand).
+    id: idSnosmAccident,
     crs_unite_id: crsUniteId(f.Section as string),
     no_texte: f.SnosmNumeroTexte || f.NumeroIntervention || null,
     crs_origine_id: idParIndex(f.SnosmOrigineAlerte, CRS_ORIGINES_ORDRE),
     origine: f.SnosmOrigineAlerteAutre || null,
-    gdh_alerte: versDateSnosm(f.SnosmAlerteLe),
-    gdh_debut: versDateSnosm(f.SnosmDepartLe),
-    gdh_fin: versDateSnosm(f.SnosmFinOperationLe),
-    gdh_sur_lieux: versDateSnosm(f.SnosmArriveeLieuxLe),
+    // Repli sur les champs de base (toujours renseignés par Track'Alerte, main courante) quand l'onglet
+    // SNOSM n'a pas été rempli à la main — sinon gdh_alerte/gdh_debut/gdh_fin/gdh_sur_lieux restent vides
+    // pour la quasi-totalité des interventions (constat de Lars, 24/10/2026, point 3).
+    gdh_alerte: versDateSnosm(f.SnosmAlerteLe || f.AlerteLe),
+    gdh_debut: versDateSnosm(f.SnosmDepartLe || f.DepartLe),
+    gdh_fin: versDateSnosm(f.SnosmFinOperationLe || f.FinLe),
+    gdh_sur_lieux: versDateSnosm(f.SnosmArriveeLieuxLe || f.ArriveeLe),
     tga_massif_id: idParTexte(f.Massif, TGA_MASSIFS),
     tga_commune_id: idCommuneIntervention(communeNom, communeCp, f.Departement, carteCommunesCp, carteCommunesDept),
     lieu_compl: f.Lieu || null,
@@ -1329,7 +1382,7 @@ function construireAccident(
     medicalisation: idParIndex(f.SnosmMedicalisation, ['Oui', 'Non', 'Non obtenue']),
     cyno_crs: entierSi(f.SnosmEquipesCynophilesCRS),
     helicoptere_prive_raison: f.SnosmEmploiHeliSAFJustification || null,
-    circonstances: genererCirconstancesBrut(victimesParEventId.get(f.EventId as number) ?? [], f.Activite),
+    circonstances: (f.SnosmCirconstancesRecit as string) || null,
     sec_pghm: entierSi(f.SnosmRenfortGendarmes),
     sec_pompiers: entierSi(f.SnosmRenfortPompiers),
     sec_pisteurs: entierSi(f.SnosmRenfortPisteurs),
@@ -1373,7 +1426,13 @@ function construireAccident(
 }
 
 /** Une victime -> crs_victimes (champs qu'on peut remplir) + les id de ses tables de liaison. */
-function construireVictime(v: Record<string, unknown>, alerteLeIso: string | null, carteCommunes: Map<string, number>) {
+function construireVictime(
+  v: Record<string, unknown>,
+  alerteLeIso: string | null,
+  carteCommunes: Map<string, number>,
+  idSnosmVictime: number,
+  idSnosmAccidentParent: number
+) {
   const ageCalcule = calculerAge((v.DateNaissance as string) || null, alerteLeIso)
   // Pelle/Sonde/RECCO : 3 colonnes séparées chez Lars (crs_victimes), un seul champ "Matériel utilisé"
   // à choix multiple chez nous — 1/2 seulement si le champ a été renseigné (sinon vide, pas "Non" par défaut).
@@ -1381,14 +1440,13 @@ function construireVictime(v: Record<string, unknown>, alerteLeIso: string | nul
   const materielRenseigne = materielBrut.trim().length > 0
 
   const victime = {
-    id: v.id,
-    crs_accident_id: v.EventId,
+    // Id résolu via ref_snosm_id_victime (voir obtenirIdsSnosm) — même logique que crs_accident.id.
+    id: idSnosmVictime,
+    crs_accident_id: idSnosmAccidentParent,
     crs_statut_id: idParIndex(v.SnosmStatut, CRS_STATUTS_ORDRE) ?? 1,
     crs_etat_medical_id: idParIndex(v.SnosmEtatMedical, CRS_ETAT_MEDICALS_ORDRE),
     tga_commune_id: idCommune((v.SnosmCommune as string) || null, (v.SnosmCodePostal as string) || null, carteCommunes),
-    // tga_nationalites toujours vide dans le dump de Lars (mail du 21/10/2026) — en attente qu'il nous
-    // transmette la table remplie pour construire la correspondance, comme pour les communes.
-    tga_nationalite_id: null,
+    tga_nationalite_id: idNationalite(v.Nationalite),
     tga_circonstance_id: idParTexte(v.SnosmCirconstancesListe, TGA_CIRCONSTANCES, ALIAS_CIRCONSTANCE_VICTIME),
     crs_destination_id: idParTexte(v.SnosmDestination, CRS_DESTINATIONS),
     age: ageCalcule ?? entierSi(v.Age),
@@ -1483,28 +1541,23 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
     requeteGrist(
       docId,
       apiKey,
-      `select ${COLONNES_EXPORT_INTERVENTION} from Interventions where Section in (${placeholders}) and Statut != 'brouillon' and ClotureLe is not null and AlerteLe >= ? and AlerteLe < ? order by AlerteLe asc`,
+      // SnosmTOCreeLe is not null : le secouriste a validé/créé le TO — seul critère fiable de
+      // "l'onglet SNOSM a réellement été rempli" (une intervention clôturée côté Track'Alerte ne
+      // l'est pas forcément côté formulaire SNOSM, parfois rempli en groupe en fin de journée).
+      // Décision utilisateur (24/10/2026) : ne jamais exporter une intervention non complétée.
+      `select ${COLONNES_EXPORT_INTERVENTION} from Interventions where Section in (${placeholders}) and Statut != 'brouillon' and ClotureLe is not null and SnosmTOCreeLe is not null and AlerteLe >= ? and AlerteLe < ? order by AlerteLe asc`,
       [...squadCodes, debutEpoch, finEpoch]
     ),
     requeteGrist(
       docId,
       apiKey,
-      `select ${COLONNES_EXPORT_VICTIME} from Victimes v join Interventions i on i.EventId = v.EventId where i.Section in (${placeholders}) and i.Statut != 'brouillon' and i.ClotureLe is not null and i.AlerteLe >= ? and i.AlerteLe < ?`,
+      `select ${COLONNES_EXPORT_VICTIME} from Victimes v join Interventions i on i.EventId = v.EventId where i.Section in (${placeholders}) and i.Statut != 'brouillon' and i.ClotureLe is not null and i.SnosmTOCreeLe is not null and i.AlerteLe >= ? and i.AlerteLe < ?`,
       [...squadCodes, debutEpoch, finEpoch]
     ),
   ])
 
   const parEventId = new Map<number, Record<string, unknown>>()
   for (const f of lignesInterventions) parEventId.set(f.EventId as number, f)
-
-  // Groupé avant la boucle des accidents : la génération de "circonstances" (voir genererCirconstancesBrut)
-  // a besoin de connaître les victimes de CHAQUE intervention au moment de construire l'accident, pas
-  // seulement dans la boucle des victimes qui suit.
-  const victimesParEventId = new Map<number, Array<Record<string, unknown>>>()
-  for (const v of lignesVictimes as Array<Record<string, unknown> & { EventId: number }>) {
-    if (!victimesParEventId.has(v.EventId)) victimesParEventId.set(v.EventId, [])
-    victimesParEventId.get(v.EventId)!.push(v)
-  }
 
   // Un seul aller-retour vers ref_tga_communes pour tout le lot (pas une requête par intervention/victime).
   const codesPostauxInterventions = lignesInterventions.map((f) => communeEtCodePostal(f.Commune).codePostal)
@@ -1514,9 +1567,15 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   // sert aussi de repli quand le code postal présent dans le texte ne matche pas (ex. article "Le/La"
   // manquant) — toujours plus utile qu'un simple null.
   const departementsDistincts = [...new Set(lignesInterventions.map((f) => normDepartement(f.Departement)).filter(Boolean))]
-  const [carteCommunesCp, carteCommunesDept] = await Promise.all([
+  const [carteCommunesCp, carteCommunesDept, idsSnosmAccidents, idsSnosmVictimes] = await Promise.all([
     chargerCommunesParCodePostal(codesPostauxDistincts),
     chargerCommunesParDepartement(departementsDistincts),
+    obtenirIdsSnosm('ref_snosm_id_intervention', 'event_id', lignesInterventions.map((f) => f.EventId as number)),
+    obtenirIdsSnosm(
+      'ref_snosm_id_victime',
+      'victime_id',
+      (lignesVictimes as Array<Record<string, unknown>>).map((v) => v.id as number)
+    ),
   ])
 
   const CrsAccident: unknown[] = []
@@ -1524,18 +1583,23 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   const CrsAccidentsMeteo: unknown[] = []
   const CrsAccidentsSecourismeEffectue: unknown[] = []
   const CrsAccidentsTechniquesEvacuation: unknown[] = []
-  let idLiaison = 1
 
   for (const f of lignesInterventions) {
-    const { accident, liaisons } = construireAccident(f, carteCommunesCp, carteCommunesDept, victimesParEventId)
+    const idSnosmAccident = idsSnosmAccidents.get(f.EventId as number)!
+    const { accident, liaisons } = construireAccident(f, carteCommunesCp, carteCommunesDept, idSnosmAccident)
     CrsAccident.push(accident)
     for (const helicoId of liaisons.helicopteres)
-      CrsAccidentsHelicoptere.push({ id: idLiaison++, crs_accident_id: accident.id, crs_helicoptere_id: helicoId })
-    for (const meteoId of liaisons.meteos) CrsAccidentsMeteo.push({ id: idLiaison++, crs_accident_id: accident.id, tga_meteo_id: meteoId })
+      CrsAccidentsHelicoptere.push({ id: idLiaisonStable(idSnosmAccident, helicoId), crs_accident_id: accident.id, crs_helicoptere_id: helicoId })
+    for (const meteoId of liaisons.meteos)
+      CrsAccidentsMeteo.push({ id: idLiaisonStable(idSnosmAccident, meteoId), crs_accident_id: accident.id, tga_meteo_id: meteoId })
     for (const gesteId of liaisons.secourismeEffectues)
-      CrsAccidentsSecourismeEffectue.push({ id: idLiaison++, crs_accident_id: accident.id, crs_secourisme_effectue_id: gesteId })
+      CrsAccidentsSecourismeEffectue.push({ id: idLiaisonStable(idSnosmAccident, gesteId), crs_accident_id: accident.id, crs_secourisme_effectue_id: gesteId })
     for (const techId of liaisons.techniquesEvacuations)
-      CrsAccidentsTechniquesEvacuation.push({ id: idLiaison++, crs_accident_id: accident.id, crs_techniques_evacuation_id: techId })
+      CrsAccidentsTechniquesEvacuation.push({
+        id: idLiaisonStable(idSnosmAccident, techId),
+        crs_accident_id: accident.id,
+        crs_techniques_evacuation_id: techId,
+      })
   }
 
   const CrsVictime: unknown[] = []
@@ -1549,21 +1613,39 @@ async function construireExportSnosm(docId: string, apiKey: string, params: { de
   for (const v of lignesVictimes as Array<Record<string, unknown> & { EventId: number }>) {
     const interv = parEventId.get(v.EventId)
     const alerteLeIso = interv ? (depuisGrist(interv.SnosmAlerteLe || interv.AlerteLe, 'datetime') as string | null) : null
-    const { victime, liaisons } = construireVictime(v, alerteLeIso, carteCommunesCp)
+    const idSnosmVictime = idsSnosmVictimes.get(v.id as number)!
+    const idSnosmAccidentParent = idsSnosmAccidents.get(v.EventId)!
+    const { victime, liaisons } = construireVictime(v, alerteLeIso, carteCommunesCp, idSnosmVictime, idSnosmAccidentParent)
     CrsVictime.push(victime)
     for (const blessureId of liaisons.blessures)
-      CrsVictimesBlessure.push({ id: idLiaison++, crs_victime_id: victime.id, tga_blessure_id: blessureId })
+      CrsVictimesBlessure.push({ id: idLiaisonStable(idSnosmVictime, blessureId), crs_victime_id: victime.id, tga_blessure_id: blessureId })
     for (const locId of liaisons.localisationsBlessures)
-      CrsVictimesLocalisationblessure.push({ id: idLiaison++, crs_victime_id: victime.id, tga_localisationblessure_id: locId })
+      CrsVictimesLocalisationblessure.push({
+        id: idLiaisonStable(idSnosmVictime, locId),
+        crs_victime_id: victime.id,
+        tga_localisationblessure_id: locId,
+      })
     if (liaisons.environnement != null)
-      CrsVictimesAvalancheEnvironnement.push({ id: idLiaison++, crs_victime_id: victime.id, tga_avalanche_environnement_id: liaisons.environnement })
+      CrsVictimesAvalancheEnvironnement.push({
+        id: idLiaisonStable(idSnosmVictime, liaisons.environnement),
+        crs_victime_id: victime.id,
+        tga_avalanche_environnement_id: liaisons.environnement,
+      })
     if (liaisons.moyen != null)
-      CrsVictimesAvalancheMoyen.push({ id: idLiaison++, crs_victime_id: victime.id, tga_avalanche_moyen_id: liaisons.moyen })
+      CrsVictimesAvalancheMoyen.push({
+        id: idLiaisonStable(idSnosmVictime, liaisons.moyen),
+        crs_victime_id: victime.id,
+        tga_avalanche_moyen_id: liaisons.moyen,
+      })
     if (liaisons.obstacle != null)
-      CrsVictimesAvalancheObstacle.push({ id: idLiaison++, crs_victime_id: victime.id, tga_avalanche_obstacle_id: liaisons.obstacle })
+      CrsVictimesAvalancheObstacle.push({
+        id: idLiaisonStable(idSnosmVictime, liaisons.obstacle),
+        crs_victime_id: victime.id,
+        tga_avalanche_obstacle_id: liaisons.obstacle,
+      })
     if (liaisons.positionCorps != null)
       CrsVictimesAvalanchePositionCorp.push({
-        id: idLiaison++,
+        id: idLiaisonStable(idSnosmVictime, liaisons.positionCorps),
         crs_victime_id: victime.id,
         tga_avalanche_position_corp_id: liaisons.positionCorps,
       })
