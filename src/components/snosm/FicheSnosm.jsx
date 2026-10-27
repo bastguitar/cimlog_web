@@ -43,7 +43,6 @@ import {
   visibleSiHelicoptereSaf,
   OPTIONS_ROLE_EFFECTIF,
   roleSnosmDepuis,
-  genererCirconstancesGlobales,
   OPTIONS_GESTES_SECOURISME,
   OPTIONS_TECHNIQUES_EVACUATION,
   snosmStatutDepuis,
@@ -652,13 +651,9 @@ function brouillonFicheDepuis(fiche, referentiels) {
   // complémentaires" Track'Alerte), un bloc-notes logistique terrain (nombre de personnes, repères
   // vestimentaires…) qui contient très souvent des numéros de téléphone / noms complets de victimes,
   // témoins ou famille, confirmé avec la session Track'Alerte le 21/10/2026 — jamais pris pour
-  // "circonstances" exporté vers le SNOSM (voir supabase/functions/grist/index.ts). Préremplissage
-  // avec un brouillon généré depuis les victimes (sexe/âge/circonstances/cinétique) et l'activité
-  // SEULEMENT si le champ est encore vide — jamais écrasé ensuite, modifiable par l'agent comme avant.
-  if (!bf.snosm_circonstances_recit) {
-    const circonstancesGenerees = genererCirconstancesGlobales(fiche)
-    if (circonstancesGenerees) bf.snosm_circonstances_recit = circonstancesGenerees
-  }
+  // "circonstances" exporté vers le SNOSM (voir supabase/functions/grist/index.ts). Volontairement
+  // laissé vierge (décision utilisateur, 27/10/2026, pas de brouillon auto-généré) : l'agent rédige
+  // lui-même le récit à chaque intervention.
   // Autorités avisées : point de départ selon la section/le département (DCCRS, zone, CRS région,
   // préfecture du département de l'intervention) — juste un point de départ, toujours modifiable.
   if (!bf.snosm_autorites_avisees) {
