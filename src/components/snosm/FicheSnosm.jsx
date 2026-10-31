@@ -127,12 +127,12 @@ const GROUPES_GENERAL = [
       { cle: 'county', label: 'Département', classe: 'champ-departement-snosm' },
       { cle: 'snosm_nature_operation', label: 'Nature de l’opération', type: 'radio', options: OPTIONS_NATURE_OPERATION },
       // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielActivites dans Grist).
-      { cle: 'activity', label: 'Nature de l’activité', type: 'liste-si-vide', options: [] },
+      { cle: 'activity', label: 'Nature de l’activité', type: 'liste', options: [] },
       { cle: 'alt', label: 'Altitude (m)' },
       // maxSuggestions : les 10 choix météo dépassaient la limite par défaut (8) — certains
       // (Tempête de neige, Venteux) n'apparaissaient jamais dans le menu sans les taper (décision
       // utilisateur : tout le menu doit être visible d'un coup, façon menu déroulant classique).
-      { cle: 'snosm_meteo', label: 'Météo', type: 'tags', options: OPTIONS_METEO, maxSuggestions: OPTIONS_METEO.length },
+      { cle: 'snosm_meteo', label: 'Météo', type: 'tags', options: OPTIONS_METEO, maxSuggestions: OPTIONS_METEO.length, listeFermee: true },
     ],
   },
   {
@@ -247,12 +247,16 @@ const GROUPES_INTERVENTION = [
         label: 'Geste(s) de secourisme effectué(s)',
         type: 'tags',
         options: OPTIONS_GESTES_SECOURISME,
+        maxSuggestions: OPTIONS_GESTES_SECOURISME.length,
+        listeFermee: true,
       },
       {
         cle: 'snosm_techniques_evacuation',
         label: 'Technique(s) d’évacuation mise(s) en œuvre',
         type: 'tags',
         options: OPTIONS_TECHNIQUES_EVACUATION,
+        maxSuggestions: OPTIONS_TECHNIQUES_EVACUATION.length,
+        listeFermee: true,
       },
     ],
   },
@@ -497,6 +501,7 @@ const GROUPES_IMPLIQUE = [
       type: 'tags',
       options: OPTIONS_LOCALISATION_BLESSURE,
       maxSuggestions: OPTIONS_LOCALISATION_BLESSURE.length,
+      listeFermee: true,
     },
     {
       cle: 'snosm_type_blessure',
@@ -504,6 +509,7 @@ const GROUPES_IMPLIQUE = [
       type: 'tags',
       options: OPTIONS_TYPE_BLESSURE,
       maxSuggestions: OPTIONS_TYPE_BLESSURE.length,
+      listeFermee: true,
     },
     { cle: 'snosm_circonstances_liste', label: 'Circonstance SNOSM (victime)', type: 'liste', options: OPTIONS_CIRCONSTANCES_VICTIME },
   ],
