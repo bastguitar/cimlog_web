@@ -278,6 +278,9 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
           })
           .join(' - ') || null,
       medicalisation: fiche.snosm_medicalisation,
+      // Nom du médecin engagé — alimenté par Track'Alerte (rôle "Médecin" de l'effectif), affiché
+      // entre parenthèses à la suite de la médicalisation dans le TO (décision utilisateur, 01/11/2026).
+      medecin: fiche.snosm_medecin || null,
       // Affichés seulement si > 0 (décision utilisateur, même règle que le Bilan) — absents du TO jusqu'ici.
       equipesCynophilesCRS: nombreSi(Number(fiche.snosm_equipes_cynophiles_crs) || 0),
       equipesDrones: nombreSi(Number(fiche.snosm_equipes_drones) || 0),
@@ -536,8 +539,14 @@ export async function genererPdfDepuisModele(modele) {
     ['PPSM(s) : ', modele.moyens.ppsm],
   ])
   page.champ('Effectif CRS engagé :', modele.moyens.effectifEngage)
+  // Nom du médecin entre parenthèses à la suite de la médicalisation (ex. "Oui (Dr. Untel)") — décision
+  // utilisateur, 01/11/2026 : jamais affiché seul, uniquement en complément d'une médicalisation renseignée.
+  const medicalisationAvecMedecin =
+    modele.moyens.medicalisation && modele.moyens.medecin
+      ? `${modele.moyens.medicalisation} (Dr. ${modele.moyens.medecin})`
+      : modele.moyens.medicalisation
   page.champsDoubles([
-    ['Médicalisation : ', modele.moyens.medicalisation],
+    ['Médicalisation : ', medicalisationAvecMedecin],
     ['Équipe(s) cynophile(s) CRS : ', modele.moyens.equipesCynophilesCRS],
     ['Équipe(s) drone(s) : ', modele.moyens.equipesDrones],
   ])

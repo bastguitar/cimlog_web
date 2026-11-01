@@ -209,6 +209,15 @@ const GROUPES_MOYENS_AVANT_EFFECTIF = [
         options: OPTIONS_MEDICALISATION,
         pleineLargeur: false,
       },
+      // Nom du médecin engagé — préremplis depuis Track'Alerte (rôle "Médecin" de l'effectif de la
+      // main courante pleine page, poussé dans SnosmMedecin), modifiable ensuite. Visible seulement
+      // si l'intervention est médicalisée (décision utilisateur, 01/11/2026) ; vide tant qu'aucun
+      // médecin n'a été déclaré dans l'effectif côté Track'Alerte.
+      {
+        cle: 'snosm_medecin',
+        label: 'Médecin engagé',
+        visibleSi: (bf) => bf.snosm_medicalisation === 'Oui',
+      },
     ],
   },
 ]

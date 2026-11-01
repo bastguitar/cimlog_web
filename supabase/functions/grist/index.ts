@@ -153,6 +153,12 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_ppsm', 'SnosmPPSM', 'text'],
   ['snosm_helicopteres', 'SnosmHelicopteres', 'text'],
   ['snosm_medicalisation', 'SnosmMedicalisation', 'text'],
+  // Nom du médecin engagé — alimenté par Track'Alerte (rôle "Médecin" de l'effectif, main courante
+  // pleine page, poussé à la clôture via pousser_intervention_grist, format "NOM Prénom" séparés par
+  // ", " si plusieurs, NULL si non médicalisée ou aucun médecin déclaré ce jour-là pour la section).
+  // JAMAIS exporté vers le SNOSM (voir COLONNES_EXPORT_INTERVENTION/construireAccident plus bas) —
+  // nom de personnel CRS, même exclusion que Rédacteur/Signataire/Directeur d'enquête.
+  ['snosm_medecin', 'SnosmMedecin', 'text'],
   ['snosm_equipes_cynophiles_crs', 'SnosmEquipesCynophilesCRS', 'int'],
   ['snosm_equipes_drones', 'SnosmEquipesDrones', 'int'],
   ['snosm_emploi_heli_saf', 'SnosmEmploiHeliSAFJustification', 'text'],
@@ -695,10 +701,11 @@ async function cosTelephonisteDuJour(docId: string, apiKey: string, section: str
  * figée de tout ce qui est effacé ici (nom, circonstances…) — sans le vider aussi, l'anonymisation
  * serait incomplète. Il est donc effacé également ; SnosmTOCreeLe (juste une date) est conservé.
  *
- * ⚠ Rédacteur/Signataire/Directeur d'enquête (SnosmRedacteur/SnosmSignataire/SnosmDirecteurEnquete)
- * NE SONT PAS effacés : ce sont des membres du personnel CRS en service, pas des personnes secourues
- * — même logique que Cim'Alerte, qui ne purge jamais la liste des secouristes engagés. À confirmer
- * avec l'utilisateur si ce n'est pas ce qui est attendu.
+ * ⚠ Rédacteur/Signataire/Directeur d'enquête/Médecin engagé (SnosmRedacteur/SnosmSignataire/
+ * SnosmDirecteurEnquete/SnosmMedecin) NE SONT PAS effacés : ce sont des membres du personnel CRS (ou
+ * du médecin engagé) en service, pas des personnes secourues — même logique que Cim'Alerte, qui ne
+ * purge jamais la liste des secouristes engagés. À confirmer avec l'utilisateur si ce n'est pas ce
+ * qui est attendu.
  */
 const COLONNES_VICTIME_A_ANONYMISER = [
   'Nom', 'Prenom', 'DateNaissance', 'LieuNaissance', 'Nationalite', 'Profession',
@@ -752,8 +759,8 @@ async function anonymiserAnciennesInterventions(docId: string, apiKey: string) {
  * Manu Grigoletto depuis la base police.
  *
  * Périmètre toujours volontairement réduit (voir échanges avec Lars, 07-20/10/2026) : PAS exportés —
- * noms des fonctionnaires/secouristes (Rédacteur/Signataire/Directeur d'enquête/Effectif engagé, donc
- * aucune ligne CrsAccidentsFonctionnaire), identité complète des victimes (nom/prénom/adresse précise/
+ * noms des fonctionnaires/secouristes (Rédacteur/Signataire/Directeur d'enquête/Effectif engagé/Médecin
+ * engagé, donc aucune ligne CrsAccidentsFonctionnaire), identité complète des victimes (nom/prénom/adresse précise/
  * téléphone/profession/nationalité/pays — seuls sexe/âge calculé/code postal-commune/destination sont
  * gardés), tout l'onglet Avis SAUF Circonstances (suivi judiciaire/autorités avisées/médias toujours
  * exclus ; Circonstances incluse depuis le 20/10/2026 — Lars l'a signalée prioritaire côté SNOSM,
