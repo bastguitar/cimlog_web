@@ -251,11 +251,17 @@ export function ChampNombre({ label, valeur, onChange, min = 0 }) {
 }
 
 export function ChampListe({ label, valeur, onChange, options, pleineLargeur }) {
+  // Une valeur déjà enregistrée reste affichée même absente de la liste (ancienne saisie libre,
+  // référentiel pas encore chargé) — le <select> afficherait sinon « — » et la masquerait à tort.
+  // Comparaison sans casse : `activity` peut porter une casse historique différente de la liste.
+  const optionCorrespondante = options.find((o) => o.toLowerCase() === String(valeur ?? '').toLowerCase())
+  const selection = optionCorrespondante ?? valeur ?? ''
   return (
     <div className={`detail-fiche-edition${pleineLargeur ? ' detail-pleine-largeur' : ''}${classeVide(!valeur)}`}>
       <span className="etiquette-detail-fiche">{label}</span>
-      <select value={valeur ?? ''} onChange={(e) => onChange(e.target.value)}>
+      <select value={selection} onChange={(e) => onChange(e.target.value)}>
         <option value="">—</option>
+        {valeur && !optionCorrespondante && <option value={valeur}>{valeur}</option>}
         {options.map((o) => (
           <option key={o} value={o}>
             {o}
@@ -611,13 +617,18 @@ export function ChampListeMultiple({ label, valeur, onChange, options, libelleAj
  * mis en œuvre et le vocabulaire n'étant qu'un point de départ. Retour
  * arrière sur un champ vide retire la dernière bulle. Valeurs stockées
  * jointes par ", " (même format texte que les autres champs multi-valeurs).
+ * `listeFermee` : seuls les choix du menu sont acceptés — le texte tapé ne sert
+ * plus qu'à filtrer le menu, Entrée prend le premier choix filtré, et un texte
+ * sans correspondance n'est jamais enregistré. Les valeurs déjà enregistrées
+ * hors liste restent affichées, retirables, jamais réécrites.
  */
-export function ChampTags({ label, valeur, onChange, options, pleineLargeur = false, maxSuggestions = 8 }) {
+export function ChampTags({ label, valeur, onChange, options, pleineLargeur = false, maxSuggestions = 8, listeFermee = false }) {
   const [texte, setTexte] = useState('')
   const [ouvert, setOuvert] = useState(false)
   const ancreRef = useRef(null)
   const valeurs = (valeur ?? '')
-    .split(',')
+    // Pas de coupure sur une virgule entre parenthèses : « Condition physique (fatigue, hypoglycémie) » reste un seul choix.
+    .split(/,(?![^(]*\))/)
     .map((v) => v.trim())
     .filter(Boolean)
   const filtre = texte.trim().toLowerCase()
@@ -658,11 +669,15 @@ export function ChampTags({ label, valeur, onChange, options, pleineLargeur = fa
             setOuvert(true)
           }}
           onFocus={() => setOuvert(true)}
-          onBlur={() => setTimeout(() => setOuvert(false), 150)}
+          onBlur={() => {
+            setTimeout(() => setOuvert(false), 150)
+            if (listeFermee) setTexte('')
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' || e.key === ',') {
               e.preventDefault()
-              ajouter(texte)
+              if (!listeFermee) ajouter(texte)
+              else if (filtre && suggestions.length > 0) ajouter(suggestions[0])
             } else if (e.key === 'Backspace' && !texte && valeurs.length > 0) {
               retirer(valeurs[valeurs.length - 1])
             }
@@ -869,6 +884,7 @@ export function ChampSnosm({ description, valeur, onChange, secouristes, destina
         options={options}
         pleineLargeur={description.pleineLargeur}
         maxSuggestions={description.maxSuggestions}
+        listeFermee={description.listeFermee}
       />
     )
   if (type === 'lecture') return <ChampLecture label={label} valeur={valeur} />
