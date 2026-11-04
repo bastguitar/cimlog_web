@@ -1,5 +1,5 @@
 import { numeroSemaine, libelleSemaine } from '../lib/semaines'
-import { SANS_MOYEN, MOYENS_CRS } from '../hooks/useFiltresRegistre'
+import { SANS_MOYEN, MOYENS_CRS, REGULATION, valeurFiltreMoyen } from '../hooks/useFiltresRegistre'
 
 /** Recherche libre + bouton « Filtres » — à placer dans la barre principale. */
 export function ControlesFiltresRegistre({ f, placeholder = 'Recherche libre…' }) {
@@ -74,9 +74,10 @@ export function PanneauFiltresRegistre({ f }) {
         <option value="">Tous les moyens</option>
         <option value={MOYENS_CRS}>Tous les moyens CRS</option>
         <option value={SANS_MOYEN}>Pas de moyen engagé</option>
+        <option value={REGULATION}>Régulations</option>
         {f.moyens.map((m) => (
-          <option key={m} value={m}>
-            {m}
+          <option key={m.cle} value={valeurFiltreMoyen(m.cle)}>
+            {m.libelle}
           </option>
         ))}
       </select>

@@ -288,7 +288,7 @@ const COLONNES_INTERVENTIONS = `id, EventId, Section, NumeroIntervention, Statut
   OrigineAlerte, AlerteLe, DepartLe, ArriveeLe, FinLe, Massif, Departement, Commune, Lieu, TypeLocalisation, Altitude, CoordonneesGPS,
   TGI, RequerantNom, RequerantTelephone, ContreAppel, Activite, AccidentType, TypeOperation, Helicopter,
   MoyensEngages, SupportUnits, Secouristes, Meteo, Medicalisation, Infirmier, CirconstancesGenerales,
-  RecherchePersonne, PersonneRechercheeNom, NombreVictimes, CosDuJour, TelephonisteDuJour, ${CHAMPS_SNOSM_INTERVENTION.map(([, col]) => col).join(', ')}`
+  RecherchePersonne, PersonneRechercheeNom, NombreVictimes, CosDuJour, TelephonisteDuJour, Regulation, ${CHAMPS_SNOSM_INTERVENTION.map(([, col]) => col).join(', ')}`
 
 /** Même forme que l'ancien row Supabase `events` — pour ne rien changer côté Registre/CarteIGN/Stats/ModaleFiche. */
 function versEvenementApp(
@@ -346,6 +346,9 @@ function versEvenementApp(
     support_units: f.SupportUnits,
     type_intervention: f.TypeOperation,
     moyens_engages: f.MoyensEngages,
+    // Régulation alerte : fiche Cim'Alerte clôturée sans aucun statut envoyé (aucun moyen CRS
+    // engagé) — poussé par pousser_intervention_grist (regulation_grist.sql côté Track'Alerte).
+    regulation: depuisGrist(f.Regulation, 'bool'),
     recherche_personne: f.RecherchePersonne,
     personne_recherchee_nom: f.PersonneRechercheeNom,
     // Renseignés par Cim'Alerte seulement sur le premier secours clôturé de la journée pour cette

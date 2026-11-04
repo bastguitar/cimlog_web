@@ -6,14 +6,16 @@ import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from
 import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
 import ModaleFiche from '../components/ModaleFiche'
+import { estRegulation, estSansMoyen, libelleMoyens } from '../lib/moyens'
 import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
 // Cim'Alerte ne remplit plus accident_type (octobre 2026) : le motif est désormais saisi par victime
 // (victimes.circonstances). On garde accident_type pour les fiches plus anciennes qui le portent.
-// Pastille NON MED : seulement si un moyen a réellement été engagé — sans moyen, médicalisé ou non n'a pas de sens.
-const avecMoyenEngage = (s) => Boolean(s.helicopter?.trim()) && s.helicopter.trim() !== 'Pas de moyens engagés'
+// Pastille NON MED : seulement si un moyen CRS a réellement été engagé — sans moyen (ou régulation),
+// médicalisé ou non n'a pas de sens.
+const avecMoyenEngage = (s) => !estSansMoyen(s) && !estRegulation(s)
 const motifDe = (s) =>
   s.accident_type || [...new Set((s.victimes ?? []).map((v) => v.circonstances?.trim()).filter(Boolean))].join(', ')
 
@@ -204,8 +206,12 @@ export default function Registre({ fSections }) {
                         </td>
                         <td>{pathologiesDe(s) || '—'}</td>
                         <td>
-                          {s.helicopter || '—'}
-                          {s.is_med ? (
+                          {libelleMoyens(s) || '—'}
+                          {/* Régulation alerte (demandé le 04/11/2026) : aucun moyen CRS engagé, la
+                              décision (pas de moyens, SDIS…) est le texte juste au-dessus. */}
+                          {estRegulation(s) ? (
+                            <span className="pastille-med-registre pastille-regulation-registre">RÉGULATION</span>
+                          ) : s.is_med ? (
                             <span className="pastille-med-registre">MED</span>
                           ) : (
                             avecMoyenEngage(s) && (

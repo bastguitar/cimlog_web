@@ -1,16 +1,18 @@
 import { useMemo, useState } from 'react'
 import { regrouperParSemaine, debutSemaine } from '../lib/semaines'
 import { sansUnite, cleEquipier } from '../lib/registre'
+import { aLeMoyen, estHorsCRS, estRegulation, estSansMoyen, moyensDuFiltre } from '../lib/moyens'
 
 /** Repéré par le sélecteur « Moyen » — voir estSansMoyen ci-dessous. */
 export const SANS_MOYEN = '__sans_moyen__'
-/** Tous les moyens CRS à la fois — équivaut à exclure SDIS et « sans moyen », voir Stats.jsx (estSDIS/estSansMoyen). */
+/** Tous les moyens CRS à la fois — exclut « sans moyen », les régulations et les fiches aux seuls moyens extérieurs (SDIS…). */
 export const MOYENS_CRS = '__moyens_crs__'
-// Valeur littérale posée côté Cim'Alerte quand rien n'est engagé — pas une
-// colonne vide : le filtre doit reconnaître ce texte précis.
-const AUCUN_MOYEN_TEXTE = 'Pas de moyens engagés'
-const estSansMoyen = (helicopter) => !helicopter || helicopter === AUCUN_MOYEN_TEXTE
-const estSDIS = (helicopter) => helicopter === 'SDIS'
+/** Régulations alerte — voir lib/moyens.js (estRegulation). */
+export const REGULATION = '__regulation__'
+// Un moyen précis : sa clé (lib/moyens.js, cleMoyen) préfixée — un filtre = un
+// moyen, quelle que soit la façon dont il est écrit ou combiné sur la fiche.
+const PREFIXE_MOYEN = 'moyen:'
+export const valeurFiltreMoyen = (cle) => PREFIXE_MOYEN + cle
 
 const FILTRES_VIDES = {
   semaine: '',
@@ -66,10 +68,14 @@ export function filtrerEvenements(evenements, filtres, recherche = '') {
     }
     if (filtres.activite && s.activity !== filtres.activite) return false
     if (filtres.moyen === SANS_MOYEN) {
-      if (!estSansMoyen(s.helicopter)) return false
+      if (!estSansMoyen(s)) return false
+    } else if (filtres.moyen === REGULATION) {
+      if (!estRegulation(s)) return false
     } else if (filtres.moyen === MOYENS_CRS) {
-      if (estSansMoyen(s.helicopter) || estSDIS(s.helicopter)) return false
-    } else if (filtres.moyen && s.helicopter !== filtres.moyen) {
+      if (estSansMoyen(s) || estRegulation(s) || estHorsCRS(s)) return false
+    } else if (filtres.moyen?.startsWith(PREFIXE_MOYEN)) {
+      if (!aLeMoyen(s, filtres.moyen.slice(PREFIXE_MOYEN.length))) return false
+    } else if (filtres.moyen) {
       return false
     }
     if (filtres.semaine && debutSemaine(new Date(s.created_at)).getTime() !== Number(filtres.semaine)) return false
@@ -105,13 +111,7 @@ export function useFiltresRegistre(evenements) {
     },
     [evenements]
   )
-  const moyens = useMemo(
-    () =>
-      [...new Set(evenements.map((s) => s.helicopter).filter((h) => h && h !== AUCUN_MOYEN_TEXTE))].sort((a, b) =>
-        a.localeCompare(b, 'fr')
-      ),
-    [evenements]
-  )
+  const moyens = useMemo(() => moyensDuFiltre(evenements), [evenements])
   const activites = useMemo(
     () => [...new Set(evenements.map((s) => s.activity).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'fr')),
     [evenements]

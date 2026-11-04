@@ -1678,6 +1678,12 @@ main > * {
   color: var(--succes);
 }
 
+/* Régulation alerte : aucun moyen CRS engagé (fiche Cim'Alerte clôturée sans statut). */
+.pastille-regulation-registre {
+  background: #ede9fe;
+  color: #5b21b6;
+}
+
 .tableau-registre .col-equipe-registre {
   width: 12%;
 }
