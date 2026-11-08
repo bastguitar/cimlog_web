@@ -73,7 +73,7 @@ export default function App() {
               region={fSections.region}
               selection={fSections.selection}
               onSelect={fSections.selectionner}
-              nomPropre={poste.nom}
+              nomPropre={fSections.nomPropre}
             />
             <button
               type="button"

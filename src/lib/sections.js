@@ -27,6 +27,34 @@ export const groupeDe = (squadCode) => CODE_VERS_GROUPE.get(squadCode) ?? squadC
 /** Tous les squad_code d'un groupe (section mère + postes secondaires) — pour interroger cimlog_evenements/cimlog_messages. */
 export const codesDuGroupe = (groupeCode) => GROUPES[groupeCode] ?? [groupeCode]
 
+/**
+ * Découpage d'un groupe par département pour le filtre d'affichage seulement
+ * (voir useFiltreSections) — Lannemezan (demandé le 08/11/2026) : comme dans
+ * Track'Alerte, Gavarnie + Saint-Lary (65) et Luchon (31) ont chacun leur
+ * numérotation ; un poste arrive sur le département du sien et peut basculer
+ * sur l'autre. `groupeDe` reste inchangé : TO, SNOSM et destinations
+ * d'évacuation continuent de raisonner sur le groupe Lannemezan entier.
+ */
+const SOUS_GROUPES = {
+  CRS65: [
+    { code: 'CRS65-65', nom: 'Hautes-Pyrénées (65)', poste: 'CRS65G', codes: ['CRS65', 'CRS65G', 'CRS65S'] },
+    { code: 'CRS65-31', nom: 'Haute-Garonne (31)', poste: 'CRS65L', codes: ['CRS65L'] },
+  ],
+}
+
+/** Sous-groupes par département du groupe d'un poste — null si son groupe n'est pas découpé. */
+export const sousGroupesDe = (squadCode) => SOUS_GROUPES[groupeDe(squadCode)] ?? null
+
+/** Centre/zoom du poste principal de chaque sous-groupe (`poste`) — pour cadrer la carte quand on bascule de département. */
+export async function positionsSousGroupes(sousGroupes) {
+  const { data, error } = await supabase
+    .from('sections')
+    .select('code, lat, lon, zoom')
+    .in('code', sousGroupes.map((g) => g.poste))
+  if (error) return {}
+  return Object.fromEntries((data ?? []).map((p) => [p.code, p]))
+}
+
 const PALETTE = ['#3b82c4', '#4d9e5c', '#e08a3c', '#2ba89e', '#8b5fbf', '#c4547e', '#b5a642', '#6b7c93']
 const COULEUR_PAR_GROUPE = new Map(Object.keys(GROUPES).map((g, i) => [g, PALETTE[i % PALETTE.length]]))
 
