@@ -254,6 +254,18 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
       natureIntervention: fiche.snosm_nature_operation || 'Secours en montagne',
       natureActivite: fiche.activity ? premiereMajusculeSeule(fiche.activity) : null,
     },
+    // Encadrement professionnel uniquement : diplôme + carte pro de l'encadrant (décision utilisateur,
+    // 08/11/2026). Absent (null) pour les autres encadrements — la ligne disparaît alors du TO.
+    encadrementPro:
+      fiche.snosm_encadrement === 'encadrement professionnel'
+        ? {
+            diplome: fiche.snosm_diplome_encadrant || null,
+            carteProValidite: fiche.snosm_carte_pro_validite
+              ? new Date(`${fiche.snosm_carte_pro_validite.slice(0, 10)}T12:00:00`).toLocaleDateString('fr-FR')
+              : null,
+            carteProNumero: fiche.snosm_carte_pro_numero || null,
+          }
+        : null,
     circonstances: {
       circonstances: fiche.description,
     },
@@ -524,6 +536,15 @@ export async function genererPdfDepuisModele(modele) {
   page.titreSection(3, "NATURE DE L'OPÉRATION")
   page.champ("Nature de l'intervention :", modele.natureOperation.natureIntervention)
   page.champ("Nature de l'activité ayant donné lieu au déclenchement :", modele.natureOperation.natureActivite)
+  // modele.encadrementPro absent des TO validés avant le 08/11/2026 (JSON figé) : rien affiché.
+  if (modele.encadrementPro) {
+    page.champ('Encadrement :', 'Encadrement professionnel')
+    page.champ('Diplôme encadrant :', modele.encadrementPro.diplome)
+    page.champsDoubles([
+      ['N° carte pro : ', modele.encadrementPro.carteProNumero],
+      ['Validité carte pro : ', modele.encadrementPro.carteProValidite],
+    ])
+  }
   page.espaceur()
 
   // ---- 4. Circonstances -------------------------------------------------

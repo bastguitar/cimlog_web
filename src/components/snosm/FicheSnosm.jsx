@@ -175,6 +175,20 @@ const GROUPES_GENERAL = [
         options: OPTIONS_DIPLOME_ENCADRANT,
         visibleSi: (bf) => bf.snosm_encadrement === 'encadrement associatif' || bf.snosm_encadrement === 'encadrement professionnel',
       },
+      // Carte professionnelle de l'encadrant — encadrement professionnel uniquement (décision utilisateur,
+      // 08/11/2026). Jamais exportés vers le SNOSM, effacés à 10 ans (voir grist/index.ts).
+      {
+        cle: 'snosm_carte_pro_validite',
+        label: 'Validité carte pro',
+        type: 'date',
+        icone: <IconeCalendrier />,
+        visibleSi: (bf) => bf.snosm_encadrement === 'encadrement professionnel',
+      },
+      {
+        cle: 'snosm_carte_pro_numero',
+        label: 'N° carte pro',
+        visibleSi: (bf) => bf.snosm_encadrement === 'encadrement professionnel',
+      },
     ],
   },
 ]

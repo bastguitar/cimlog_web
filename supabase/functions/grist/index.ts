@@ -147,6 +147,11 @@ const CHAMPS_SNOSM_INTERVENTION: Array<[string, string, TypeChamp]> = [
   ['snosm_type_domaine', 'SnosmTypeDomaine', 'text'],
   ['snosm_encadrement', 'SnosmEncadrement', 'text'],
   ['snosm_diplome_encadrant', 'SnosmDiplomeEncadrant', 'text'],
+  // Carte professionnelle de l'encadrant (encadrement professionnel) — validité en texte AAAA-MM-JJ
+  // (comme DateNaissance). JAMAIS exportés vers le SNOSM (identifient l'encadrant), effacés à 10 ans
+  // (COLONNES_INTERVENTION_A_ANONYMISER).
+  ['snosm_carte_pro_validite', 'SnosmCarteProValidite', 'text'],
+  ['snosm_carte_pro_numero', 'SnosmCarteProNumero', 'text'],
   ['snosm_localisation_piste', 'SnosmLocalisationPiste', 'text'],
   ['snosm_neige', 'SnosmNeige', 'text'],
   ['snosm_type_operation_moyens', 'SnosmTypeOperationMoyens', 'text'],
@@ -717,6 +722,7 @@ const COLONNES_VICTIME_A_ANONYMISER = [
 ]
 const COLONNES_INTERVENTION_A_ANONYMISER = [
   'RequerantNom', 'RequerantTelephone', 'PersonneRechercheeNom', 'CirconstancesGenerales', 'SnosmTOTexte',
+  'SnosmCarteProValidite', 'SnosmCarteProNumero',
 ]
 
 /** Vérifie le secret du job planifié (pg_cron -> net.http_post) — jamais un jeton de poste, aucune notion de section/région ici : ce job s'applique à toutes les interventions, quelle que soit leur section. */
