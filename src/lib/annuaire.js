@@ -102,7 +102,15 @@ let cacheToutPersonnel = null
 export async function chargerToutPersonnel(codesRequete) {
   if (cacheToutPersonnel) return cacheToutPersonnel
 
-  const liste = await lireAnnuaire(supabase.from('annuaire_personnel').select('id, nom, prenom, section_id'), codesRequete)
+  // Types techniques exclus : ce ne sont pas des personnes (« MAGASIN STAGIAIRES » = compte
+  // budgétaire du magasin central, comptes collectifs de section) — convention base matériel, 10/11/2026.
+  const liste = await lireAnnuaire(
+    supabase
+      .from('annuaire_personnel')
+      .select('id, nom, prenom, section_id')
+      .not('type_personnel', 'in', '(stagiaire,magasin,collectif)'),
+    codesRequete
+  )
   if (liste.length > 0) cacheToutPersonnel = liste
   return liste
 }

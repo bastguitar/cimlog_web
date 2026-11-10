@@ -808,13 +808,21 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     codesFormation().then((codes) => setEstFormation(codes.has(fiche.squad_code)))
   }, [fiche.squad_code])
   useEffect(() => {
-    const sectionCible = normaliseNom(sectionNom)
+    // Ordre des menus : sections prioritaires d'abord, le reste de l'annuaire ensuite.
+    // Centre de formation (CNEAS) : les fiches d'exercice sont remplies par les STAGIAIRES, pas
+    // par les formateurs (demande utilisateur, 10/11/2026). Dans l'annuaire, un stagiaire est un
+    // secouriste de la section SANS AFFECTATION jusqu'à son affectation fin novembre (convention
+    // base matériel : creer_futur_agent / affecter_agent) — proposés en tête, avant le CNEAS.
+    const prioritaires = estFormation ? [normaliseNom('SANS AFFECTATION'), normaliseNom(sectionNom)] : [normaliseNom(sectionNom)]
+    const rang = (s) => {
+      const i = prioritaires.indexOf(normaliseNom(s.section))
+      return i === -1 ? prioritaires.length : i
+    }
     const trierSectionDabord = (liste) => {
       const vus = new Set()
       const dedoublonnes = liste.filter((s) => (vus.has(s.libelle) ? false : vus.add(s.libelle)))
-      const memeSection = dedoublonnes.filter((s) => normaliseNom(s.section) === sectionCible)
-      const autres = dedoublonnes.filter((s) => normaliseNom(s.section) !== sectionCible)
-      return [...memeSection, ...autres].map((s) => s.libelle)
+      // Tri stable : l'ordre alphabétique est conservé à l'intérieur de chaque groupe.
+      return [...dedoublonnes].sort((a, b) => rang(a) - rang(b)).map((s) => s.libelle)
     }
     chargerTousSecouristes(codesRequete)
       .then((liste) => {
@@ -828,7 +836,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         setPersonnelParId(new Map(liste.map((p) => [p.id, p.libelle])))
       })
       .catch((e) => console.error('Liste du personnel (Avis, Directeur d’enquête) :', e))
-  }, [sectionNom, codesRequete])
+  }, [sectionNom, codesRequete, estFormation])
   /** Nom Track-Alerte (brut) -> libellé avec grade s'il est connu de l'annuaire, sinon tel quel. */
   const avecGradeDepuisNom = (nom) => secouristesParNom.get(normaliseNom(nom)) ?? nom
   // Destinations d'évacuation proposées en suggestion (champ Destination, onglet Impliqué) — table
