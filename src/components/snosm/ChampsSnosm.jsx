@@ -46,7 +46,12 @@ function useMenuFlottant(ref, ouvert, largeurFixe) {
         left,
         width: largeur,
         zIndex: 10000,
-        ...(versHaut ? { bottom: window.innerHeight - r.top + 2 } : { top: r.bottom + 2 }),
+        // L'autre bord est remis à 'auto' explicitement : .suggestions-autocomplete-snosm pose un
+        // `top: calc(100% + 2px)` qui, combiné au `bottom` d'un menu ouvert vers le haut, écrasait sa
+        // hauteur à zéro (menu invisible sur les champs bas de fiche, ex. Rédacteur/Signataire).
+        ...(versHaut
+          ? { top: 'auto', bottom: window.innerHeight - r.top + 2 }
+          : { top: r.bottom + 2, bottom: 'auto' }),
       })
     }
     recalculer()
