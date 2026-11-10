@@ -815,13 +815,13 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
         setSecouristes(trierSectionDabord(liste))
         setSecouristesParNom(new Map(liste.map((s) => [normaliseNom(s.nom), s.libelle])))
       })
-      .catch(() => {})
+      .catch((e) => console.error('Liste des secouristes (Effectif engagé) :', e))
     chargerToutPersonnel(codesRequete)
       .then((liste) => {
         setPersonnel(trierSectionDabord(liste))
         setPersonnelParId(new Map(liste.map((p) => [p.id, p.libelle])))
       })
-      .catch(() => {})
+      .catch((e) => console.error('Liste du personnel (Avis, Directeur d’enquête) :', e))
   }, [sectionNom, codesRequete])
   /** Nom Track-Alerte (brut) -> libellé avec grade s'il est connu de l'annuaire, sinon tel quel. */
   const avecGradeDepuisNom = (nom) => secouristesParNom.get(normaliseNom(nom)) ?? nom

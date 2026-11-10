@@ -29,10 +29,44 @@ import { chargerGradesSecouristes } from './registre'
 // — voir chargerGradesSecouristes. La PROMESSE elle-même est cachée (pas seulement le résultat) :
 // chargerTousSecouristes et chargerToutPersonnel peuvent être en vol en même temps au premier
 // chargement, sans ça chacune relancerait son propre appel réseau en double.
+// Les grades ne sont qu'un préfixe : s'ils tardent (fonction grist lente, réseau), la liste de noms
+// s'affiche sans eux au bout de DELAI_GRADES_MS plutôt que de laisser les menus vides sans fin.
+// Un échec n'est pas mis en cache : le prochain chargement redemandera les grades.
+const DELAI_GRADES_MS = 5000
 let promesseGrades = null
 function gradesUneFois(codesRequete) {
-  if (!promesseGrades) promesseGrades = chargerGradesSecouristes(codesRequete).catch(() => ({}))
+  if (!promesseGrades) {
+    const delai = new Promise((_, rejeter) => setTimeout(() => rejeter(new Error('délai dépassé')), DELAI_GRADES_MS))
+    promesseGrades = Promise.race([chargerGradesSecouristes(codesRequete), delai]).catch((e) => {
+      console.error('Grades des secouristes non chargés :', e)
+      promesseGrades = null
+      return {}
+    })
+  }
   return promesseGrades
+}
+
+/** Lecture du miroir de l'annuaire : une erreur est signalée (console) et levée, jamais mise en cache. */
+async function lireAnnuaire(requetePersonnes, codesRequete) {
+  const [personnes, sections, grades] = await Promise.all([
+    requetePersonnes,
+    supabase.from('annuaire_sections_externes').select('id, nom'),
+    gradesUneFois(codesRequete),
+  ])
+  const erreur = personnes.error ?? sections.error
+  if (erreur) {
+    console.error('Annuaire non chargé :', erreur)
+    throw erreur
+  }
+  if (personnes.data.length === 0) console.warn('Annuaire : aucune personne renvoyée (droits d’accès ?)')
+
+  const nomDeSection = new Map(sections.data.map((s) => [s.id, s.nom]))
+  return personnes.data
+    .map((p) => {
+      const nom = `${p.nom} ${p.prenom ?? ''}`.trim()
+      return { id: p.id, nom, libelle: avecGrade(grades?.[p.id], nom), section: nomDeSection.get(p.section_id) ?? 'Sans affectation' }
+    })
+    .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
 }
 const avecGrade = (grade, nomPrenom) => (grade ? `${grade} ${nomPrenom}` : nomPrenom)
 
@@ -47,23 +81,13 @@ let cacheTous = null
 export async function chargerTousSecouristes(codesRequete) {
   if (cacheTous) return cacheTous
 
-  const [personnes, sections, grades] = await Promise.all([
+  const liste = await lireAnnuaire(
     supabase.from('annuaire_personnel').select('id, nom, prenom, section_id').eq('type_personnel', 'secouriste'),
-    supabase.from('annuaire_sections_externes').select('id, nom'),
-    gradesUneFois(codesRequete),
-  ])
-  if (personnes.error || sections.error) return []
-
-  const nomDeSection = new Map(sections.data.map((s) => [s.id, s.nom]))
-
-  cacheTous = personnes.data
-    .map((p) => {
-      const nom = `${p.nom} ${p.prenom ?? ''}`.trim()
-      return { id: p.id, nom, libelle: avecGrade(grades[p.id], nom), section: nomDeSection.get(p.section_id) ?? 'Sans affectation' }
-    })
-    .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
-
-  return cacheTous
+    codesRequete
+  )
+  // Une liste vide n'est pas gardée : elle resterait sinon jusqu'au rechargement de la page.
+  if (liste.length > 0) cacheTous = liste
+  return liste
 }
 
 /**
@@ -78,21 +102,7 @@ let cacheToutPersonnel = null
 export async function chargerToutPersonnel(codesRequete) {
   if (cacheToutPersonnel) return cacheToutPersonnel
 
-  const [personnes, sections, grades] = await Promise.all([
-    supabase.from('annuaire_personnel').select('id, nom, prenom, section_id'),
-    supabase.from('annuaire_sections_externes').select('id, nom'),
-    gradesUneFois(codesRequete),
-  ])
-  if (personnes.error || sections.error) return []
-
-  const nomDeSection = new Map(sections.data.map((s) => [s.id, s.nom]))
-
-  cacheToutPersonnel = personnes.data
-    .map((p) => {
-      const nom = `${p.nom} ${p.prenom ?? ''}`.trim()
-      return { id: p.id, nom, libelle: avecGrade(grades[p.id], nom), section: nomDeSection.get(p.section_id) ?? 'Sans affectation' }
-    })
-    .sort((a, b) => a.libelle.localeCompare(b.libelle, 'fr'))
-
-  return cacheToutPersonnel
+  const liste = await lireAnnuaire(supabase.from('annuaire_personnel').select('id, nom, prenom, section_id'), codesRequete)
+  if (liste.length > 0) cacheToutPersonnel = liste
+  return liste
 }
