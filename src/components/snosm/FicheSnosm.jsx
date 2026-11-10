@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { chargerTousSecouristes, chargerToutPersonnel } from '../../lib/annuaire'
 import { effectifsDuJour } from '../../lib/effectifsDuJour'
+import { codesFormation } from '../../lib/sections'
 import { ChampSnosm, ChampDateTime, MenuFlottant } from './ChampsSnosm'
 import SchemaAvalanche from './SchemaAvalanche'
 import { ICONES_TYPE_AVALANCHE, ICONES_NIVEAU_RISQUE, COULEURS_TAILLE_AVALANCHE } from './IconesAvalanche'
@@ -801,6 +802,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   // n'arrivent eux qu'en texte brut, sans grade (décision utilisateur, 09/10/2026 : toujours afficher
   // le grade, pas seulement quand on resélectionne depuis le menu déroulant).
   const [secouristesParNom, setSecouristesParNom] = useState(new Map())
+  // Section de formation (CNEAS) : bandeau sur la fiche et mention sur le TO.
+  const [estFormation, setEstFormation] = useState(false)
+  useEffect(() => {
+    codesFormation().then((codes) => setEstFormation(codes.has(fiche.squad_code)))
+  }, [fiche.squad_code])
   useEffect(() => {
     const sectionCible = normaliseNom(sectionNom)
     const trierSectionDabord = (liste) => {
@@ -1020,7 +1026,7 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
     // plutôt que ficheAJour.effectifs_engages, qui peut être périmé ou vide selon la façon dont la
     // fiche a été chargée au départ — sans ça, l'effectif CRS engagé pouvait manquer entièrement du
     // TO généré alors qu'il s'affichait bien dans l'onglet Moyens engagés (bug remonté par l'utilisateur).
-    const modele = construireModeleTO({ ...ficheAJour, effectifs_engages: effectifs }, { sectionNom })
+    const modele = construireModeleTO({ ...ficheAJour, effectifs_engages: effectifs }, { sectionNom, formation: estFormation })
     const champs = { snosm_to_texte: JSON.stringify(modele), snosm_to_cree_le: new Date().toISOString() }
     await modifierIntervention(fiche.id, codesRequete, champs)
     onFicheMaj((f) => ({ ...f, ...champs }))
@@ -1161,6 +1167,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
   return (
     <div className="onglet-snosm-racine">
+      {estFormation && (
+        <div className="bandeau-formation-snosm" role="note">
+          Exercice de formation — fiche fictive, jamais transmise au SNOSM
+        </div>
+      )}
       <div className="entete-snosm">
         <div className="actions-entete-snosm">
           {!edition && !verrouillee && (

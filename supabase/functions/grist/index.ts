@@ -66,17 +66,41 @@ class ErreurHttp extends Error {
 // la durée de vie de l'instance (les instances Edge Function sont réutilisées
 // entre appels tant qu'elles restent "chaudes") pour éviter un aller-retour
 // Postgres à chaque requête. Un redéploiement repart d'un cache vide.
-let cleGristCache: { docId: string; apiKey: string } | null = null
+let cleGristCache: { docId: string; docIdFormation: string | null; apiKey: string } | null = null
 
-/** Même table que pousser_intervention_grist — jamais de clé écrite dans ce fichier. */
+/**
+ * Même table que pousser_intervention_grist — jamais de clé écrite dans ce fichier.
+ * `docIdFormation` : document Grist SÉPARÉ des sections de formation (CNEAS, voir
+ * grist_formation_cneas.sql côté Track'Alerte) — null s'il n'est pas configuré, ou s'il est
+ * identique au vrai document par erreur (il ne doit jamais l'être).
+ */
 async function lireCleGrist() {
   if (cleGristCache) return cleGristCache
-  const { data, error } = await service.from('reglages_techniques').select('cle, valeur').in('cle', ['grist_doc_id', 'grist_api_key'])
+  const { data, error } = await service
+    .from('reglages_techniques')
+    .select('cle, valeur')
+    .in('cle', ['grist_doc_id', 'grist_doc_id_formation', 'grist_api_key'])
   if (error) throw new ErreurHttp(500, `reglages_techniques : ${error.message}`)
   const parCle = Object.fromEntries((data ?? []).map((r: { cle: string; valeur: string }) => [r.cle, r.valeur]))
   if (!parCle.grist_doc_id || !parCle.grist_api_key) throw new ErreurHttp(500, 'Grist non configuré (reglages_techniques).')
-  cleGristCache = { docId: parCle.grist_doc_id as string, apiKey: parCle.grist_api_key as string }
+  const formation = (parCle.grist_doc_id_formation as string | undefined)?.trim() || null
+  cleGristCache = {
+    docId: parCle.grist_doc_id as string,
+    docIdFormation: formation && formation !== parCle.grist_doc_id ? formation : null,
+    apiKey: parCle.grist_api_key as string,
+  }
   return cleGristCache
+}
+
+// Sections de formation (sections.formation, ex. CRS74 = CNEAS) : interventions fictives de
+// stagiaires, rangées dans le document Grist de formation, jamais dans le vrai, jamais vers Lars.
+let codesFormationCache: Set<string> | null = null
+async function lireCodesFormation() {
+  if (codesFormationCache) return codesFormationCache
+  const { data, error } = await service.from('sections').select('code').eq('formation', true)
+  if (error) throw new ErreurHttp(500, `sections (formation) : ${error.message}`)
+  codesFormationCache = new Set((data ?? []).map((s: { code: string }) => s.code))
+  return codesFormationCache
 }
 
 /** Seul point de contact en LECTURE avec Grist — SQL paramétré, jamais fourni par le client. */
@@ -1546,7 +1570,12 @@ const TOUTES_SECTIONS_SNOSM = [
 
 /** Construit les fichiers JSON (format Lars) pour une période donnée — utilisé par exporterSnosm (ZIP + mail) et apercuSnosm (debug, sans mail). */
 async function construireExportSnosm(docId: string, apiKey: string, params: { debut?: string; fin?: string; squadCodes?: string[] }) {
-  const squadCodes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS_SNOSM
+  // Une section de formation (CNEAS) n'est JAMAIS exportée vers Lars, même demandée
+  // explicitement — ses interventions ne sont de toute façon pas dans ce document.
+  const codesFormation = await lireCodesFormation()
+  const demandes = params.squadCodes?.length ? params.squadCodes : TOUTES_SECTIONS_SNOSM
+  const squadCodes = demandes.filter((c) => !codesFormation.has(c))
+  if (squadCodes.length === 0) throw new ErreurHttp(400, 'Aucune section opérationnelle à exporter.')
   const fin = params.fin ? new Date(params.fin) : new Date()
   const debut = params.debut ? new Date(params.debut) : new Date(fin.getTime() - 31 * 24 * 3600 * 1000)
   const debutEpoch = Math.floor(debut.getTime() / 1000)
@@ -1755,10 +1784,27 @@ Deno.serve(async (requete) => {
     if (erreurRegion) throw new ErreurHttp(401, 'Poste non identifié.')
 
     const squadCodesDemandes: string[] = params.squadCodes ?? []
-    const squadCodes = squadCodesDemandes.filter((c) => (codesRegion ?? []).includes(c))
+    let squadCodes = squadCodesDemandes.filter((c) => (codesRegion ?? []).includes(c))
     if (squadCodes.length === 0) throw new ErreurHttp(403, 'Aucune section autorisée.')
 
-    const { docId, apiKey } = await lireCleGrist()
+    const cles = await lireCleGrist()
+    const { apiKey } = cles
+
+    // Aiguillage formation : une demande qui ne porte QUE sur des sections de formation (le CNEAS
+    // qui consulte ses propres fiches) lit et écrit le document Grist de formation. Une demande
+    // mixte (vue région d'un autre poste) laisse tomber les sections de formation et reste sur le
+    // vrai document : les fiches d'exercice n'apparaissent jamais au milieu des vraies.
+    // Référentiels (listes de choix) : toujours le vrai document, en lecture seule.
+    const codesFormation = await lireCodesFormation()
+    let docId = cles.docId
+    if (action !== 'referentiels' && action !== 'gradesSecouristes') {
+      if (squadCodes.every((c) => codesFormation.has(c))) {
+        if (!cles.docIdFormation) throw new ErreurHttp(503, 'Document Grist de formation non configuré.')
+        docId = cles.docIdFormation
+      } else {
+        squadCodes = squadCodes.filter((c) => !codesFormation.has(c))
+      }
+    }
 
     if (action === 'evenements') {
       const evenements = await listerEvenements(docId, apiKey, squadCodes, params)

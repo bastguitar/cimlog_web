@@ -1,6 +1,31 @@
 import { supabase } from './supabase'
 
 /**
+ * Codes des sections de FORMATION (`sections.formation`, ex. CRS74 = CNEAS) : interventions
+ * fictives de stagiaires, rangées dans un document Grist séparé, jamais transmises au SNOSM.
+ * Sert au bandeau « Formation » de la fiche et du TO. Un échec n'est pas mis en cache.
+ */
+let promesseCodesFormation = null
+export function codesFormation() {
+  if (!promesseCodesFormation) {
+    promesseCodesFormation = supabase
+      .from('sections')
+      .select('code')
+      .eq('formation', true)
+      .then(({ data, error }) => {
+        if (error) throw error
+        return new Set((data ?? []).map((s) => s.code))
+      })
+      .catch((e) => {
+        console.error('Sections de formation non chargées :', e)
+        promesseCodesFormation = null
+        return new Set()
+      })
+  }
+  return promesseCodesFormation
+}
+
+/**
  * Regroupement section mère / postes secondaires — le même que côté base
  * (voir visibilite_regionale.sql, sections_lecture_region.sql). Un poste
  * secondaire partage toujours la couleur et le filtre de sa mère : inutile

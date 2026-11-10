@@ -218,7 +218,7 @@ function nationaliteDepuisPays(brut) {
  * maintenant du vrai formulaire SNOSM (voir FicheSnosm.jsx) plutôt que d'un
  * champ vide comme dans la première version de ce générateur.
  */
-export function construireModeleTO(fiche, { sectionNom } = {}) {
+export function construireModeleTO(fiche, { sectionNom, formation = false } = {}) {
   const groupe = groupeDe(fiche.squad_code)
   const region = REGION_PAR_GROUPE[groupe] ?? null
   const zone = region ? (ZONE_PAR_REGION[region] ?? null) : null
@@ -230,6 +230,8 @@ export function construireModeleTO(fiche, { sectionNom } = {}) {
 
   return {
     numeroIfsm,
+    // Section de formation (CNEAS) : TO marqué « exercice » en tête de chaque page.
+    formation,
     entete: {
       de: nomDe,
       a: zone,
@@ -473,7 +475,11 @@ class MisePage {
 export async function genererPdfDepuisModele(modele) {
   const doc = new jsPDF()
   const logo = await chargerImage(logoCrsUrl).catch(() => null)
-  const page = new MisePage(doc, logo, `Intervention des Formations Spécialisées Montagne n° ${modele.numeroIfsm}`)
+  const page = new MisePage(
+    doc,
+    logo,
+    `${modele.formation ? 'EXERCICE DE FORMATION — ' : ''}Intervention des Formations Spécialisées Montagne n° ${modele.numeroIfsm}`
+  )
 
   // ---- En-tête ------------------------------------------------------------
   // Mise en page dense (voir commentaire en tête de fichier) : logo et police réduits, DE/À et
@@ -492,6 +498,14 @@ export async function genererPdfDepuisModele(modele) {
   doc.line(MARGE, 25, page.largeur - MARGE - 16 - 5, 25)
   doc.setLineWidth(0.2)
   page.y = 30
+
+  if (modele.formation) {
+    doc.setFont(undefined, 'bold')
+    doc.setFontSize(9)
+    doc.setTextColor(...ROUGE_CRS)
+    doc.text('EXERCICE DE FORMATION — DOCUMENT FICTIF, NON TRANSMIS AU SNOSM', MARGE, page.y)
+    page.y += 6
+  }
 
   page.champsDoubles([
     ['DE : ', modele.entete.de],

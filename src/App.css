@@ -3700,3 +3700,16 @@ main > * {
     grid-column: auto;
   }
 }
+
+/* Section de formation (CNEAS) : fiche d'exercice, jamais transmise au SNOSM. */
+.bandeau-formation-snosm {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: #fef3c7;
+  color: #92400e;
+  border: 1px solid #f59e0b;
+  font-weight: 700;
+  font-size: 13px;
+  text-align: center;
+}
