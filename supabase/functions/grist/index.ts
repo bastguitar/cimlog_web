@@ -1084,7 +1084,8 @@ const CRS_HELICOPTERES: Array<[number, string]> = [
 // YETI 1/YETI 2 (hélicoptères SAF, voir SnosmEmploiHeliSAFJustification) ne sont pas nommés chez
 // Lars, seulement "SAF 145"/"SAF 135" génériques — confirmé par Lars (mail, 20/10/2026) : les deux
 // correspondent à SAF 145, le SAF ne vole plus en EC135 (= SAF 135, id 21, donc jamais utilisé ici).
-const ALIAS_HELICOPTERE: Record<string, number> = { 'YETI 1': 20, 'YETI 2': 20 }
+// Renommés YETI 73-1/73-2 dans Track'log le 11/11/2026 (nom gendloc) : les deux noms restent reconnus.
+const ALIAS_HELICOPTERE: Record<string, number> = { 'YETI 73-1': 20, 'YETI 73-2': 20, 'YETI 1': 20, 'YETI 2': 20 }
 
 const TGA_METEOS: Array<[number, string]> = [
   [1, 'Ensoleillé / beau temps'], [2, 'Nuageux / couvert'], [3, 'Pluvieux'], [4, 'Venteux'], [5, 'Neigeux'],

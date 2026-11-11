@@ -588,7 +588,9 @@ export const ppsmDepuisSquadCode = (squadCode) => PPSM_PAR_SQUAD_CODE[squadCode]
  */
 const PPSM_PAR_HELICOPTERE = {
   'Choucas 73': 'MODANE',
-  'YETI 1': 'COURCHEVEL',
+  'YETI 73-1': 'COURCHEVEL', // nom Track'log depuis le 11/11/2026 (nom gendloc)
+  'YETI 73-2': 'COURCHEVEL',
+  'YETI 1': 'COURCHEVEL', // ancien nom, fiches d'avant le renommage
   'YETI 2': 'COURCHEVEL',
   'Dragon 74': 'COURCHEVEL',
   'Dragon 38-1': 'VERSOUD',
@@ -602,12 +604,12 @@ const PPSM_PAR_HELICOPTERE = {
 
 export const ppsmDepuisHelicoptere = (helicoptere) => PPSM_PAR_HELICOPTERE[helicoptere] ?? null
 
-// "Emploi hélicoptère du SAF justifié par" ne concerne que le SAF (YETI 1/YETI 2,
+// "Emploi hélicoptère du SAF justifié par" ne concerne que le SAF (YETI 73-1/YETI 73-2, ex YETI 1/2,
 // les seuls appareils SAF de la liste) — masqué tant qu'aucun des deux n'est parmi
 // les hélicoptères engagés (snosm_helicopteres, plusieurs valeurs possibles séparées par ", ").
 export const visibleSiHelicoptereSaf = (bf) => {
   const valeurs = (bf.snosm_helicopteres ?? '').split(',').map((v) => v.trim().toUpperCase())
-  return valeurs.includes('YETI 1') || valeurs.includes('YETI 2')
+  return valeurs.some((v) => /^YETI (73-)?[12]$/.test(v))
 }
 
 // Rôle dans le tableau "Effectif CRS Engagé" du SNOSM — volontairement réduit à 3
