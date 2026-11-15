@@ -31,13 +31,18 @@ const FILTRES_VIDES = {
  * rattraper. Sans cette date de bascule, « à traiter » comptait plusieurs
  * milliers d'interventions historiques au lieu des seules nouvelles.
  */
-const DEBUT_A_TRAITER = '2026-09-11T22:12:46.865Z'
+// Reporté au lancement officiel (lundi 16/11/2026, 6h00 Paris), décidé le
+// 15/11 : tout ce qui a été clôturé avant a été traité dans l'ancien
+// système (GendLoc) — fiches reprises, sans TO dans Track'Log. « À
+// traiter » ne compte plus que les interventions réelles prises dans
+// Track'Alerte. (Était 2026-09-11T22:12:46.865Z, mise en place du TO.)
+const DEBUT_A_TRAITER = '2026-11-16T05:00:00.000Z'
 
 /** Clôturée depuis la bascule TO/SNOSM, mais sans TO généré dans Track'Log — même signal que le
  * liseré rouge/vert du Registre (snosm_to_cree_le), pas TOEnvoyeLe : ce dernier marquerait l'envoi
  * officiel au SNOSM (Chamonix), une action qui n'existe encore nulle part dans Track'Log — resterait
  * vide pour toujours et "à traiter" ne se serait jamais vidé, même une fois tous les TO créés. */
-const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.snosm_to_cree_le
+export const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.snosm_to_cree_le
 
 /** Un texte se retrouve dans une intervention — numéro exact, ou sous-chaîne d'un des champs. */
 function correspond(s, mot) {

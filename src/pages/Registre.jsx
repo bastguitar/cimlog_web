@@ -3,7 +3,7 @@ import { listerAnnee, sansCodePostal, nomSeul, ficheSecours } from '../lib/regis
 import { STATUTS } from '../lib/statuts'
 import { couleurSection, groupeDe } from '../lib/sections'
 import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from '../lib/semaines'
-import { useFiltresRegistre } from '../hooks/useFiltresRegistre'
+import { useFiltresRegistre, estATraiter } from '../hooks/useFiltresRegistre'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
 import ModaleFiche from '../components/ModaleFiche'
 import { estRegulation, estSansMoyen, libelleMoyens } from '../lib/moyens'
@@ -180,7 +180,9 @@ export default function Registre({ fSections }) {
                     {jour.secours.map((s) => (
                       <tr
                         key={s.id}
-                        className={`ligne-registre ${s.snosm_to_cree_le ? 'ligne-traitee-registre' : 'ligne-a-traiter-registre'}`}
+                        // Rouge seulement pour une intervention à traiter (même règle que le
+                        // compteur « À traiter ») : neutre pour celles d'avant le lancement.
+                        className={`ligne-registre ${s.snosm_to_cree_le ? 'ligne-traitee-registre' : estATraiter(s) ? 'ligne-a-traiter-registre' : ''}`}
                         onClick={() => setFicheId(s.id)}
                       >
                         <td>{formatHeure(s.created_at)}</td>
