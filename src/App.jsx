@@ -74,6 +74,7 @@ export default function App() {
               selection={fSections.selection}
               onSelect={fSections.selectionner}
               nomPropre={fSections.nomPropre}
+              couleurPropre={fSections.couleurPropre}
             />
             <button
               type="button"

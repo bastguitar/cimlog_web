@@ -12,7 +12,7 @@ import { useEffect, useRef, useState } from 'react'
  * cette région à la fois, c'est la seule façon d'en voir plusieurs en même
  * temps.
  */
-export default function SelecteurSections({ sections, region, selection, onSelect, nomPropre }) {
+export default function SelecteurSections({ sections, region, selection, onSelect, nomPropre, couleurPropre }) {
   const [ouvert, setOuvert] = useState(false)
   const ref = useRef(null)
 
@@ -56,6 +56,16 @@ export default function SelecteurSections({ sections, region, selection, onSelec
 
       {ouvert && (
         <div className="liste-menu-sections">
+          {/* Sa propre section en tête : sans elle, impossible de deviner le
+              chemin du retour après avoir regardé ailleurs (demandé le 18/11/2026). */}
+          <button
+            type="button"
+            className={!selection ? 'option-menu-sections active' : 'option-menu-sections'}
+            onClick={() => choisir(null)}
+          >
+            <span className="point-section" style={{ background: couleurPropre }} />
+            {nomPropre ?? 'Ma section'}
+          </button>
           <button
             type="button"
             className={selection === 'REGION' ? 'option-menu-sections active' : 'option-menu-sections'}

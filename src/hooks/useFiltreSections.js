@@ -52,7 +52,8 @@ export function useFiltreSections(poste) {
     return sections.filter((s) => s.code !== monGroupe)
   }, [sections, monGroupe, sousGroupes, maPartie, positions])
 
-  const selectionner = (code) => setSelection((s) => (s === code ? null : code))
+  // `null` = retour à sa propre section (option en tête du menu).
+  const selectionner = (code) => setSelection((s) => (code === null || s === code ? null : code))
 
   /** Retour forcé à sa propre section — voir GardeInactivite (App.jsx). */
   const reinitialiser = () => setSelection(null)
@@ -70,6 +71,7 @@ export function useFiltreSections(poste) {
     sections: autresSections,
     // Nom affiché sur le bouton quand le poste regarde ses propres secours —
     // avec le département pour un groupe découpé (« Gavarnie · Hautes-Pyrénées (65) »).
+    couleurPropre: couleurSection(poste?.code),
     nomPropre: poste ? (maPartie ? `${poste.nom} · ${maPartie.nom}` : poste.nom) : null,
     // Non filtrée (la sienne comprise) — pour retrouver le nom d'une section
     // à partir d'un squad_code quelconque (colonne "Unité" du Registre en
