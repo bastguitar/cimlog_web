@@ -78,6 +78,7 @@ export default function ModaleFiche({ id, onFermer, codesRequete = null, fSectio
               onFicheMaj={setFiche}
               sectionNom={nomDeSection.get(groupeDe(fiche.squad_code)) ?? fiche.squad_code}
               onFermer={onFermer}
+              lectureSeule={Boolean(fSections?.monGroupe) && groupeDe(fiche.squad_code) !== fSections.monGroupe}
             />
           </>
         )}

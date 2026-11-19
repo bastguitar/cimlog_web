@@ -746,7 +746,7 @@ function brouillonVictimesDepuis(fiche) {
  * chaque victime modifiée. L'effectif CRS engagé (répétable) reste éditable
  * indépendamment — chaque ligne s'enregistre elle-même.
  */
-export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom, onFermer }) {
+export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom, onFermer, lectureSeule = false }) {
   const [sousOnglet, setSousOnglet] = useState('general')
   // Onglets déjà consultés — conditionne l'apparition du bouton "Créer le TO" en bas de fiche
   // (décision utilisateur : ne pas pouvoir créer le TO sans être passé par chaque onglet).
@@ -762,7 +762,9 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   useEffect(() => {
     corpsOngletRef.current?.scrollTo({ top: 0 })
   }, [sousOnglet])
-  const verrouillee = Boolean(fiche.toEnvoyeLe)
+  // Figée si le TO est parti, ou si la fiche appartient à une autre section que celle du poste
+  // connecté (consultation seulement — l'Edge Function grist refuse aussi l'écriture).
+  const verrouillee = Boolean(fiche.toEnvoyeLe) || lectureSeule
   const [edition, setEdition] = useState(!verrouillee)
   // Référentiels hélicoptères/activités : Cim'Alerte fait foi (voir optionsSnosm.js), plus aucune
   // copie en dur ici — déclaré avant brouillonFiche pour que son préremplissage hélicoptère/PPSM
@@ -1178,6 +1180,11 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       {estFormation && (
         <div className="bandeau-formation-snosm" role="note">
           Exercice de formation — fiche fictive, jamais transmise au SNOSM
+        </div>
+      )}
+      {lectureSeule && (
+        <div className="bandeau-lecture-seule-snosm" role="note">
+          Intervention de {sectionNom} — consultation seulement, modifiable uniquement par sa section
         </div>
       )}
       <div className="entete-snosm">

@@ -557,6 +557,36 @@ function traduireChamps(champsDemandes: Record<string, unknown>, dictionnaire: R
   return champs
 }
 
+/** Actions qui modifient une fiche — réservées à la section du poste connecté (voir codesDeMaSection). */
+const ACTIONS_ECRITURE = new Set([
+  'updateIntervention',
+  'updateVictime',
+  'ajouterVictime',
+  'ajouterEffectif',
+  'modifierEffectif',
+  'supprimerEffectif',
+])
+
+/**
+ * Codes de la section du poste appelant : sa section mère (parent_code, ou lui-même) et tous les
+ * postes rattachés à cette mère. Un poste secondaire (Modane, Luchon…) peut donc modifier les fiches
+ * de sa mère et des postes frères, mais jamais celles d'une autre section de la région.
+ * section_courante() est lue avec le jeton de l'appelant, jamais fournie par le client.
+ */
+async function codesDeMaSection(commeAppelant: ReturnType<typeof createClient>): Promise<string[]> {
+  const { data: maSection, error } = await commeAppelant.rpc('section_courante')
+  if (error || !maSection) throw new ErreurHttp(401, 'Poste non identifié.')
+  const { data: moi, error: erreurMoi } = await service.from('sections').select('code, parent_code').eq('code', maSection).single()
+  if (erreurMoi || !moi) throw new ErreurHttp(403, 'Section inconnue.')
+  const mere = moi.parent_code ?? moi.code
+  const { data: groupe, error: erreurGroupe } = await service
+    .from('sections')
+    .select('code')
+    .or(`code.eq.${mere},parent_code.eq.${mere}`)
+  if (erreurGroupe) throw new ErreurHttp(500, `Sections : ${erreurGroupe.message}`)
+  return (groupe ?? []).map((s) => s.code as string)
+}
+
 /** Charge la ligne d'intervention et vérifie section + verrou — jamais confié au client. Sert de garde-fou pour TOUTE écriture liée à cette intervention (elle-même, ses victimes, son effectif). */
 async function verifierEcritureAutorisee(docId: string, apiKey: string, squadCodes: string[], eventId: number) {
   const placeholders = squadCodes.map(() => '?').join(', ')
@@ -1787,6 +1817,15 @@ Deno.serve(async (requete) => {
     const squadCodesDemandes: string[] = params.squadCodes ?? []
     let squadCodes = squadCodesDemandes.filter((c) => (codesRegion ?? []).includes(c))
     if (squadCodes.length === 0) throw new ErreurHttp(403, 'Aucune section autorisée.')
+
+    // Écriture : seulement sa propre section (section mère + ses postes rattachés, ex. Albertville,
+    // Modane, Courchevel) — jamais une autre section de la région, que l'on peut seulement consulter
+    // (demandé le 19/11/2026). verifierEcritureAutorisee refuse alors toute fiche hors de ces codes.
+    if (ACTIONS_ECRITURE.has(action)) {
+      const codesSection = await codesDeMaSection(commeAppelant)
+      squadCodes = squadCodes.filter((c) => codesSection.includes(c))
+      if (squadCodes.length === 0) throw new ErreurHttp(403, "Modification réservée à la section qui a pris l'intervention.")
+    }
 
     const cles = await lireCleGrist()
     const { apiKey } = cles

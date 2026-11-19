@@ -3713,3 +3713,15 @@ main > * {
   font-size: 13px;
   text-align: center;
 }
+
+/* Fiche d'une autre section : consultation seulement (voir FicheSnosm, lectureSeule). */
+.bandeau-lecture-seule-snosm {
+  margin-bottom: 10px;
+  padding: 8px 12px;
+  border-radius: var(--radius-sm);
+  background: #e0ecf8;
+  color: #1e4f80;
+  border: 1px solid #3b82c4;
+  font-weight: 700;
+  font-size: 13px;
+}

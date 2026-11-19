@@ -72,6 +72,8 @@ export function useFiltreSections(poste) {
     // Nom affiché sur le bouton quand le poste regarde ses propres secours —
     // avec le département pour un groupe découpé (« Gavarnie · Hautes-Pyrénées (65) »).
     couleurPropre: couleurSection(poste?.code),
+    // Section mère du poste connecté — une fiche d'un autre groupe s'ouvre en lecture seule (ModaleFiche).
+    monGroupe: poste ? monGroupe : null,
     nomPropre: poste ? (maPartie ? `${poste.nom} · ${maPartie.nom}` : poste.nom) : null,
     // Non filtrée (la sienne comprise) — pour retrouver le nom d'une section
     // à partir d'un squad_code quelconque (colonne "Unité" du Registre en
