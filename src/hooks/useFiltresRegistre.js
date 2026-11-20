@@ -42,7 +42,12 @@ const DEBUT_A_TRAITER = '2026-11-16T05:00:00.000Z'
  * liseré rouge/vert du Registre (snosm_to_cree_le), pas TOEnvoyeLe : ce dernier marquerait l'envoi
  * officiel au SNOSM (Chamonix), une action qui n'existe encore nulle part dans Track'Log — resterait
  * vide pour toujours et "à traiter" ne se serait jamais vidé, même une fois tous les TO créés. */
-export const estATraiter = (s) => Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.snosm_to_cree_le
+// Une régulation (clôturée sans aucun départ des secouristes : aucun statut
+// envoyé en main courante — même règle que la pastille « Régulation »,
+// regulation_alerte.sql côté Track'Alerte) n'a pas de TO à faire (demandé le
+// 20/11/2026) : ni comptée « À traiter », ni liseré rouge.
+export const estATraiter = (s) =>
+  Boolean(s.clotureLe) && s.clotureLe >= DEBUT_A_TRAITER && !s.snosm_to_cree_le && !estRegulation(s)
 
 /** Un texte se retrouve dans une intervention — numéro exact, ou sous-chaîne d'un des champs. */
 function correspond(s, mot) {
