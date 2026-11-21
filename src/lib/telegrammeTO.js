@@ -268,8 +268,12 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
             carteProNumero: fiche.snosm_carte_pro_numero || null,
           }
         : null,
+    // Récit rédigé par l'agent (champ « Circonstances / description » du Compte rendu, onglet
+    // Intervention) — snosm_circonstances_recit depuis le 27/10/2026, jamais fiche.description
+    // (= Informations complémentaires Track'Alerte, bloc-notes souvent chargé de données
+    // personnelles). Le TO lisait encore description : case vide sur le PDF (bug Albertville, 21/11/2026).
     circonstances: {
-      circonstances: fiche.description,
+      circonstances: fiche.snosm_circonstances_recit || null,
     },
     moyens: {
       operation: fiche.snosm_type_operation_moyens,
@@ -711,5 +715,9 @@ export async function telechargerTOModele(fiche, modele) {
  */
 export async function telechargerTelegrammeTO(fiche, options) {
   const modele = fiche.snosm_to_texte ? JSON.parse(fiche.snosm_to_texte) : construireModeleTO(fiche, options)
+  // TO enregistrés avant le correctif du 21/11/2026 : leurs circonstances venaient de fiche.description
+  // (vide ou notes Track'Alerte) — toujours reprises du récit de l'agent.
+  if (fiche.snosm_to_texte && 'snosm_circonstances_recit' in fiche)
+    modele.circonstances = { circonstances: fiche.snosm_circonstances_recit || null }
   await telechargerTOModele(fiche, modele)
 }
