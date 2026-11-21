@@ -342,6 +342,9 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
       circonstance: v.snosm_circonstances_liste ? v.snosm_circonstances_liste.toLowerCase() : null,
       natureBlessures: [v.snosm_localisation_blessure, v.snosm_type_blessure].filter(Boolean).join(' — ').toLowerCase() || null,
       destination: v.snosm_destination,
+      // Heure de dépose (Heure fin de prise en charge, onglet Impliqué — préremplie depuis la dépose
+      // Cim'Alerte), affichée à côté de la destination (décision utilisateur, 21/11/2026).
+      heureDepose: formatDateHeureFinService(v.snosm_fin_prise_en_charge_le || v.depose_le),
     })),
     judiciaire: {
       suiviJudiciaire: fiche.snosm_suivi_judiciaire,
@@ -663,7 +666,10 @@ export async function genererPdfDepuisModele(modele) {
       ])
       page.champ('Circonstance :', v.circonstance)
       page.champ('Nature des blessures :', v.natureBlessures)
-      page.champ('Destination :', v.destination)
+      page.champsDoubles([
+        ['Destination : ', v.destination],
+        ['Heure de dépose : ', v.heureDepose],
+      ])
     })
   }
   page.espaceur()
@@ -746,7 +752,7 @@ export async function telechargerTelegrammeTO(fiche, options) {
     const frais = construireModeleTO(fiche, options).victimes
     modele.victimes = modele.victimes.map((v) => {
       const f = frais.find((x) => x.id === v.id)
-      return { ...v, adresse: f?.adresse ?? null, lieuNaissance: f?.lieuNaissance ?? null, profession: f?.profession ?? null }
+      return { ...v, adresse: f?.adresse ?? null, lieuNaissance: f?.lieuNaissance ?? null, profession: f?.profession ?? null, heureDepose: f?.heureDepose ?? null }
     })
   }
   await telechargerTOModele(fiche, modele)
