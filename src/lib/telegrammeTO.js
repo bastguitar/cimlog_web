@@ -134,8 +134,34 @@ const NOM_POSTE_PAR_SQUAD_CODE = {
  * chiffres), poste de prise d'alerte ajouté pour les sections qui en ont plusieurs (décision
  * utilisateur, 09/10/2026). Utilisé à la fois pour le n° affiché en en-tête du document et comme base
  * du nom de fichier téléchargé (voir nomFichierIfsm, qui y ajoute juste le nom de la victime). */
+// Département de la section qui a fait le secours — c'est lui qui figure dans le titre IFSM, même
+// quand l'intervention a lieu dans un autre département (décision utilisateur, 21/11/2026 : ex.
+// secours d'Albertville en Haute-Savoie -> « IFSM SAVOIE … »). Luchon (CRS65L) est en Haute-Garonne,
+// le reste de Lannemezan dans les Hautes-Pyrénées (même découpage que SOUS_GROUPES, sections.js).
+const DEPARTEMENT_PAR_SQUAD_CODE = {
+  CRS38: '38',
+  CRS38H: '38',
+  CRS05: '05',
+  CRS73: '73',
+  CRS73M: '73',
+  CRS73C: '73',
+  CRS06: '06',
+  CRS06S: '06',
+  CRS06V: '06',
+  CRS65: '65',
+  CRS65G: '65',
+  CRS65S: '65',
+  CRS65L: '31',
+  CRS66: '66',
+  CRS66B: '66',
+  CRS66H: '66',
+  CRS74: '74',
+}
+
 function identifiantIfsm(fiche) {
-  const departement = departementNom(fiche)
+  // Section inconnue (ex. formation) : département du lieu de l'intervention, comme avant.
+  const codeDepartement = DEPARTEMENT_PAR_SQUAD_CODE[fiche.squad_code] ?? fiche.county
+  const departement = departementNom({ county: codeDepartement })
   const poste = NOM_POSTE_PAR_SQUAD_CODE[fiche.squad_code] ?? ''
   return ['IFSM', departement, poste, fiche.local_id ?? ''].filter(Boolean).join(' ')
 }
@@ -744,6 +770,8 @@ export async function telechargerTelegrammeTO(fiche, options) {
   // (vide ou notes Track'Alerte) — toujours reprises du récit de l'agent.
   if (fiche.snosm_to_texte && 'snosm_circonstances_recit' in fiche)
     modele.circonstances = { circonstances: fiche.snosm_circonstances_recit || null }
+  // Titre IFSM : département de la section (et non plus du lieu) depuis le 21/11/2026 — recalculé.
+  if (fiche.snosm_to_texte && fiche.squad_code) modele.numeroIfsm = identifiantIfsm(fiche)
   // GPS ajouté à la Localisation le 21/11/2026 : repris de la fiche pour les TO enregistrés avant.
   if (fiche.snosm_to_texte && modele.localisation && 'gps' in fiche) modele.localisation.gps = gpsDecimal(fiche.gps)
   // Idem pour l'adresse, le lieu de naissance et la profession des victimes, ajoutés au TO le
