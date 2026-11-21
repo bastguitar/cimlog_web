@@ -46,6 +46,34 @@ for (const [groupe, codes] of Object.entries(GROUPES)) {
   for (const code of codes) CODE_VERS_GROUPE.set(code, groupe)
 }
 
+// Département (code à 2 chiffres) de chaque section/poste — utilisé par le TO (titre IFSM, préfectures)
+// et le préremplissage des autorités avisées. C'est lui qui figure dans le titre IFSM, même
+// quand l'intervention a lieu dans un autre département (décision utilisateur, 21/11/2026 : ex.
+// secours d'Albertville en Haute-Savoie -> « IFSM SAVOIE … »). Luchon (CRS65L) est en Haute-Garonne,
+// le reste de Lannemezan dans les Hautes-Pyrénées (même découpage que SOUS_GROUPES ci-dessous).
+const DEPARTEMENT_PAR_SQUAD_CODE = {
+  CRS38: '38',
+  CRS38H: '38',
+  CRS05: '05',
+  CRS73: '73',
+  CRS73M: '73',
+  CRS73C: '73',
+  CRS06: '06',
+  CRS06S: '06',
+  CRS06V: '06',
+  CRS65: '65',
+  CRS65G: '65',
+  CRS65S: '65',
+  CRS65L: '31',
+  CRS66: '66',
+  CRS66B: '66',
+  CRS66H: '66',
+  CRS74: '74',
+}
+
+/** Département de la section (code à 2 chiffres), null si inconnue. */
+export const departementDeSection = (squadCode) => DEPARTEMENT_PAR_SQUAD_CODE[squadCode] ?? null
+
 /** Code de la section mère d'un squad_code — lui-même s'il n'a pas de mère connue. */
 export const groupeDe = (squadCode) => CODE_VERS_GROUPE.get(squadCode) ?? squadCode
 

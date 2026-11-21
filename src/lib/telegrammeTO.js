@@ -1,6 +1,6 @@
 import { jsPDF } from 'jspdf'
 import logoCrsUrl from '../assets/logo-crs.png'
-import { groupeDe } from './sections'
+import { departementDeSection, groupeDe } from './sections'
 import { gpsDecimal } from './gps'
 
 /**
@@ -134,33 +134,10 @@ const NOM_POSTE_PAR_SQUAD_CODE = {
  * chiffres), poste de prise d'alerte ajouté pour les sections qui en ont plusieurs (décision
  * utilisateur, 09/10/2026). Utilisé à la fois pour le n° affiché en en-tête du document et comme base
  * du nom de fichier téléchargé (voir nomFichierIfsm, qui y ajoute juste le nom de la victime). */
-// Département de la section qui a fait le secours — c'est lui qui figure dans le titre IFSM, même
-// quand l'intervention a lieu dans un autre département (décision utilisateur, 21/11/2026 : ex.
-// secours d'Albertville en Haute-Savoie -> « IFSM SAVOIE … »). Luchon (CRS65L) est en Haute-Garonne,
-// le reste de Lannemezan dans les Hautes-Pyrénées (même découpage que SOUS_GROUPES, sections.js).
-const DEPARTEMENT_PAR_SQUAD_CODE = {
-  CRS38: '38',
-  CRS38H: '38',
-  CRS05: '05',
-  CRS73: '73',
-  CRS73M: '73',
-  CRS73C: '73',
-  CRS06: '06',
-  CRS06S: '06',
-  CRS06V: '06',
-  CRS65: '65',
-  CRS65G: '65',
-  CRS65S: '65',
-  CRS65L: '31',
-  CRS66: '66',
-  CRS66B: '66',
-  CRS66H: '66',
-  CRS74: '74',
-}
-
 function identifiantIfsm(fiche) {
-  // Section inconnue (ex. formation) : département du lieu de l'intervention, comme avant.
-  const codeDepartement = DEPARTEMENT_PAR_SQUAD_CODE[fiche.squad_code] ?? fiche.county
+  // Département de la section qui a fait le secours (voir departementDeSection, sections.js) ;
+  // section inconnue : département du lieu de l'intervention, comme avant.
+  const codeDepartement = departementDeSection(fiche.squad_code) ?? fiche.county
   const departement = departementNom({ county: codeDepartement })
   const poste = NOM_POSTE_PAR_SQUAD_CODE[fiche.squad_code] ?? ''
   return ['IFSM', departement, poste, fiche.local_id ?? ''].filter(Boolean).join(' ')
@@ -249,9 +226,13 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
   const groupe = groupeDe(fiche.squad_code)
   const region = REGION_PAR_GROUPE[groupe] ?? null
   const zone = region ? (ZONE_PAR_REGION[region] ?? null) : null
-  const prefecture = fiche.county ? departementNom(fiche) : null
+  // Préfecture du lieu du secours, plus celle du département de la section quand il diffère (décision
+  // utilisateur, 21/11/2026 : ex. secours d'Albertville en Haute-Savoie -> les deux préfectures).
+  const departementsPrefecture = [...new Set([fiche.county, departementDeSection(fiche.squad_code)].filter(Boolean))]
+  const prefectures = departementsPrefecture.map((d) => `PRÉFECTURE ${departementNom({ county: d })}`)
+  const prefecture = prefectures.length ? prefectures.join(' - ') : null
   const nomDe = sectionNom ? `CRS ${region ?? ''} ${sectionNom}`.replace(/\s+/g, ' ').trim().toUpperCase() : null
-  const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - PRÉFECTURE ${prefecture} - CRS ${region}` : null
+  const autoritesDefaut = zone && prefecture && region ? `DCCRS - ${zone} - ${prefecture} - CRS ${region}` : null
   const victimes = fiche.victimes ?? []
   const numeroIfsm = identifiantIfsm(fiche)
 
@@ -262,7 +243,7 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
     entete: {
       de: nomDe,
       a: zone,
-      pourInformation: prefecture ? `PRÉFECTURE ${prefecture}` : null,
+      pourInformation: prefecture,
       numeroTexte: fiche.snosm_numero_texte || (fiche.local_id != null ? String(fiche.local_id) : null),
     },
     alerte: {
@@ -557,10 +538,10 @@ export async function genererPdfDepuisModele(modele) {
     ['DE : ', modele.entete.de],
     ['À : ', modele.entete.a],
   ])
-  page.champsDoubles([
-    ['Pour information : ', modele.entete.pourInformation],
-    ['N° de texte : ', modele.entete.numeroTexte],
-  ])
+  // Pleine largeur : avec deux préfectures (lieu + section, 21/11/2026), « Pour information » débordait
+  // sur « N° de texte » quand les deux partageaient la ligne.
+  page.champ('Pour information :', modele.entete.pourInformation)
+  page.champ('N° de texte :', modele.entete.numeroTexte)
   doc.setFont(undefined, 'bold')
   doc.setFontSize(7.5)
   doc.setTextColor(...NOIR)
@@ -772,6 +753,8 @@ export async function telechargerTelegrammeTO(fiche, options) {
     modele.circonstances = { circonstances: fiche.snosm_circonstances_recit || null }
   // Titre IFSM : département de la section (et non plus du lieu) depuis le 21/11/2026 — recalculé.
   if (fiche.snosm_to_texte && fiche.squad_code) modele.numeroIfsm = identifiantIfsm(fiche)
+  // « Pour information » : les deux préfectures (lieu + section) depuis le 21/11/2026 — recalculé.
+  if (fiche.snosm_to_texte && modele.entete) modele.entete.pourInformation = construireModeleTO(fiche, options).entete.pourInformation
   // GPS ajouté à la Localisation le 21/11/2026 : repris de la fiche pour les TO enregistrés avant.
   if (fiche.snosm_to_texte && modele.localisation && 'gps' in fiche) modele.localisation.gps = gpsDecimal(fiche.gps)
   // Idem pour l'adresse, le lieu de naissance et la profession des victimes, ajoutés au TO le

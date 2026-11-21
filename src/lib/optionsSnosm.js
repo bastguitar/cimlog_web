@@ -12,7 +12,7 @@
  * ReferentielHelicos/ReferentielActivites, voir chargerReferentiels dans
  * src/lib/registre.js et l'action `referentiels` de l'Edge Function grist).
  */
-import { groupeDe } from './sections'
+import { departementDeSection, groupeDe } from './sections'
 
 // Harmonise la casse des menus déroulants (décision utilisateur : première lettre en majuscule, le
 // reste en minuscule) sans retaper chaque libellé à la main — appliqué en une fois sur les tableaux
@@ -153,8 +153,12 @@ export function autoritesAviseesDefaut(squadCode, county) {
   if (zone) tags.push(zone)
   if (region === 'ALPES') tags.push('CRS ALPES')
   if (region === 'PYRENEES') tags.push('CRS PYRENEES')
-  const prefecture = county ? PREFECTURE_TAG_PAR_DEPARTEMENT[county] : null
-  if (prefecture) tags.push(prefecture)
+  // Préfecture du lieu du secours, plus celle du département de la section quand il diffère
+  // (décision utilisateur, 21/11/2026 — même règle que le TO).
+  for (const d of new Set([county, departementDeSection(squadCode)].filter(Boolean))) {
+    const prefecture = PREFECTURE_TAG_PAR_DEPARTEMENT[d]
+    if (prefecture) tags.push(prefecture)
+  }
   return tags
 }
 
