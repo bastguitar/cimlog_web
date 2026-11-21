@@ -324,6 +324,16 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
       dateNaissance: v.date_naissance ? new Date(v.date_naissance).toLocaleDateString('fr-FR') : null,
       nationalite: nationaliteDepuisPays(v.nationalite),
       telephone: v.telephone,
+      // Lieu de naissance / Profession (onglet Impliqué) — ajoutés au TO le 21/11/2026 (décision utilisateur).
+      lieuNaissance: v.snosm_lieu_naissance || null,
+      profession: v.snosm_profession || null,
+      // Adresse de l'impliqué (Demeurant, Code postal, Commune, Pays — onglet Impliqué), absente du TO
+      // jusqu'au 21/11/2026 (remonté par Albertville). Ex. « 12 rue des Alpes, 73200 Albertville, France ».
+      adresse:
+        [v.snosm_demeurant, [v.snosm_code_postal, v.snosm_commune].filter(Boolean).join(' '), v.snosm_pays]
+          .map((p) => (p ?? '').trim())
+          .filter(Boolean)
+          .join(', ') || null,
       etatMedical: v.snosm_etat_medical,
       // Minuscules (décision utilisateur) — la mise en majuscules ne sert qu'aux menus de saisie.
       circonstance: v.snosm_circonstances_liste ? v.snosm_circonstances_liste.toLowerCase() : null,
@@ -630,21 +640,26 @@ export async function genererPdfDepuisModele(modele) {
       }
       page.champsDoubles([
         ['Statut : ', v.statut],
+        ['État médical : ', v.etatMedical],
+      ])
+      page.champsDoubles([
         ['Nom : ', v.nom],
         ['Prénom : ', v.prenom],
-      ])
-      page.champsDoubles([
         ['Sexe : ', v.sexe],
-        ['Date naissance : ', v.dateNaissance],
-        ['Nationalité : ', v.nationalite],
       ])
       page.champsDoubles([
+        ['Date naissance : ', v.dateNaissance],
+        ['Lieu de naissance : ', v.lieuNaissance],
+      ])
+      page.champ('Adresse :', v.adresse)
+      page.champsDoubles([
+        ['Nationalité : ', v.nationalite],
+        ['Profession : ', v.profession],
         ['Téléphone : ', v.telephone],
-        ['État médical : ', v.etatMedical],
-        ['Destination : ', v.destination],
       ])
       page.champ('Circonstance :', v.circonstance)
       page.champ('Nature des blessures :', v.natureBlessures)
+      page.champ('Destination :', v.destination)
     })
   }
   page.espaceur()
@@ -719,5 +734,14 @@ export async function telechargerTelegrammeTO(fiche, options) {
   // (vide ou notes Track'Alerte) — toujours reprises du récit de l'agent.
   if (fiche.snosm_to_texte && 'snosm_circonstances_recit' in fiche)
     modele.circonstances = { circonstances: fiche.snosm_circonstances_recit || null }
+  // Idem pour l'adresse, le lieu de naissance et la profession des victimes, ajoutés au TO le
+  // 21/11/2026 : repris d'un modèle frais.
+  if (fiche.snosm_to_texte && fiche.victimes?.length && Array.isArray(modele.victimes)) {
+    const frais = construireModeleTO(fiche, options).victimes
+    modele.victimes = modele.victimes.map((v) => {
+      const f = frais.find((x) => x.id === v.id)
+      return { ...v, adresse: f?.adresse ?? null, lieuNaissance: f?.lieuNaissance ?? null, profession: f?.profession ?? null }
+    })
+  }
   await telechargerTOModele(fiche, modele)
 }
