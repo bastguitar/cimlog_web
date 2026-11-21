@@ -1,6 +1,7 @@
 import { jsPDF } from 'jspdf'
 import logoCrsUrl from '../assets/logo-crs.png'
 import { groupeDe } from './sections'
+import { gpsDecimal } from './gps'
 
 /**
  * Génère le « TO » (télégramme officiel, IFSM — Intervention des Formations
@@ -251,6 +252,8 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
       altitude: fiche.alt ? `${fiche.alt} m` : null,
       massif: fiche.massif,
       commune: formatCommuneTO(fiche.com),
+      // Degrés décimaux « lat, lon » — même valeur que celle envoyée au SNOSM (ajout 21/11/2026).
+      gps: gpsDecimal(fiche.gps),
     },
     natureOperation: {
       natureIntervention: fiche.snosm_nature_operation || 'Secours en montagne',
@@ -558,6 +561,7 @@ export async function genererPdfDepuisModele(modele) {
     ['Massif : ', modele.localisation.massif],
   ])
   page.champ('Commune :', modele.localisation.commune)
+  page.champ('Coordonnées GPS :', modele.localisation.gps)
   page.espaceur()
 
   // ---- 3. Nature de l'opération ------------------------------------------
@@ -734,6 +738,8 @@ export async function telechargerTelegrammeTO(fiche, options) {
   // (vide ou notes Track'Alerte) — toujours reprises du récit de l'agent.
   if (fiche.snosm_to_texte && 'snosm_circonstances_recit' in fiche)
     modele.circonstances = { circonstances: fiche.snosm_circonstances_recit || null }
+  // GPS ajouté à la Localisation le 21/11/2026 : repris de la fiche pour les TO enregistrés avant.
+  if (fiche.snosm_to_texte && modele.localisation && 'gps' in fiche) modele.localisation.gps = gpsDecimal(fiche.gps)
   // Idem pour l'adresse, le lieu de naissance et la profession des victimes, ajoutés au TO le
   // 21/11/2026 : repris d'un modèle frais.
   if (fiche.snosm_to_texte && fiche.victimes?.length && Array.isArray(modele.victimes)) {

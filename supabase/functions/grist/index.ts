@@ -359,6 +359,7 @@ function versEvenementApp(
     alt: f.Altitude,
     lat: Number.isFinite(lat) ? lat : null,
     lon: Number.isFinite(lon) ? lon : null,
+    gps: f.CoordonneesGPS || null,
     tgi: f.TGI,
     type_localisation: f.TypeLocalisation,
     meteo: f.Meteo,
@@ -527,6 +528,8 @@ const CHAMPS_MODIFIABLES_INTERVENTION: Record<string, [string, TypeChamp]> = {
   description: ['CirconstancesGenerales', 'text'],
   com: ['Commune', 'text'],
   lieu: ['Lieu', 'text'],
+  // Coordonnées GPS modifiables depuis la fiche SNOSM (champ Localisation, degrés décimaux).
+  gps: ['CoordonneesGPS', 'text'],
 }
 for (const [appKey, gristCol, type] of CHAMPS_SNOSM_INTERVENTION) CHAMPS_MODIFIABLES_INTERVENTION[appKey] = [gristCol, type]
 
@@ -888,6 +891,33 @@ function idsParTexteMultiple(valeur: unknown, paires: Array<[number, string]>, a
     if (id != null) ids.push(id)
   }
   return ids
+}
+
+/** Coordonnées GPS -> "lat, lon" en degrés décimaux (6 décimales). Copie de src/lib/gps.js (le
+ * front et la fonction ne partagent pas de code) — garder les deux identiques. */
+function gpsDecimal(brut: unknown): string | null {
+  const texte = String(brut ?? '').trim()
+  if (!texte) return null
+  const simple = texte.match(/^(-?\d+(?:\.\d+)?)\s*[,;\s]\s*(-?\d+(?:\.\d+)?)$/)
+  if (simple) {
+    const [lat, lon] = [Number(simple[1]), Number(simple[2])]
+    return Math.abs(lat) <= 90 && Math.abs(lon) <= 180 ? `${lat.toFixed(6)}, ${lon.toFixed(6)}` : texte
+  }
+  const motif = /([NSEOW])?\s*(-?\d+(?:[.,]\d+)?)\s*°?\s*(?:(\d+(?:[.,]\d+)?)\s*['′’]?\s*)?(?:(\d+(?:[.,]\d+)?)\s*(?:["″”]|'')?\s*)?([NSEOW])?/gi
+  const valeurs: number[] = []
+  for (const m of texte.matchAll(motif)) {
+    if (!m[2]) continue
+    const n = (x?: string) => (x ? Number(x.replace(',', '.')) : 0)
+    let v = Math.abs(n(m[2])) + n(m[3]) / 60 + n(m[4]) / 3600
+    const hemi = (m[1] || m[5] || '').toUpperCase()
+    if (m[2].startsWith('-') || hemi === 'S' || hemi === 'W' || hemi === 'O') v = -v
+    valeurs.push(v)
+    if (valeurs.length === 2) break
+  }
+  const [lat, lon] = valeurs
+  if (valeurs.length !== 2 || !Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180)
+    return texte
+  return `${lat.toFixed(6)}, ${lon.toFixed(6)}`
 }
 
 function entierSi(valeur: unknown): number | null {
@@ -1439,8 +1469,9 @@ function construireAccident(
     tga_massif_id: idParTexte(f.Massif, TGA_MASSIFS),
     tga_commune_id: idCommuneIntervention(communeNom, communeCp, f.Departement, carteCommunesCp, carteCommunesDept),
     lieu_compl: f.Lieu || null,
-    // varchar(50), "texte libre (formats variés)" chez Lars — pas de reformatage, on transmet tel quel.
-    gps: f.CoordonneesGPS || null,
+    // varchar(50), "texte libre (formats variés)" chez Lars — normalisé en degrés décimaux « lat, lon »
+    // 6 décimales (décision utilisateur, 21/11/2026) ; texte non reconnu transmis tel quel (tronqué à 50).
+    gps: gpsDecimal(f.CoordonneesGPS)?.slice(0, 50) ?? null,
     crs_nature_operation_id: idParIndex(f.SnosmNatureOperation, CRS_NATURE_OPERATIONS_ORDRE),
     crs_nature_activite_id: idParTexte(f.Activite, CRS_NATURE_ACTIVITES, ALIAS_NATURE_ACTIVITE),
     altitude: entierSi(f.Altitude),

@@ -70,6 +70,7 @@ import {
   chargerCosTelephonisteDuJour,
   chargerDestinationsEvac,
 } from '../../lib/registre'
+import { gpsDecimal } from '../../lib/gps'
 import { construireModeleTO, genererPdfDepuisModele, nomFichierTO } from '../../lib/telegrammeTO'
 
 /**
@@ -130,6 +131,10 @@ const GROUPES_GENERAL = [
       // options : voir groupesAvecReferentiels (Cim'Alerte fait foi, ReferentielActivites dans Grist).
       { cle: 'activity', label: 'Nature de l’activité', type: 'liste', options: [] },
       { cle: 'alt', label: 'Altitude (m)' },
+      // Coordonnées en degrés décimaux « lat, lon » — telles qu'envoyées au SNOSM et imprimées sur le TO
+      // (décision utilisateur, 21/11/2026). Reprises de Cim'Alerte (CoordonneesGPS), normalisées à
+      // l'ouverture (voir gpsDecimal) ; un agent peut aussi y coller des degrés/minutes/secondes.
+      { cle: 'gps', label: 'Coordonnées GPS (degrés décimaux)' },
       // maxSuggestions : les 10 choix météo dépassaient la limite par défaut (8) — certains
       // (Tempête de neige, Venteux) n'apparaissaient jamais dans le menu sans les taper (décision
       // utilisateur : tout le menu doit être visible d'un coup, façon menu déroulant classique).
@@ -632,6 +637,8 @@ function brouillonFicheDepuis(fiche, referentiels) {
   for (const c of CHAMPS_AVALANCHE_EVENEMENT) bf[c.cle] = fiche[c.cle] ?? valeurInitiale(c.type)
   for (const cle of CHAMPS_SCHEMA_AVALANCHE) bf[cle] = fiche[cle] ?? ''
   bf.snosm_avalanche = Boolean(fiche.snosm_avalanche)
+  // GPS : toujours affiché (et donc réenregistré) au format décimal 6 décimales, quel que soit le format reçu.
+  bf.gps = gpsDecimal(bf.gps) ?? ''
   // Le n° de texte SNOSM est le n° d'intervention Cim'Alerte — prérempli s'il n'a pas déjà été saisi.
   if (!bf.snosm_numero_texte && fiche.local_id) bf.snosm_numero_texte = String(fiche.local_id)
   // Origine de l'alerte : reclassée depuis la valeur Cim'Alerte (CODIS74, SAMU38…) dans une des 6 cases
