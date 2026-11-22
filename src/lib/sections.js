@@ -77,13 +77,17 @@ export const departementDeSection = (squadCode) => DEPARTEMENT_PAR_SQUAD_CODE[sq
 /**
  * Département du lieu d'une intervention (code à 2 chiffres, ou 2A/2B) — champ Departement de la
  * fiche (county), écrit « 5 » ou « 05 » selon la saisie ; à défaut, le code postal accolé à la
- * commune (« Village - 05100 »). null si ni l'un ni l'autre.
+ * commune (« Village - 05100 »). En dernier recours, le département de la section : les fiches
+ * reprises de l'historique de Briançon (CRS05, 2025-2026, ~700 fiches vérifiées dans Grist le
+ * 22/11/2026) n'ont ni département ni code postal — sans ce repli elles disparaîtraient de la vue
+ * Département. Un éventuel renfort hors département y serait compté à tort dans le 05.
  */
 export function departementDe(s) {
   const d = String(s?.county ?? '').trim().match(/^(\d{1,2}|2[AB])(?!\d)/i)
   if (d) return d[1].toUpperCase().padStart(2, '0')
   const cp = String(s?.com ?? '').match(/(\d{5})\s*$/)
-  return cp ? cp[1].slice(0, 2) : null
+  if (cp) return cp[1].slice(0, 2)
+  return departementDeSection(s?.squad_code)
 }
 
 /** Code de la section mère d'un squad_code — lui-même s'il n'a pas de mère connue. */
