@@ -1625,12 +1625,13 @@ main > * {
   overflow-wrap: break-word;
 }
 
-.tableau-registre .col-heure-registre {
+/* N° de secours avec l'heure dessous (novembre 2026 : l'ancienne colonne Heure y est fusionnée). */
+.tableau-registre .col-numero-registre {
   width: 7%;
 }
 
-.tableau-registre .col-numero-registre {
-  width: 6%;
+.tableau-registre .col-origine-registre {
+  width: 8%;
 }
 
 .tableau-registre .col-unite-registre {
@@ -1638,11 +1639,11 @@ main > * {
 }
 
 .tableau-registre .col-commune-registre {
-  width: 13%;
+  width: 12%;
 }
 
 .tableau-registre .col-lieu-registre {
-  width: 12%;
+  width: 11%;
 }
 
 .tableau-registre .col-activite-registre {
@@ -1654,7 +1655,7 @@ main > * {
 }
 
 /* État médical SNOSM de chaque victime, une ligne par victime (novembre 2026). */
-.tableau-registre .col-blessures-registre {
+.tableau-registre .col-etat-medical-registre {
   width: 9%;
 }
 

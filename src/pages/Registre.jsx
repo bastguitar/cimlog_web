@@ -13,11 +13,16 @@ const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '
 const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
 // État médical SNOSM de chaque victime (Blessé, Décédé non traumatique…), une ligne par victime,
 // dans l'ordre des numéros de victime — doublons gardés (deux blessés = deux lignes).
-const blessuresDe = (s) =>
+const etatsMedicauxDe = (s) =>
   [...(s.victimes ?? [])]
     .sort((a, b) => (a.local_id ?? 0) - (b.local_id ?? 0))
     .map((v) => v.snosm_etat_medical)
     .filter(Boolean)
+// Origine de l'alerte : celle de la fiche SNOSM quand elle est renseignée (c'est elle qui part sur
+// le TO ; « AUTRE » remplacé par sa précision), sinon la valeur brute saisie dans Track'Alerte.
+const origineDe = (s) =>
+  (s.snosm_origine_alerte === 'AUTRE' ? s.snosm_origine_alerte_autre || 'AUTRE' : s.snosm_origine_alerte) ||
+  s.alert_origin
 // Cim'Alerte ne remplit plus accident_type (octobre 2026) : le motif est désormais saisi par victime
 // (victimes.circonstances). On garde accident_type pour les fiches plus anciennes qui le portent.
 // Pastille NON MED : seulement si un moyen CRS a réellement été engagé — sans moyen (ou régulation),
@@ -29,16 +34,16 @@ const motifDe = (s) =>
 /** Mêmes colonnes pour l'en-tête fixe et chaque table du jour — colgroup partagé pour un alignement garanti. */
 function colonnesRegistre(multiple) {
   const colonnes = [
-    { cle: 'heure', label: 'Heure', classe: 'col-heure-registre' },
-    { cle: 'numero', label: 'N°', classe: 'col-numero-registre' },
+    { cle: 'numero', label: 'N° / Heure', classe: 'col-numero-registre' },
   ]
   if (multiple) colonnes.push({ cle: 'unite', label: 'Unité', classe: 'col-unite-registre' })
   colonnes.push(
+    { cle: 'origine', label: 'Origine alerte', classe: 'col-origine-registre' },
     { cle: 'commune', label: 'Commune / Massif', classe: 'col-commune-registre' },
     { cle: 'lieu', label: 'Lieu', classe: 'col-lieu-registre' },
     { cle: 'activite', label: 'Motif / Activité', classe: 'col-activite-registre' },
+    { cle: 'etatMedical', label: 'État médical', classe: 'col-etat-medical-registre' },
     { cle: 'pathologies', label: 'Pathologies', classe: 'col-pathologies-registre' },
-    { cle: 'blessures', label: 'Blessures', classe: 'col-blessures-registre' },
     { cle: 'moyen', label: 'Moyen', classe: 'col-moyen-registre' },
     { cle: 'equipe', label: 'Équipe', classe: 'col-equipe-registre' },
     { cle: 'to', label: '', classe: 'col-to-registre' }
@@ -193,11 +198,11 @@ export default function Registre({ fSections }) {
                         className={`ligne-registre ${s.snosm_to_cree_le ? 'ligne-traitee-registre' : estATraiter(s) ? 'ligne-a-traiter-registre' : ''}`}
                         onClick={() => setFicheId(s.id)}
                       >
-                        <td>{formatHeure(s.created_at)}</td>
                         <td>
                           <span className="numero-mc" style={{ color: STATUTS[s.statut]?.couleur }}>
                             n°{s.local_id}
                           </span>
+                          <div className="cellule-sous-registre">{formatHeure(s.created_at)}</div>
                         </td>
                         {fSections.multiple && (
                           <td>
@@ -205,6 +210,7 @@ export default function Registre({ fSections }) {
                             {nomDeSection.get(groupeDe(s.squad_code)) ?? s.squad_code}
                           </td>
                         )}
+                        <td>{origineDe(s) || '—'}</td>
                         <td>
                           <div className="cellule-principale-registre">{sansCodePostal(s.com) || '—'}</div>
                           {s.massif && <div className="cellule-sous-registre">{s.massif}</div>}
@@ -214,12 +220,12 @@ export default function Registre({ fSections }) {
                           <div className="cellule-principale-registre cellule-activite-registre">{s.activity || '—'}</div>
                           {motifDe(s) && <div className="cellule-sous-registre">{motifDe(s)}</div>}
                         </td>
-                        <td>{pathologiesDe(s) || '—'}</td>
                         <td>
-                          {blessuresDe(s).length > 0
-                            ? blessuresDe(s).map((b, i) => <div key={i}>{b}</div>)
+                          {etatsMedicauxDe(s).length > 0
+                            ? etatsMedicauxDe(s).map((e, i) => <div key={i}>{e}</div>)
                             : '—'}
                         </td>
+                        <td>{pathologiesDe(s) || '—'}</td>
                         <td>
                           {libelleMoyens(s) || '—'}
                           {/* Régulation alerte (demandé le 04/11/2026) : aucun moyen CRS engagé, la
