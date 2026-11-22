@@ -57,6 +57,15 @@ function bilanMensuel(liste) {
   return lignes.map((l) => ({ ...l, total: l.valeurs.reduce((a, b) => a + b, 0) }))
 }
 
+const MOIS_LONGS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
+
+/** Colonnes en gras (demandes / effectuées) et séparateur avant le bloc des états médicaux. */
+const classeColonneBilan = (bilan, i) =>
+  [
+    bilan[i].principale ? 'colonne-principale-bilan-stats' : '',
+    bilan[i].victime && !bilan[i - 1]?.victime ? 'premiere-victime-bilan-stats' : '',
+  ].join(' ')
+
 /** Indices régulièrement espacés à afficher en abscisse, pour ne pas entasser les étiquettes. */
 function etiquettesEspacees(n, maxAffichees) {
   if (n <= maxAffichees) return [...Array(n).keys()]
@@ -210,34 +219,42 @@ export default function Stats({ poste, fSections }) {
         <CarteGraphique titre={`Bilan mensuel ${annee}`} sousTitre="État médical : victimes des interventions effectuées">
           <div className="defilement-bilan-stats">
             <table className="tableau-bilan-stats">
+              {/* Mois en lignes, items en colonnes (retour utilisateur 22/11/2026), total de l'année en bas. */}
               <thead>
                 <tr>
                   <th />
-                  {MOIS.map((m) => (
-                    <th key={m}>{m}</th>
+                  {bilan.map((l, i) => (
+                    <th key={l.label} className={classeColonneBilan(bilan, i)}>
+                      {l.label}
+                    </th>
                   ))}
-                  <th className="total-bilan-stats">Total {annee}</th>
                 </tr>
               </thead>
               <tbody>
-                {bilan.map((l, i) => (
-                  <tr
-                    key={l.label}
-                    className={[
-                      l.principale ? 'ligne-principale-bilan-stats' : '',
-                      l.victime && !bilan[i - 1]?.victime ? 'premiere-victime-bilan-stats' : '',
-                    ].join(' ')}
-                  >
-                    <th scope="row">{l.label}</th>
-                    {l.valeurs.map((v, m) => (
-                      <td key={m} className={v === 0 ? 'zero-bilan-stats' : ''}>
-                        {v}
+                {MOIS_LONGS.map((mois, m) => (
+                  <tr key={mois}>
+                    <th scope="row">{mois}</th>
+                    {bilan.map((l, i) => (
+                      <td
+                        key={l.label}
+                        className={[classeColonneBilan(bilan, i), l.valeurs[m] === 0 ? 'zero-bilan-stats' : ''].join(' ')}
+                      >
+                        {l.valeurs[m]}
                       </td>
                     ))}
-                    <td className="total-bilan-stats">{l.total}</td>
                   </tr>
                 ))}
               </tbody>
+              <tfoot>
+                <tr className="total-bilan-stats">
+                  <th scope="row">Total {annee}</th>
+                  {bilan.map((l, i) => (
+                    <td key={l.label} className={classeColonneBilan(bilan, i)}>
+                      {l.total}
+                    </td>
+                  ))}
+                </tr>
+              </tfoot>
             </table>
           </div>
         </CarteGraphique>

@@ -3497,7 +3497,7 @@ main > * {
   grid-column: 1 / -1;
 }
 
-/* Bilan mensuel des Stats (novembre 2026) — items en lignes, mois en colonnes, total de l'année. */
+/* Bilan mensuel des Stats (novembre 2026) — mois en lignes, items en colonnes, total de l'année en bas. */
 .defilement-bilan-stats {
   overflow-x: auto;
 }
@@ -3511,56 +3511,58 @@ main > * {
 
 .tableau-bilan-stats th,
 .tableau-bilan-stats td {
-  padding: 6px 8px;
+  padding: 6px 10px;
   border-bottom: 1px solid var(--border);
   text-align: right;
   white-space: nowrap;
 }
 
+/* En-têtes d'items sur deux lignes si besoin (« Décédé non traumatique »). */
 .tableau-bilan-stats thead th {
+  vertical-align: bottom;
+  white-space: normal;
+  min-width: 70px;
   font-size: 11px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
+  letter-spacing: 0.03em;
+  line-height: 1.25;
   color: color-mix(in srgb, var(--text) 60%, var(--bg-alt));
 }
 
-.tableau-bilan-stats tbody th {
+.tableau-bilan-stats tbody th,
+.tableau-bilan-stats tfoot th {
   text-align: left;
-  font-weight: 500;
-  color: var(--text);
-  padding-left: 18px;
+  font-weight: 600;
+  color: var(--text-h);
 }
 
-.tableau-bilan-stats .ligne-principale-bilan-stats th {
-  padding-left: 8px;
+/* Demandes / effectuées en gras. */
+.tableau-bilan-stats td.colonne-principale-bilan-stats {
   font-weight: 700;
   color: var(--text-h);
 }
 
-.tableau-bilan-stats .ligne-principale-bilan-stats td {
-  font-weight: 700;
-  color: var(--text-h);
-}
-
-/* Séparateur avant le bloc des états médicaux. */
-.tableau-bilan-stats .premiere-victime-bilan-stats th,
-.tableau-bilan-stats .premiere-victime-bilan-stats td {
-  border-top: 2px solid var(--border);
+/* Séparateur vertical avant le bloc des états médicaux. */
+.tableau-bilan-stats .premiere-victime-bilan-stats {
+  border-left: 2px solid var(--border);
 }
 
 .tableau-bilan-stats .zero-bilan-stats {
   color: color-mix(in srgb, var(--text) 35%, var(--bg-alt));
 }
 
-.tableau-bilan-stats .total-bilan-stats {
+.tableau-bilan-stats tfoot tr.total-bilan-stats th,
+.tableau-bilan-stats tfoot tr.total-bilan-stats td {
   font-weight: 700;
   color: var(--chaleur);
   background: var(--chaleur-bg);
+  border-top: 2px solid var(--chaleur);
+  border-bottom: none;
 }
 
 .tableau-bilan-stats tbody tr:hover th,
-.tableau-bilan-stats tbody tr:hover td:not(.total-bilan-stats) {
+.tableau-bilan-stats tbody tr:hover td {
   background: var(--bg-alt);
 }
 
