@@ -1,5 +1,6 @@
-import { numeroSemaine, libelleSemaine } from '../lib/semaines'
 import { SANS_MOYEN, MOYENS_CRS, REGULATION, valeurFiltreMoyen } from '../hooks/useFiltresRegistre'
+
+const NOMS_MOIS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
 /** Recherche libre + bouton « Filtres » — à placer dans la barre principale. */
 export function ControlesFiltresRegistre({ f, placeholder = 'Recherche libre…' }) {
@@ -36,11 +37,11 @@ export function PanneauFiltresRegistre({ f }) {
 
   return (
     <div className="barre-mc barre-filtres-registre">
-      <select className="filtre-select-registre" value={f.filtres.semaine} onChange={(e) => f.majFiltre('semaine', e.target.value)}>
-        <option value="">Toutes les semaines</option>
-        {f.semainesAnnee.map((sem) => (
-          <option key={sem.cle} value={sem.cle}>
-            Semaine {numeroSemaine(sem.debut)} — {libelleSemaine(sem.debut)}
+      <select className="filtre-select-registre" value={f.filtres.mois} onChange={(e) => f.majFiltre('mois', e.target.value)}>
+        <option value="">Tous les mois</option>
+        {f.moisAnnee.map((m) => (
+          <option key={m} value={String(m)}>
+            {NOMS_MOIS[m]}
           </option>
         ))}
       </select>

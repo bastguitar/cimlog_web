@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react'
-import { regrouperParSemaine, debutSemaine } from '../lib/semaines'
 import { sansUnite, cleEquipier } from '../lib/registre'
 import { aLeMoyen, estHorsCRS, estRegulation, estSansMoyen, moyensDuFiltre } from '../lib/moyens'
 
@@ -15,7 +14,7 @@ const PREFIXE_MOYEN = 'moyen:'
 export const valeurFiltreMoyen = (cle) => PREFIXE_MOYEN + cle
 
 const FILTRES_VIDES = {
-  semaine: '',
+  mois: '',
   numero: '',
   commune: '',
   secouriste: '',
@@ -88,7 +87,9 @@ export function filtrerEvenements(evenements, filtres, recherche = '') {
     } else if (filtres.moyen) {
       return false
     }
-    if (filtres.semaine && debutSemaine(new Date(s.created_at)).getTime() !== Number(filtres.semaine)) return false
+    // Mois civil (0 = janvier) : même mois quelle que soit l'année — la comparaison N-1 des Stats
+    // retrouve donc le même mois de l'année précédente.
+    if (filtres.mois !== '' && new Date(s.created_at).getMonth() !== Number(filtres.mois)) return false
     if (filtres.aTraiter && !estATraiter(s)) return false
     return true
   })
@@ -97,7 +98,7 @@ export function filtrerEvenements(evenements, filtres, recherche = '') {
 /**
  * Filtres d'une liste d'interventions — partagés par le Registre et la
  * Carte IGN, qui lisent tous deux `listerAnnee` et proposent les mêmes
- * critères (semaine, n°, commune, secouriste, moyen, activité, recherche
+ * critères (mois, n°, commune, secouriste, moyen, activité, recherche
  * libre) sur les mêmes données.
  */
 export function useFiltresRegistre(evenements) {
@@ -105,7 +106,11 @@ export function useFiltresRegistre(evenements) {
   const [filtres, setFiltres] = useState(FILTRES_VIDES)
   const [filtresOuverts, setFiltresOuverts] = useState(false)
 
-  const semainesAnnee = useMemo(() => regrouperParSemaine(evenements), [evenements])
+  // Mois ayant au moins une intervention, le plus récent d'abord (même ordre que la liste).
+  const moisAnnee = useMemo(
+    () => [...new Set(evenements.map((s) => new Date(s.created_at).getMonth()))].sort((a, b) => b - a),
+    [evenements]
+  )
   const secouristes = useMemo(
     // Une seule entrée par équipier, qu'il soit noté avec ou sans unité, avec ou sans accents
     // (cleEquipier) — on affiche la graphie accentuée quand elle existe, plus juste.
@@ -151,7 +156,7 @@ export function useFiltresRegistre(evenements) {
     nombreFiltresActifs,
     filtresActifs,
     nombreATraiter,
-    semainesAnnee,
+    moisAnnee,
     secouristes,
     moyens,
     activites,
