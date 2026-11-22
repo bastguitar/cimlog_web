@@ -119,7 +119,7 @@ function departementNom(fiche) {
 // ex. « IFSM SAVOIE MODANE 756 »). Les sections à poste unique (CRS05…) n'ont pas besoin d'entrée ici.
 // Comme pour Albertville ou Grenoble, la section mère (CRS06 = Nice) n'a pas de poste ajouté ;
 // Saint-Martin-Vésubie est CRS06V (même correspondance que PPSM_PAR_SQUAD_CODE, optionsSnosm.js).
-// CRS06S : nom du poste à confirmer.
+// CRS06S : volontairement sans nom de poste pour le moment (décision utilisateur, 22/11/2026).
 const NOM_POSTE_PAR_SQUAD_CODE = {
   CRS38H: 'HUEZ',
   CRS73M: 'MODANE',
