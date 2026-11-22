@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
 import { estHorsCRS, estRegulation, estSansMoyen as sansAucunMoyen } from '../lib/moyens'
 import { OPTIONS_ETAT_MEDICAL } from '../lib/optionsSnosm'
+import { exporterBilanPdf } from '../lib/exportRegistrePdf'
 
 const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 const JOUR_MS = 24 * 60 * 60 * 1000
@@ -63,6 +64,23 @@ const unAnAvant = (d) => {
   const r = new Date(d)
   r.setFullYear(r.getFullYear() - 1)
   return r
+}
+
+/**
+ * Secours effectués (même règle que le bilan : moyen CRS engagé) par activité et par mois — une
+ * ligne par activité, la plus fréquente d'abord (demandé le 22/11/2026, à exporter avec le bilan).
+ */
+function activitesParMois(liste) {
+  const parActivite = new Map()
+  for (const s of liste) {
+    if (!estEffectuee(s)) continue
+    const cle = s.activity?.trim() || 'Non précisée'
+    if (!parActivite.has(cle)) parActivite.set(cle, Array(12).fill(0))
+    parActivite.get(cle)[new Date(s.created_at).getMonth()]++
+  }
+  return [...parActivite.entries()]
+    .map(([label, valeurs]) => ({ label, valeurs, total: valeurs.reduce((a, b) => a + b, 0) }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'fr'))
 }
 
 const MOIS_LONGS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
@@ -188,6 +206,44 @@ export default function Stats({ poste, fSections }) {
   const pctMedicalisees = total > 0 ? Math.round((medicalisees / total) * 100) : 0
 
   const bilan = useMemo(() => bilanMensuel(evenementsPeriode), [evenementsPeriode])
+
+  // Mois de la période choisie, dans l'ordre de la période (déc. → avr. pour une saison d'hiver).
+  const moisPeriode = useMemo(() => {
+    if (moisChoisi != null) return [moisChoisi]
+    if (!enPeriode || !periodeValide) return [...Array(12).keys()]
+    const mois = []
+    const d = new Date(`${du}T00:00:00`)
+    d.setDate(1)
+    const fin = new Date(`${au}T00:00:00`)
+    while (d <= fin && mois.length < 12) {
+      if (!mois.includes(d.getMonth())) mois.push(d.getMonth())
+      d.setMonth(d.getMonth() + 1)
+    }
+    return mois
+  }, [moisChoisi, enPeriode, periodeValide, du, au])
+
+  const parActivite = useMemo(() => activitesParMois(evenementsPeriode), [evenementsPeriode])
+
+  const [exportEnCours, setExportEnCours] = useState(false)
+  /** Bilan mensuel + secours par activité en PDF — seulement les mois de la période choisie. */
+  async function exporterBilan() {
+    setExportEnCours(true)
+    try {
+      const [demandes, effectuees] = bilan.map((l) => l.total)
+      await exporterBilanPdf({
+        lignes: bilan,
+        activites: parActivite,
+        mois: moisPeriode,
+        section: fSections.intitule,
+        periode: !enPeriode && moisChoisi == null ? `Année ${annee}` : libellePeriode,
+        resume: `${demandes} demande${demandes > 1 ? 's' : ''}  ·  ${effectuees} intervention${effectuees > 1 ? 's' : ''} effectuée${effectuees > 1 ? 's' : ''}`,
+      })
+    } catch (e) {
+      setErreur(`Export PDF : ${e.message}`)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
   const parMois = useMemo(() => compterParMois(evenementsVisibles), [evenementsVisibles])
   const parMoisPrecedent = useMemo(() => compterParMois(precedentsFiltres), [precedentsFiltres])
 
@@ -260,6 +316,15 @@ export default function Stats({ poste, fSections }) {
           <span className="compte-resultats-mc">
             {total} intervention{total > 1 ? 's' : ''}
           </span>
+          <button
+            type="button"
+            className="bouton-effectifs"
+            onClick={exporterBilan}
+            disabled={exportEnCours || chargement}
+            title="Exporter le bilan mensuel en PDF"
+          >
+            {exportEnCours ? 'Export…' : 'Exporter PDF'}
+          </button>
         </div>
       </div>
 
@@ -330,6 +395,58 @@ export default function Stats({ poste, fSections }) {
               </tfoot>
             </table>
           </div>
+        </CarteGraphique>
+
+        {/* Activités en lignes (trop nombreuses pour tenir en colonnes), mois de la période en colonnes. */}
+        <CarteGraphique titre={`Secours effectués par activité — ${libellePeriode}`} sousTitre="Moyen CRS engagé">
+          {parActivite.length === 0 ? (
+            <p className="aide">Aucun secours effectué sur cette période.</p>
+          ) : (
+            <div className="defilement-bilan-stats">
+              <table className="tableau-bilan-stats tableau-activites-stats">
+                <colgroup>
+                  <col className="colonne-activite-stats" />
+                  {moisPeriode.map((m) => (
+                    <col key={m} />
+                  ))}
+                  <col />
+                </colgroup>
+                <thead>
+                  <tr>
+                    <th />
+                    {moisPeriode.map((m) => (
+                      <th key={m}>{MOIS[m]}</th>
+                    ))}
+                    <th className="colonne-principale-bilan-stats">Total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {parActivite.map((a) => (
+                    <tr key={a.label}>
+                      <th scope="row" title={a.label}>
+                        {a.label}
+                      </th>
+                      {moisPeriode.map((m) => (
+                        <td key={m} className={a.valeurs[m] === 0 ? 'zero-bilan-stats' : ''}>
+                          {a.valeurs[m]}
+                        </td>
+                      ))}
+                      <td className="colonne-principale-bilan-stats">{a.total}</td>
+                    </tr>
+                  ))}
+                </tbody>
+                <tfoot>
+                  <tr className="total-bilan-stats">
+                    <th scope="row">Total</th>
+                    {moisPeriode.map((m) => (
+                      <td key={m}>{parActivite.reduce((n, a) => n + a.valeurs[m], 0)}</td>
+                    ))}
+                    <td>{parActivite.reduce((n, a) => n + a.total, 0)}</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+          )}
         </CarteGraphique>
 
         <div className="grille-graphiques-stats">

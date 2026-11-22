@@ -108,14 +108,6 @@ export default function Registre({ fSections }) {
     [fSections.toutesSections]
   )
 
-  // Intitulé de ce qui est affiché — en tête du PDF exporté.
-  const intituleSection = fSections.vueDepartement
-    ? `Département ${fSections.departementVue}`
-    : fSections.selection === 'REGION'
-      ? `Région ${fSections.region ?? ''}`.trim()
-      : fSections.selection
-        ? (fSections.sections.find((x) => x.code === fSections.selection)?.nom ?? fSections.selection)
-        : fSections.nomPropre
   const [exportEnCours, setExportEnCours] = useState(false)
   const [erreurExport, setErreurExport] = useState(null)
 
@@ -128,7 +120,7 @@ export default function Registre({ fSections }) {
       await exporterRegistrePdf(evenementsVisibles, {
         annee,
         mois,
-        section: intituleSection,
+        section: fSections.intitule,
         avecUnite: fSections.multiple,
         nomUnite: (code) => nomDeSection.get(groupeDe(code)) ?? code,
         filtresAutres: Object.values(autres).some(Boolean) || f.recherche.trim() !== '',

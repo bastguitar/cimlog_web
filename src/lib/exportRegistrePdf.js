@@ -54,57 +54,24 @@ const dateCourte = (iso) => new Date(iso).toLocaleDateString('fr-FR', { day: '2-
  */
 export async function exporterRegistrePdf(evenements, { annee, mois, section, avecUnite, nomUnite, filtresAutres }) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  const largeurPage = doc.internal.pageSize.getWidth()
-  const hauteurPage = doc.internal.pageSize.getHeight()
 
   const periode = mois !== '' && mois != null ? `${NOMS_MOIS[Number(mois)]} ${annee}` : `Année ${annee}`
   const secours = [...evenements].sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
 
   // --- En-tête -----------------------------------------------------------------------------------
-  let xTitre = MARGE
-  try {
-    const logo = await chargerImage(logoCrsUrl)
-    const h = 16
-    const l = (logo.width / logo.height) * h
-    doc.addImage(logo, 'PNG', MARGE, 8, l, h)
-    xTitre = MARGE + l + 5
-  } catch {
-    // Logo introuvable : l'export reste utilisable sans.
-  }
-  doc.setTextColor(...ROUGE_CRS)
-  doc.setFont('helvetica', 'bold')
-  doc.setFontSize(16)
-  doc.text('REGISTRE DES SECOURS', xTitre, 14)
-  doc.setTextColor(...NOIR)
-  doc.setFontSize(11)
-  doc.text(t([section, periode].filter(Boolean).join(' — ')), xTitre, 20.5)
-  if (filtresAutres) {
-    doc.setFont('helvetica', 'italic')
-    doc.setFontSize(8)
-    doc.setTextColor(...GRIS)
-    doc.text('Liste filtrée (filtres actifs dans le Registre au moment de l’export)', xTitre, 25)
-  }
-
-  // Décompte, à droite de l'en-tête.
   const victimes = secours.flatMap((s) => s.victimes ?? [])
   const etats = victimes.map((v) => v.snosm_etat_medical || '')
-  const decompte = [
-    `${secours.length} intervention${secours.length > 1 ? 's' : ''}`,
-    `${victimes.length} victime${victimes.length > 1 ? 's' : ''}`,
-    `${etats.filter((e) => e === 'Blessé').length} blessé(s)`,
-    `${etats.filter((e) => e.startsWith('Décédé')).length} décédé(s)`,
-  ]
-  doc.setFont('helvetica', 'normal')
-  doc.setFontSize(9)
-  doc.setTextColor(...NOIR)
-  doc.text(decompte.join('  ·  '), largeurPage - MARGE, 14, { align: 'right' })
-  doc.setTextColor(...GRIS)
-  doc.setFontSize(8)
-  doc.text(`Édité le ${new Date().toLocaleDateString('fr-FR')}`, largeurPage - MARGE, 20.5, { align: 'right' })
-
-  doc.setDrawColor(...ROUGE_CRS)
-  doc.setLineWidth(0.6)
-  doc.line(MARGE, 28, largeurPage - MARGE, 28)
+  await dessinerEnteteCrs(doc, {
+    titre: 'REGISTRE DES SECOURS',
+    sousTitre: [section, periode].filter(Boolean).join(' — '),
+    note: filtresAutres ? 'Liste filtrée (filtres actifs dans le Registre au moment de l’export)' : null,
+    droite: [
+      `${secours.length} intervention${secours.length > 1 ? 's' : ''}`,
+      `${victimes.length} victime${victimes.length > 1 ? 's' : ''}`,
+      `${etats.filter((e) => e === 'Blessé').length} blessé(s)`,
+      `${etats.filter((e) => e.startsWith('Décédé')).length} décédé(s)`,
+    ].join('  ·  '),
+  })
 
   // --- Tableau -----------------------------------------------------------------------------------
   const colonnes = [
@@ -168,18 +135,185 @@ export async function exporterRegistrePdf(evenements, { annee, mois, section, av
     doc.text('Aucune intervention sur cette période.', MARGE, 42)
   }
 
-  // --- Pied de page (numéros de page) ------------------------------------------------------------
+  numeroterPages(doc, `Track'log — Registre des secours — ${[section, periode].filter(Boolean).join(' — ')}`)
+  enregistrerPdf(doc, `Registre ${[section, periode].filter(Boolean).join(' ')}`)
+}
+
+/**
+ * En-tête commun des PDF Track'log (Registre, bilan des Stats) : logo CRS, titre rouge,
+ * sous-titre (section — période), note facultative, et à droite un résumé + la date d'édition.
+ * Trait rouge à y = 28 — le contenu commence en dessous (startY ≈ 31).
+ */
+export async function dessinerEnteteCrs(doc, { titre, sousTitre, note, droite }) {
+  const largeurPage = doc.internal.pageSize.getWidth()
+  let xTitre = MARGE
+  try {
+    const logo = await chargerImage(logoCrsUrl)
+    const h = 16
+    const l = (logo.width / logo.height) * h
+    doc.addImage(logo, 'PNG', MARGE, 8, l, h)
+    xTitre = MARGE + l + 5
+  } catch {
+    // Logo introuvable : l'export reste utilisable sans.
+  }
+  doc.setTextColor(...ROUGE_CRS)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(16)
+  doc.text(titre, xTitre, 14)
+  doc.setTextColor(...NOIR)
+  doc.setFontSize(11)
+  doc.text(t(sousTitre), xTitre, 20.5)
+  if (note) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(8)
+    doc.setTextColor(...GRIS)
+    doc.text(t(note), xTitre, 25)
+  }
+  doc.setFont('helvetica', 'normal')
+  if (droite) {
+    doc.setFontSize(9)
+    doc.setTextColor(...NOIR)
+    doc.text(t(droite), largeurPage - MARGE, 14, { align: 'right' })
+  }
+  doc.setTextColor(...GRIS)
+  doc.setFontSize(8)
+  doc.text(`Édité le ${new Date().toLocaleDateString('fr-FR')}`, largeurPage - MARGE, 20.5, { align: 'right' })
+
+  doc.setDrawColor(...ROUGE_CRS)
+  doc.setLineWidth(0.6)
+  doc.line(MARGE, 28, largeurPage - MARGE, 28)
+}
+
+/** Pied de page : intitulé à gauche, « Page n / N » à droite, sur toutes les pages. */
+export function numeroterPages(doc, intitule) {
+  const largeurPage = doc.internal.pageSize.getWidth()
+  const hauteurPage = doc.internal.pageSize.getHeight()
   const nbPages = doc.getNumberOfPages()
   for (let p = 1; p <= nbPages; p++) {
     doc.setPage(p)
     doc.setFont('helvetica', 'normal')
     doc.setFontSize(7.5)
     doc.setTextColor(...GRIS)
-    doc.text(t(`Track'log — Registre des secours — ${[section, periode].filter(Boolean).join(' — ')}`), MARGE, hauteurPage - 7)
+    doc.text(t(intitule), MARGE, hauteurPage - 7)
     doc.text(`Page ${p} / ${nbPages}`, largeurPage - MARGE, hauteurPage - 7, { align: 'right' })
   }
+}
 
-  const nomFichier = `Registre ${[section, periode].filter(Boolean).join(' ')}`.replace(/[\\/:*?"<>|]/g, '').trim()
+/** Télécharge le PDF — nom de fichier nettoyé, repris comme titre du document (onglet du lecteur PDF). */
+export function enregistrerPdf(doc, nom) {
+  const nomFichier = nom.replace(/[\\/:*?"<>|]/g, '').trim()
   doc.setProperties({ title: nomFichier })
   doc.save(`${nomFichier}.pdf`)
+}
+
+/**
+ * Bilan des Stats en PDF (22/11/2026) — le tableau tel qu'à l'écran : mois en lignes, items en
+ * colonnes, total en bas. `lignes` = [{ label, valeurs: [12 nombres] }], `mois` = indices des mois
+ * à imprimer (tous, ou le seul mois choisi). `activites` = [{ label, valeurs }] — secours effectués
+ * par activité, imprimés à la suite (même mois en colonnes, total par ligne et par mois).
+ */
+export async function exporterBilanPdf({ lignes, activites, mois, section, periode, resume }) {
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  await dessinerEnteteCrs(doc, {
+    titre: 'BILAN DES SECOURS',
+    sousTitre: [section, periode].filter(Boolean).join(' — '),
+    note: 'État médical : victimes des interventions effectuées (moyen CRS engagé)',
+    droite: resume,
+  })
+
+  const indexPremiereVictime = lignes.findIndex((l) => l.victime)
+  autoTable(doc, {
+    startY: 33,
+    margin: { left: MARGE, right: MARGE, bottom: 14 },
+    head: [['', ...lignes.map((l) => t(l.label))]],
+    body: mois.map((m) => [NOMS_MOIS[m], ...lignes.map((l) => String(l.valeurs[m]))]),
+    foot: [['Total', ...lignes.map((l) => String(l.valeurs.reduce((a, b) => a + b, 0)))]],
+    theme: 'grid',
+    styles: {
+      font: 'helvetica',
+      fontSize: 9,
+      cellPadding: 2.2,
+      halign: 'center',
+      valign: 'middle',
+      textColor: NOIR,
+      lineColor: GRIS_LIGNE,
+      lineWidth: 0.2,
+    },
+    headStyles: { fillColor: ROUGE_CRS, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+    footStyles: { fillColor: [235, 238, 244], textColor: NOIR, fontStyle: 'bold' },
+    alternateRowStyles: { fillColor: FOND_ALTERNE },
+    columnStyles: {
+      0: { halign: 'left', fontStyle: 'bold', cellWidth: 28 },
+      1: { fontStyle: 'bold' },
+      2: { fontStyle: 'bold' },
+    },
+    didParseCell: (data) => {
+      // Zéros grisés dans le corps, comme à l'écran.
+      if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '0') data.cell.styles.textColor = [170, 170, 176]
+    },
+    didDrawCell: (data) => {
+      // Trait vertical avant le bloc des états médicaux.
+      if (indexPremiereVictime >= 0 && data.column.index === indexPremiereVictime + 1) {
+        doc.setDrawColor(...GRIS)
+        doc.setLineWidth(0.5)
+        doc.line(data.cell.x, data.cell.y, data.cell.x, data.cell.y + data.cell.height)
+      }
+    },
+  })
+
+  // --- Secours effectués par activité et par mois (seconde partie) --------------------------------
+  if (activites?.length) {
+    const hauteurPage = doc.internal.pageSize.getHeight()
+    let y = doc.lastAutoTable.finalY + 12
+    // Titre + en-tête + quelques lignes doivent tenir : sinon nouvelle page.
+    if (y > hauteurPage - 50) {
+      doc.addPage()
+      y = 18
+    }
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(11)
+    doc.setTextColor(...ROUGE_CRS)
+    doc.text('SECOURS EFFECTUÉS PAR ACTIVITÉ', MARGE, y)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8)
+    doc.setTextColor(...GRIS)
+    doc.text('Moyen CRS engagé — hors régulations, fiches sans moyen et secours passés au SDIS / BT / SAMU', MARGE, y + 4.5)
+
+    autoTable(doc, {
+      startY: y + 7,
+      margin: { left: MARGE, right: MARGE, top: 14, bottom: 14 },
+      head: [['Activité', ...mois.map((m) => NOMS_MOIS[m].slice(0, 4) + (NOMS_MOIS[m].length > 4 ? '.' : '')), 'Total']],
+      body: activites.map((a) => [t(a.label), ...mois.map((m) => String(a.valeurs[m])), String(mois.reduce((n, m) => n + a.valeurs[m], 0))]),
+      foot: [
+        [
+          'Total',
+          ...mois.map((m) => String(activites.reduce((n, a) => n + a.valeurs[m], 0))),
+          String(activites.reduce((n, a) => n + mois.reduce((k, m) => k + a.valeurs[m], 0), 0)),
+        ],
+      ],
+      theme: 'grid',
+      showHead: 'everyPage',
+      rowPageBreak: 'avoid',
+      styles: {
+        font: 'helvetica',
+        fontSize: 8.5,
+        cellPadding: 1.8,
+        halign: 'center',
+        valign: 'middle',
+        textColor: NOIR,
+        lineColor: GRIS_LIGNE,
+        lineWidth: 0.2,
+      },
+      headStyles: { fillColor: ROUGE_CRS, textColor: 255, fontStyle: 'bold', fontSize: 8 },
+      footStyles: { fillColor: [235, 238, 244], textColor: NOIR, fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: FOND_ALTERNE },
+      columnStyles: { 0: { halign: 'left', cellWidth: 62 }, [mois.length + 1]: { fontStyle: 'bold' } },
+      didParseCell: (data) => {
+        if (data.section === 'body' && data.column.index > 0 && data.cell.raw === '0') data.cell.styles.textColor = [170, 170, 176]
+      },
+    })
+  }
+
+  numeroterPages(doc, `Track'log — Bilan des secours — ${[section, periode].filter(Boolean).join(' — ')}`)
+  enregistrerPdf(doc, `Bilan ${[section, periode].filter(Boolean).join(' ')}`)
 }

@@ -122,6 +122,18 @@ export function useFiltreSections(poste) {
     departementVue,
     vueDepartement: enVueDepartement,
     basculerVueDepartement: () => setVueDepartement((v) => !v),
+    // Intitulé de ce qui est affiché — en tête des PDF exportés (Registre, bilan des Stats).
+    intitule: enVueDepartement
+      ? `Département ${departementVue}`
+      : selection === 'REGION'
+        ? `Région ${region ?? ''}`.trim()
+        : selection
+          ? (autresSections.find((x) => x.code === selection)?.nom ?? selection)
+          : poste
+            ? maPartie
+              ? `${poste.nom} · ${maPartie.nom}`
+              : poste.nom
+            : null,
     // Colonne Unité : plusieurs sections apparaissent (région, ou département en vue Département).
     multiple: selection === 'REGION' || enVueDepartement,
   }

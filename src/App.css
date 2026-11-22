@@ -3542,6 +3542,21 @@ main > * {
   width: 110px;
 }
 
+/* Tableau par activité : libellés d'activité longs, coupés avec « … » (titre complet au survol). */
+.tableau-activites-stats {
+  min-width: 640px;
+}
+
+.tableau-activites-stats .colonne-activite-stats {
+  width: 220px;
+}
+
+.tableau-activites-stats tbody th {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+
 .tableau-bilan-stats th,
 .tableau-bilan-stats td {
   padding: 7px 6px;
