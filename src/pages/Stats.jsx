@@ -225,12 +225,25 @@ export default function Stats({ poste, fSections }) {
   const parActivite = useMemo(() => activitesParMois(evenementsPeriode), [evenementsPeriode])
 
   const [exportEnCours, setExportEnCours] = useState(false)
+  // Bouton Exporter PDF : menu des deux tableaux exportables (bilan médical / par activité).
+  const [menuExportOuvert, setMenuExportOuvert] = useState(false)
+  const refMenuExport = useRef(null)
+  useEffect(() => {
+    if (!menuExportOuvert) return
+    const fermerSiExterieur = (e) => {
+      if (!refMenuExport.current?.contains(e.target)) setMenuExportOuvert(false)
+    }
+    document.addEventListener('mousedown', fermerSiExterieur)
+    return () => document.removeEventListener('mousedown', fermerSiExterieur)
+  }, [menuExportOuvert])
   /** Bilan mensuel + secours par activité en PDF — seulement les mois de la période choisie. */
-  async function exporterBilan() {
+  async function exporterBilan(contenu) {
+    setMenuExportOuvert(false)
     setExportEnCours(true)
     try {
       const [demandes, effectuees] = bilan.map((l) => l.total)
       await exporterBilanPdf({
+        contenu,
         lignes: bilan,
         activites: parActivite,
         mois: moisPeriode,
@@ -316,15 +329,28 @@ export default function Stats({ poste, fSections }) {
           <span className="compte-resultats-mc">
             {total} intervention{total > 1 ? 's' : ''}
           </span>
-          <button
-            type="button"
-            className="bouton-effectifs"
-            onClick={exporterBilan}
-            disabled={exportEnCours || chargement}
-            title="Exporter le bilan mensuel en PDF"
-          >
-            {exportEnCours ? 'Export…' : 'Exporter PDF'}
-          </button>
+          <div className="menu-sections" ref={refMenuExport}>
+            <button
+              type="button"
+              className={menuExportOuvert ? 'bouton-effectifs actif' : 'bouton-effectifs'}
+              onClick={() => setMenuExportOuvert((o) => !o)}
+              disabled={exportEnCours || chargement}
+              aria-haspopup="menu"
+              aria-expanded={menuExportOuvert}
+            >
+              {exportEnCours ? 'Export…' : 'Exporter PDF ▾'}
+            </button>
+            {menuExportOuvert && (
+              <div className="liste-menu-sections" role="menu">
+                <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('bilan')}>
+                  Bilan mensuel (état médical)
+                </button>
+                <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('activites')}>
+                  Secours par activité
+                </button>
+              </div>
+            )}
+          </div>
         </div>
       </div>
 

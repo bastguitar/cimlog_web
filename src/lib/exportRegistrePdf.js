@@ -210,19 +210,24 @@ export function enregistrerPdf(doc, nom) {
  * Bilan des Stats en PDF (22/11/2026) — le tableau tel qu'à l'écran : mois en lignes, items en
  * colonnes, total en bas. `lignes` = [{ label, valeurs: [12 nombres] }], `mois` = indices des mois
  * à imprimer (tous, ou le seul mois choisi). `activites` = [{ label, valeurs }] — secours effectués
- * par activité, imprimés à la suite (même mois en colonnes, total par ligne et par mois).
+ * par activité (mois en colonnes, total par ligne et par mois).
+ * `contenu` : 'bilan' (bilan mensuel / état médical) ou 'activites' — un PDF par tableau, au choix
+ * depuis le bouton Exporter des Stats (demandé le 22/11/2026).
  */
-export async function exporterBilanPdf({ lignes, activites, mois, section, periode, resume }) {
+export async function exporterBilanPdf({ contenu = 'bilan', lignes, activites, mois, section, periode, resume }) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
+  const parActivite = contenu === 'activites'
   await dessinerEnteteCrs(doc, {
-    titre: 'BILAN DES SECOURS',
+    titre: parActivite ? 'SECOURS PAR ACTIVITÉ' : 'BILAN DES SECOURS',
     sousTitre: [section, periode].filter(Boolean).join(' — '),
-    note: 'État médical : victimes des interventions effectuées (moyen CRS engagé)',
+    note: parActivite
+      ? 'Secours effectués (moyen CRS engagé) — hors régulations, fiches sans moyen et secours passés au SDIS / BT / SAMU'
+      : 'État médical : victimes des interventions effectuées (moyen CRS engagé)',
     droite: resume,
   })
 
   const indexPremiereVictime = lignes.findIndex((l) => l.victime)
-  autoTable(doc, {
+  if (!parActivite) autoTable(doc, {
     startY: 33,
     margin: { left: MARGE, right: MARGE, bottom: 14 },
     head: [['', ...lignes.map((l) => t(l.label))]],
@@ -261,26 +266,16 @@ export async function exporterBilanPdf({ lignes, activites, mois, section, perio
     },
   })
 
-  // --- Secours effectués par activité et par mois (seconde partie) --------------------------------
-  if (activites?.length) {
-    const hauteurPage = doc.internal.pageSize.getHeight()
-    let y = doc.lastAutoTable.finalY + 12
-    // Titre + en-tête + quelques lignes doivent tenir : sinon nouvelle page.
-    if (y > hauteurPage - 50) {
-      doc.addPage()
-      y = 18
-    }
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(11)
-    doc.setTextColor(...ROUGE_CRS)
-    doc.text('SECOURS EFFECTUÉS PAR ACTIVITÉ', MARGE, y)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(8)
+  // --- Secours effectués par activité et par mois ----------------------------------------------------
+  if (parActivite && !activites?.length) {
+    doc.setFont('helvetica', 'italic')
+    doc.setFontSize(10)
     doc.setTextColor(...GRIS)
-    doc.text('Moyen CRS engagé — hors régulations, fiches sans moyen et secours passés au SDIS / BT / SAMU', MARGE, y + 4.5)
-
+    doc.text('Aucun secours effectué sur cette période.', MARGE, 42)
+  }
+  if (parActivite && activites?.length) {
     autoTable(doc, {
-      startY: y + 7,
+      startY: 33,
       margin: { left: MARGE, right: MARGE, top: 14, bottom: 14 },
       head: [['Activité', ...mois.map((m) => NOMS_MOIS[m].slice(0, 4) + (NOMS_MOIS[m].length > 4 ? '.' : '')), 'Total']],
       body: activites.map((a) => [t(a.label), ...mois.map((m) => String(a.valeurs[m])), String(mois.reduce((n, m) => n + a.valeurs[m], 0))]),
@@ -314,6 +309,7 @@ export async function exporterBilanPdf({ lignes, activites, mois, section, perio
     })
   }
 
-  numeroterPages(doc, `Track'log — Bilan des secours — ${[section, periode].filter(Boolean).join(' — ')}`)
-  enregistrerPdf(doc, `Bilan ${[section, periode].filter(Boolean).join(' ')}`)
+  const libelle = parActivite ? 'Secours par activité' : 'Bilan des secours'
+  numeroterPages(doc, `Track'log — ${libelle} — ${[section, periode].filter(Boolean).join(' — ')}`)
+  enregistrerPdf(doc, `${parActivite ? 'Activites' : 'Bilan'} ${[section, periode].filter(Boolean).join(' ')}`)
 }
