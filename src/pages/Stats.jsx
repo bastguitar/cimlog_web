@@ -1,6 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
-import { useFiltresRegistre, filtrerEvenements } from '../hooks/useFiltresRegistre'
 import { estHorsCRS, estRegulation, estSansMoyen as sansAucunMoyen } from '../lib/moyens'
 import { OPTIONS_ETAT_MEDICAL } from '../lib/optionsSnosm'
 
@@ -56,6 +55,16 @@ function bilanMensuel(liste) {
   return lignes.map((l) => ({ ...l, total: l.valeurs.reduce((a, b) => a + b, 0) }))
 }
 
+/** « 2026-11-22 » en heure locale — valeur d'un <input type="date">. */
+const isoJour = (d) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+const formatJour = (iso) => new Date(`${iso}T00:00:00`).toLocaleDateString('fr-FR')
+const unAnAvant = (d) => {
+  const r = new Date(d)
+  r.setFullYear(r.getFullYear() - 1)
+  return r
+}
+
 const MOIS_LONGS = ['Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin', 'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre']
 
 /** Colonnes en gras (demandes / effectuées) et séparateur avant le bloc des états médicaux. */
@@ -88,9 +97,33 @@ export default function Stats({ poste, fSections }) {
   const [erreur, setErreur] = useState(null)
   const [chargement, setChargement] = useState(true)
 
+  /*
+   * Période affichée (22/11/2026) : l'année entière, un mois de cette année, ou une période libre
+   * (du … au …, sur plusieurs années si besoin). Toujours comparée à la même période un an plus tôt.
+   */
+  const [choix, setChoix] = useState('') // '' = année | '0'…'11' = mois | 'periode'
+  const [du, setDu] = useState(() => isoJour(new Date(new Date().getFullYear(), new Date().getMonth(), 1)))
+  const [au, setAu] = useState(() => isoJour(new Date()))
+  const enPeriode = choix === 'periode'
+  const periodeValide = enPeriode && du && au && du <= au
+  const moisChoisi = /^\d+$/.test(choix) ? Number(choix) : null
+
   useEffect(() => {
+    if (enPeriode && !periodeValide) return
     setChargement(true)
-    Promise.all([listerAnnee(annee, fSections.codesRequete), listerAnnee(annee - 1, fSections.codesRequete)])
+    let requetes
+    if (enPeriode) {
+      const debut = new Date(`${du}T00:00:00`)
+      const fin = new Date(`${au}T00:00:00`)
+      fin.setDate(fin.getDate() + 1)
+      requetes = [
+        listerPeriode(debut, fin, fSections.codesRequete),
+        listerPeriode(unAnAvant(debut), unAnAvant(fin), fSections.codesRequete),
+      ]
+    } else {
+      requetes = [listerAnnee(annee, fSections.codesRequete), listerAnnee(annee - 1, fSections.codesRequete)]
+    }
+    Promise.all(requetes)
       .then(([a, b]) => {
         setEvenements(a)
         setEvenementsPrecedents(b)
@@ -98,7 +131,14 @@ export default function Stats({ poste, fSections }) {
       })
       .catch((e) => setErreur(e.message))
       .finally(() => setChargement(false))
-  }, [annee, fSections.codesRequete])
+  }, [annee, enPeriode, periodeValide, du, au, fSections.codesRequete])
+
+  const libellePeriode = enPeriode
+    ? `du ${formatJour(du)} au ${formatJour(au)}`
+    : moisChoisi != null
+      ? `${MOIS_LONGS[moisChoisi]} ${annee}`
+      : `${annee}`
+  const libellePrecedent = enPeriode ? 'il y a 1 an' : `${annee - 1}`
 
   useEffect(() => {
     const fin = new Date()
@@ -119,14 +159,19 @@ export default function Stats({ poste, fSections }) {
   // Vue Section / Département (en-tête) : identité en vue Section, voir useFiltreSections.
   const { filtrerVue } = fSections
   const evenementsVue = useMemo(() => filtrerVue(evenements), [filtrerVue, evenements])
-  const f = useFiltresRegistre(evenementsVue)
-  const evenementsVisibles = useMemo(() => f.evenementsFiltres.filter((s) => !estExclu(s)), [f.evenementsFiltres])
-  const nbSDIS = useMemo(() => f.evenementsFiltres.filter(estSDIS).length, [f.evenementsFiltres])
-  const nbSansMoyen = useMemo(() => f.evenementsFiltres.filter(estSansMoyen).length, [f.evenementsFiltres])
+  const duMois = useCallback(
+    (liste) => (moisChoisi == null ? liste : liste.filter((s) => new Date(s.created_at).getMonth() === moisChoisi)),
+    [moisChoisi]
+  )
+  // Toutes les fiches de la période (SDIS et sans moyen compris) — base du bilan mensuel.
+  const evenementsPeriode = useMemo(() => duMois(evenementsVue), [duMois, evenementsVue])
+  const evenementsVisibles = useMemo(() => evenementsPeriode.filter((s) => !estExclu(s)), [evenementsPeriode])
+  const nbSDIS = useMemo(() => evenementsPeriode.filter(estSDIS).length, [evenementsPeriode])
+  const nbSansMoyen = useMemo(() => evenementsPeriode.filter(estSansMoyen).length, [evenementsPeriode])
 
   const precedentsFiltres = useMemo(
-    () => filtrerEvenements(filtrerVue(evenementsPrecedents), f.filtres, f.recherche).filter((s) => !estExclu(s)),
-    [filtrerVue, evenementsPrecedents, f.filtres, f.recherche]
+    () => duMois(filtrerVue(evenementsPrecedents)).filter((s) => !estExclu(s)),
+    [duMois, filtrerVue, evenementsPrecedents]
   )
   // 30 derniers jours : indépendants du mois choisi (sinon vides dès qu'on regarde un autre mois).
   const fenetreFiltree = useMemo(() => filtrerVue(fenetre).filter((s) => !estExclu(s)), [filtrerVue, fenetre])
@@ -142,7 +187,7 @@ export default function Stats({ poste, fSections }) {
   const medicalisees = evenementsVisibles.filter((s) => s.is_med).length
   const pctMedicalisees = total > 0 ? Math.round((medicalisees / total) * 100) : 0
 
-  const bilan = useMemo(() => bilanMensuel(f.evenementsFiltres), [f.evenementsFiltres])
+  const bilan = useMemo(() => bilanMensuel(evenementsPeriode), [evenementsPeriode])
   const parMois = useMemo(() => compterParMois(evenementsVisibles), [evenementsVisibles])
   const parMoisPrecedent = useMemo(() => compterParMois(precedentsFiltres), [precedentsFiltres])
 
@@ -169,25 +214,27 @@ export default function Stats({ poste, fSections }) {
   return (
     <section className="page page-mc">
       <div className="barre-mc">
-        <div className="nav-jour-mc">
-          <button type="button" onClick={() => setAnnee((a) => a - 1)} aria-label="Année précédente">‹</button>
-          <span className="annee-registre">{annee}</span>
-          <button
-            type="button"
-            onClick={() => setAnnee((a) => a + 1)}
-            disabled={annee >= new Date().getFullYear()}
-            aria-label="Année suivante"
-          >
-            ›
-          </button>
-        </div>
+        {/* Seuls choix des Stats (22/11/2026) : année, mois de l'année, ou période libre. */}
+        {!enPeriode && (
+          <div className="nav-jour-mc">
+            <button type="button" onClick={() => setAnnee((a) => a - 1)} aria-label="Année précédente">‹</button>
+            <span className="annee-registre">{annee}</span>
+            <button
+              type="button"
+              onClick={() => setAnnee((a) => a + 1)}
+              disabled={annee >= new Date().getFullYear()}
+              aria-label="Année suivante"
+            >
+              ›
+            </button>
+          </div>
+        )}
 
-        {/* Seul choix des Stats : le mois (22/11/2026 — les autres filtres du Registre retirés ici). */}
         <select
           className="filtre-select-registre"
-          value={f.filtres.mois}
-          onChange={(e) => f.majFiltre('mois', e.target.value)}
-          aria-label="Mois"
+          value={choix}
+          onChange={(e) => setChoix(e.target.value)}
+          aria-label="Période"
         >
           <option value="">Toute l'année</option>
           {MOIS_LONGS.map((m, i) => (
@@ -195,7 +242,19 @@ export default function Stats({ poste, fSections }) {
               {m}
             </option>
           ))}
+          <option value="periode">Période…</option>
         </select>
+
+        {enPeriode && (
+          <div className="periode-stats">
+            <label>
+              du <input type="date" value={du} max={au || undefined} onChange={(e) => setDu(e.target.value)} />
+            </label>
+            <label>
+              au <input type="date" value={au} min={du || undefined} onChange={(e) => setAu(e.target.value)} />
+            </label>
+          </div>
+        )}
 
         <div className="groupe-droite-mc">
           <span className="compte-resultats-mc">
@@ -208,7 +267,7 @@ export default function Stats({ poste, fSections }) {
 
       <div className="corps-stats">
         <div className="rangee-tuiles-stats">
-          <TuileStat label={`Interventions ${annee}`} valeur={total} delta={delta} />
+          <TuileStat label={`Interventions ${libellePeriode}`} valeur={total} delta={delta} />
           <TuileStat label="Victimes" valeur={totalVictimes} />
           <TuileStat label="Médicalisées" valeur={`${pctMedicalisees} %`} sousLabel={`${medicalisees} / ${total}`} />
           <TuileStat
@@ -224,7 +283,7 @@ export default function Stats({ poste, fSections }) {
           <TuileStat label="Secours sans moyens engagés" valeur={nbSansMoyen} sousLabel="exclus des statistiques" />
         </div>
 
-        <CarteGraphique titre={`Bilan mensuel ${annee}`} sousTitre="État médical : victimes des interventions effectuées">
+        <CarteGraphique titre={`Bilan mensuel ${libellePeriode}`} sousTitre="État médical : victimes des interventions effectuées">
           <div className="defilement-bilan-stats">
             <table className="tableau-bilan-stats">
               {/* Mois en lignes, items en colonnes (retour utilisateur 22/11/2026), total de l'année en bas. */}
@@ -261,7 +320,7 @@ export default function Stats({ poste, fSections }) {
               </tbody>
               <tfoot>
                 <tr className="total-bilan-stats">
-                  <th scope="row">Total {annee}</th>
+                  <th scope="row">Total</th>
                   {bilan.map((l, i) => (
                     <td key={l.label} className={classeColonneBilan(bilan, i)}>
                       {l.total}
@@ -279,7 +338,7 @@ export default function Stats({ poste, fSections }) {
               labels={MOIS}
               principal={parMois}
               contexte={totalPrecedent > 0 ? parMoisPrecedent : null}
-              etiquetteContexte={`${annee - 1}`}
+              etiquetteContexte={libellePrecedent}
               maxEtiquettes={12}
             />
           </CarteGraphique>
@@ -294,7 +353,7 @@ export default function Stats({ poste, fSections }) {
             />
           </CarteGraphique>
 
-          <CarteGraphique titre="Répartition par activité" sousTitre={`${annee}`} pleineLargeur>
+          <CarteGraphique titre="Répartition par activité" sousTitre={libellePeriode} pleineLargeur>
             {activites.length === 0 ? (
               <p className="aide">Aucune donnée.</p>
             ) : (
@@ -303,7 +362,7 @@ export default function Stats({ poste, fSections }) {
           </CarteGraphique>
         </div>
 
-        {!chargement && total === 0 && <p className="aide">Aucune intervention {f.filtres.mois !== '' ? 'ce mois-ci' : 'cette année'}.</p>}
+        {!chargement && total === 0 && <p className="aide">Aucune intervention sur cette période.</p>}
       </div>
     </section>
   )

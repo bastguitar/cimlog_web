@@ -3497,6 +3497,31 @@ main > * {
   grid-column: 1 / -1;
 }
 
+/* Période libre des Stats (du … au …). */
+.periode-stats {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.periode-stats label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text);
+}
+
+.periode-stats input {
+  font: inherit;
+  font-size: 13px;
+  padding: 7px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-alt);
+  color: var(--text);
+}
+
 /* Bilan mensuel des Stats (novembre 2026) — mois en lignes, items en colonnes, total de l'année en bas. */
 .defilement-bilan-stats {
   overflow-x: auto;
