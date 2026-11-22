@@ -6,30 +6,18 @@ import { regrouperParSemaine, libelleSemaine, numeroSemaine, titreJournee } from
 import { useFiltresRegistre, estATraiter } from '../hooks/useFiltresRegistre'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
 import ModaleFiche from '../components/ModaleFiche'
-import { estRegulation, estSansMoyen, libelleMoyens } from '../lib/moyens'
+import { estRegulation, libelleMoyens } from '../lib/moyens'
 import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
 
-const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
-// État médical SNOSM de chaque victime (Blessé, Décédé non traumatique…), une ligne par victime,
-// dans l'ordre des numéros de victime — doublons gardés (deux blessés = deux lignes).
-const etatsMedicauxDe = (s) =>
-  [...(s.victimes ?? [])]
-    .sort((a, b) => (a.local_id ?? 0) - (b.local_id ?? 0))
-    .map((v) => v.snosm_etat_medical)
-    .filter(Boolean)
-// Origine de l'alerte : celle de la fiche SNOSM quand elle est renseignée (c'est elle qui part sur
-// le TO ; « AUTRE » remplacé par sa précision), sinon la valeur brute saisie dans Track'Alerte.
-const origineDe = (s) =>
-  (s.snosm_origine_alerte === 'AUTRE' ? s.snosm_origine_alerte_autre || 'AUTRE' : s.snosm_origine_alerte) ||
-  s.alert_origin
-// Cim'Alerte ne remplit plus accident_type (octobre 2026) : le motif est désormais saisi par victime
-// (victimes.circonstances). On garde accident_type pour les fiches plus anciennes qui le portent.
-// Pastille NON MED : seulement si un moyen CRS a réellement été engagé — sans moyen (ou régulation),
-// médicalisé ou non n'a pas de sens.
-const avecMoyenEngage = (s) => !estSansMoyen(s) && !estRegulation(s)
-const motifDe = (s) =>
-  s.accident_type || [...new Set((s.victimes ?? []).map((v) => v.circonstances?.trim()).filter(Boolean))].join(', ')
+import {
+  formatHeure,
+  pathologiesDe,
+  etatsMedicauxDe,
+  origineDe,
+  avecMoyenEngage,
+  motifDe,
+} from '../lib/champsRegistre'
+import { exporterRegistrePdf } from '../lib/exportRegistrePdf'
 
 /** Mêmes colonnes pour l'en-tête fixe et chaque table du jour — colgroup partagé pour un alignement garanti. */
 function colonnesRegistre(multiple) {
@@ -117,6 +105,37 @@ export default function Registre({ fSections }) {
     [fSections.toutesSections]
   )
 
+  // Intitulé de ce qui est affiché — en tête du PDF exporté.
+  const intituleSection =
+    fSections.selection === 'REGION'
+      ? `Région ${fSections.region ?? ''}`.trim()
+      : fSections.selection
+        ? (fSections.sections.find((x) => x.code === fSections.selection)?.nom ?? fSections.selection)
+        : fSections.nomPropre
+  const [exportEnCours, setExportEnCours] = useState(false)
+  const [erreurExport, setErreurExport] = useState(null)
+
+  /** Exporte en PDF les interventions affichées (filtres compris — en général un mois). */
+  async function exporterPdf() {
+    setExportEnCours(true)
+    setErreurExport(null)
+    try {
+      const { mois, ...autres } = f.filtres
+      await exporterRegistrePdf(evenementsVisibles, {
+        annee,
+        mois,
+        section: intituleSection,
+        avecUnite: fSections.multiple,
+        nomUnite: (code) => nomDeSection.get(groupeDe(code)) ?? code,
+        filtresAutres: Object.values(autres).some(Boolean) || f.recherche.trim() !== '',
+      })
+    } catch (err) {
+      setErreurExport(err.message)
+    } finally {
+      setExportEnCours(false)
+    }
+  }
+
   /** Génère et télécharge le TO d'une ligne sans ouvrir sa fiche — la fiche complète (victimes incluses) n'est chargée qu'ici, à la demande. */
   async function telechargerTO(s, e) {
     e.stopPropagation()
@@ -154,6 +173,15 @@ export default function Registre({ fSections }) {
           <span className="compte-resultats-mc">
             {evenementsVisibles.length} intervention{evenementsVisibles.length > 1 ? 's' : ''}
           </span>
+          <button
+            type="button"
+            className="bouton-effectifs"
+            onClick={exporterPdf}
+            disabled={exportEnCours || evenementsVisibles.length === 0}
+            title="Exporter en PDF la liste affichée (choisir un mois dans Filtres pour un export mensuel)"
+          >
+            {exportEnCours ? 'Export…' : 'Exporter PDF'}
+          </button>
         </div>
       </div>
 
@@ -161,6 +189,7 @@ export default function Registre({ fSections }) {
 
       {erreur && <p className="erreur">{erreur}</p>}
       {erreurTO && <p className="erreur">TO : {erreurTO}</p>}
+      {erreurExport && <p className="erreur">Export PDF : {erreurExport}</p>}
       {!chargement && !erreur && evenementsVisibles.length === 0 && (
         <p className="aide">Aucune intervention {f.filtresActifs ? 'ne correspond' : 'cette année'}.</p>
       )}

@@ -170,7 +170,7 @@ const PONCTUATION_AUTORISEE = new Set(['—', '–', '’', '‘', '“', '”',
  * (bug remonté par l'utilisateur sur le champ Nationalité). Latin-1 Supplément + Latin Extended-A
  * (0x017F) couvrent tous les caractères accentués français utiles.
  */
-function texteImprimable(valeur) {
+export function texteImprimable(valeur) {
   if (valeur == null) return valeur
   const nettoye = Array.from(String(valeur))
     .filter((car) => car.codePointAt(0) <= 0x017f || PONCTUATION_AUTORISEE.has(car))
