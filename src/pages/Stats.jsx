@@ -220,6 +220,12 @@ export default function Stats({ poste, fSections }) {
           <div className="defilement-bilan-stats">
             <table className="tableau-bilan-stats">
               {/* Mois en lignes, items en colonnes (retour utilisateur 22/11/2026), total de l'année en bas. */}
+              <colgroup>
+                <col className="colonne-mois-bilan-stats" />
+                {bilan.map((l) => (
+                  <col key={l.label} />
+                ))}
+              </colgroup>
               <thead>
                 <tr>
                   <th />

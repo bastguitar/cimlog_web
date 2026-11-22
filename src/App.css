@@ -3502,18 +3502,26 @@ main > * {
   overflow-x: auto;
 }
 
+/* Largeurs fixes : colonne des mois étroite, toutes les colonnes de chiffres de même largeur
+   (sinon un long intitulé comme « Décédé non traumatique » élargit sa colonne). */
 .tableau-bilan-stats {
   width: 100%;
+  min-width: 760px;
+  table-layout: fixed;
   border-collapse: collapse;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
 }
 
+.tableau-bilan-stats .colonne-mois-bilan-stats {
+  width: 110px;
+}
+
 .tableau-bilan-stats th,
 .tableau-bilan-stats td {
-  padding: 6px 10px;
+  padding: 7px 6px;
   border-bottom: 1px solid var(--border);
-  text-align: right;
+  text-align: center;
   white-space: nowrap;
 }
 
@@ -3521,8 +3529,8 @@ main > * {
 .tableau-bilan-stats thead th {
   vertical-align: bottom;
   white-space: normal;
-  min-width: 70px;
-  font-size: 11px;
+  padding-bottom: 9px;
+  font-size: 10.5px;
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.03em;
@@ -3533,8 +3541,14 @@ main > * {
 .tableau-bilan-stats tbody th,
 .tableau-bilan-stats tfoot th {
   text-align: left;
+  padding-left: 10px;
   font-weight: 600;
   color: var(--text-h);
+}
+
+/* Bloc demandes / effectuées sur fond légèrement teinté, pour le distinguer des états médicaux. */
+.tableau-bilan-stats .colonne-principale-bilan-stats {
+  background: color-mix(in srgb, var(--bg-alt) 55%, transparent);
 }
 
 /* Demandes / effectuées en gras. */
