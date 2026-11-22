@@ -71,22 +71,25 @@ export default function Stats({ poste, fSections }) {
       .catch((e) => setErreur(e.message))
   }, [fSections.codesRequete])
 
-  const f = useFiltresRegistre(evenements)
+  // Vue Section / Département (en-tête) : identité en vue Section, voir useFiltreSections.
+  const { filtrerVue } = fSections
+  const evenementsVue = useMemo(() => filtrerVue(evenements), [filtrerVue, evenements])
+  const f = useFiltresRegistre(evenementsVue)
   const evenementsVisibles = useMemo(() => f.evenementsFiltres.filter((s) => !estExclu(s)), [f.evenementsFiltres])
   const nbSDIS = useMemo(() => f.evenementsFiltres.filter(estSDIS).length, [f.evenementsFiltres])
   const nbSansMoyen = useMemo(() => f.evenementsFiltres.filter(estSansMoyen).length, [f.evenementsFiltres])
 
   const precedentsFiltres = useMemo(
-    () => filtrerEvenements(evenementsPrecedents, f.filtres, f.recherche).filter((s) => !estExclu(s)),
-    [evenementsPrecedents, f.filtres, f.recherche]
+    () => filtrerEvenements(filtrerVue(evenementsPrecedents), f.filtres, f.recherche).filter((s) => !estExclu(s)),
+    [filtrerVue, evenementsPrecedents, f.filtres, f.recherche]
   )
   const fenetreFiltree = useMemo(
-    () => filtrerEvenements(fenetre, f.filtres, f.recherche).filter((s) => !estExclu(s)),
-    [fenetre, f.filtres, f.recherche]
+    () => filtrerEvenements(filtrerVue(fenetre), f.filtres, f.recherche).filter((s) => !estExclu(s)),
+    [filtrerVue, fenetre, f.filtres, f.recherche]
   )
   const fenetrePrecedenteFiltree = useMemo(
-    () => filtrerEvenements(fenetrePrecedente, f.filtres, f.recherche).filter((s) => !estExclu(s)),
-    [fenetrePrecedente, f.filtres, f.recherche]
+    () => filtrerEvenements(filtrerVue(fenetrePrecedente), f.filtres, f.recherche).filter((s) => !estExclu(s)),
+    [filtrerVue, fenetrePrecedente, f.filtres, f.recherche]
   )
 
   const total = evenementsVisibles.length

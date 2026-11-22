@@ -74,6 +74,18 @@ const DEPARTEMENT_PAR_SQUAD_CODE = {
 /** Département de la section (code à 2 chiffres), null si inconnue. */
 export const departementDeSection = (squadCode) => DEPARTEMENT_PAR_SQUAD_CODE[squadCode] ?? null
 
+/**
+ * Département du lieu d'une intervention (code à 2 chiffres, ou 2A/2B) — champ Departement de la
+ * fiche (county), écrit « 5 » ou « 05 » selon la saisie ; à défaut, le code postal accolé à la
+ * commune (« Village - 05100 »). null si ni l'un ni l'autre.
+ */
+export function departementDe(s) {
+  const d = String(s?.county ?? '').trim().match(/^(\d{1,2}|2[AB])(?!\d)/i)
+  if (d) return d[1].toUpperCase().padStart(2, '0')
+  const cp = String(s?.com ?? '').match(/(\d{5})\s*$/)
+  return cp ? cp[1].slice(0, 2) : null
+}
+
 /** Code de la section mère d'un squad_code — lui-même s'il n'a pas de mère connue. */
 export const groupeDe = (squadCode) => CODE_VERS_GROUPE.get(squadCode) ?? squadCode
 

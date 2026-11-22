@@ -83,7 +83,10 @@ export default function CarteIGN({ poste, fSections }) {
       .catch((e) => setErreur(e.message))
   }, [annee, fSections.codesRequete])
 
-  const f = useFiltresRegistre(evenements)
+  // Vue Section / Département (en-tête) : identité en vue Section, voir useFiltreSections.
+  const { filtrerVue } = fSections
+  const evenementsVue = useMemo(() => filtrerVue(evenements), [filtrerVue, evenements])
+  const f = useFiltresRegistre(evenementsVue)
 
   const points = useMemo(
     () =>

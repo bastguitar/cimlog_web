@@ -1,5 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
-import { sectionsDeLaRegion, groupeDe, codesDuGroupe, couleurSection, sousGroupesDe, positionsSousGroupes } from '../lib/sections'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  sectionsDeLaRegion,
+  groupeDe,
+  codesDuGroupe,
+  couleurSection,
+  sousGroupesDe,
+  positionsSousGroupes,
+  departementDeSection,
+  departementDe,
+} from '../lib/sections'
 
 /**
  * Filtre par section — sélection UNIQUE (jamais plusieurs sections isolées
@@ -58,7 +67,8 @@ export function useFiltreSections(poste) {
   /** Retour forcé à sa propre section — voir GardeInactivite (App.jsx). */
   const reinitialiser = () => setSelection(null)
 
-  const codesRequete = useMemo(() => {
+  // Codes de la section regardée (la sienne, ou celle choisie dans le menu), toute la région sinon.
+  const codesSection = useMemo(() => {
     if (selection === 'REGION') return sections.flatMap((s) => codesDuGroupe(s.code))
     const partieChoisie = sousGroupes?.find((g) => g.code === selection)
     if (partieChoisie) return partieChoisie.codes
@@ -66,6 +76,29 @@ export function useFiltreSections(poste) {
     if (maPartie) return maPartie.codes
     return codesDuGroupe(monGroupe)
   }, [selection, sections, monGroupe, sousGroupes, maPartie])
+
+  /*
+   * Vue « Département » (demandée le 22/11/2026) : une section intervient chez elle mais part aussi
+   * en renfort ailleurs. Vue Section (défaut) = tout ce qu'a fait la section, dans son département
+   * et hors ; vue Département = tout ce qui s'est passé dans le département de la section, qu'elle
+   * l'ait fait elle-même ou une autre section de la région. On charge alors toute la région (même
+   * droit de consultation que « CRS Alpes ») et on ne garde que les interventions du département.
+   */
+  const [vueDepartement, setVueDepartement] = useState(false)
+  const departementVue = selection === 'REGION' ? null : departementDeSection(codesSection[0])
+  const enVueDepartement = vueDepartement && departementVue != null
+  useEffect(() => {
+    setVueDepartement(false)
+  }, [poste])
+
+  const codesRegion = useMemo(() => sections.flatMap((s) => codesDuGroupe(s.code)), [sections])
+  const codesRequete = enVueDepartement && codesRegion.length > 0 ? codesRegion : codesSection
+
+  /** Applique la vue choisie à une liste chargée avec codesRequete — identité en vue Section. */
+  const filtrerVue = useCallback(
+    (evenements) => (enVueDepartement ? evenements.filter((s) => departementDe(s) === departementVue) : evenements),
+    [enVueDepartement, departementVue]
+  )
 
   return {
     sections: autresSections,
@@ -84,6 +117,12 @@ export function useFiltreSections(poste) {
     selectionner,
     reinitialiser,
     codesRequete,
-    multiple: selection === 'REGION',
+    filtrerVue,
+    // Département de la section regardée (null en vue région ou section sans département connu).
+    departementVue,
+    vueDepartement: enVueDepartement,
+    basculerVueDepartement: () => setVueDepartement((v) => !v),
+    // Colonne Unité : plusieurs sections apparaissent (région, ou département en vue Département).
+    multiple: selection === 'REGION' || enVueDepartement,
   }
 }

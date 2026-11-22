@@ -94,7 +94,10 @@ export default function Registre({ fSections }) {
     }
   }, [annee, fSections.codesRequete])
 
-  const f = useFiltresRegistre(evenements)
+  // Vue Section / Département (en-tête) : identité en vue Section, voir useFiltreSections.
+  const { filtrerVue } = fSections
+  const evenementsVue = useMemo(() => filtrerVue(evenements), [filtrerVue, evenements])
+  const f = useFiltresRegistre(evenementsVue)
   const evenementsVisibles = f.evenementsFiltres
   const semaines = useMemo(() => regrouperParSemaine(evenementsVisibles), [evenementsVisibles])
   const colonnes = useMemo(() => colonnesRegistre(fSections.multiple), [fSections.multiple])
@@ -106,8 +109,9 @@ export default function Registre({ fSections }) {
   )
 
   // Intitulé de ce qui est affiché — en tête du PDF exporté.
-  const intituleSection =
-    fSections.selection === 'REGION'
+  const intituleSection = fSections.vueDepartement
+    ? `Département ${fSections.departementVue}`
+    : fSections.selection === 'REGION'
       ? `Région ${fSections.region ?? ''}`.trim()
       : fSections.selection
         ? (fSections.sections.find((x) => x.code === fSections.selection)?.nom ?? fSections.selection)

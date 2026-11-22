@@ -76,6 +76,28 @@ export default function App() {
               nomPropre={fSections.nomPropre}
               couleurPropre={fSections.couleurPropre}
             />
+            {/* Vue Section (tout ce qu'a fait la section, dans son département et en renfort ailleurs)
+                ou vue Département (tout ce qui s'est passé dans son département, toutes sections). */}
+            {fSections.departementVue && (
+              <div className="bascule-vue-departement" role="group" aria-label="Périmètre affiché">
+                <button
+                  type="button"
+                  className={fSections.vueDepartement ? '' : 'actif'}
+                  onClick={() => fSections.vueDepartement && fSections.basculerVueDepartement()}
+                  title="Toutes les interventions de la section, dans son département et hors département"
+                >
+                  Section
+                </button>
+                <button
+                  type="button"
+                  className={fSections.vueDepartement ? 'actif' : ''}
+                  onClick={() => !fSections.vueDepartement && fSections.basculerVueDepartement()}
+                  title={`Toutes les interventions dans le ${fSections.departementVue}, quelle que soit la section qui les a faites`}
+                >
+                  Dépt {fSections.departementVue}
+                </button>
+              </div>
+            )}
             <button
               type="button"
               className="bouton-deconnexion"
