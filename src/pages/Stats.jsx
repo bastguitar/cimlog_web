@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
 import { useFiltresRegistre, filtrerEvenements } from '../hooks/useFiltresRegistre'
-import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
 import { estHorsCRS, estRegulation, estSansMoyen as sansAucunMoyen } from '../lib/moyens'
 import { OPTIONS_ETAT_MEDICAL } from '../lib/optionsSnosm'
 
@@ -129,13 +128,11 @@ export default function Stats({ poste, fSections }) {
     () => filtrerEvenements(filtrerVue(evenementsPrecedents), f.filtres, f.recherche).filter((s) => !estExclu(s)),
     [filtrerVue, evenementsPrecedents, f.filtres, f.recherche]
   )
-  const fenetreFiltree = useMemo(
-    () => filtrerEvenements(filtrerVue(fenetre), f.filtres, f.recherche).filter((s) => !estExclu(s)),
-    [filtrerVue, fenetre, f.filtres, f.recherche]
-  )
+  // 30 derniers jours : indépendants du mois choisi (sinon vides dès qu'on regarde un autre mois).
+  const fenetreFiltree = useMemo(() => filtrerVue(fenetre).filter((s) => !estExclu(s)), [filtrerVue, fenetre])
   const fenetrePrecedenteFiltree = useMemo(
-    () => filtrerEvenements(filtrerVue(fenetrePrecedente), f.filtres, f.recherche).filter((s) => !estExclu(s)),
-    [filtrerVue, fenetrePrecedente, f.filtres, f.recherche]
+    () => filtrerVue(fenetrePrecedente).filter((s) => !estExclu(s)),
+    [filtrerVue, fenetrePrecedente]
   )
 
   const total = evenementsVisibles.length
@@ -185,7 +182,20 @@ export default function Stats({ poste, fSections }) {
           </button>
         </div>
 
-        <ControlesFiltresRegistre f={f} placeholder="Filtrer les statistiques…" />
+        {/* Seul choix des Stats : le mois (22/11/2026 — les autres filtres du Registre retirés ici). */}
+        <select
+          className="filtre-select-registre"
+          value={f.filtres.mois}
+          onChange={(e) => f.majFiltre('mois', e.target.value)}
+          aria-label="Mois"
+        >
+          <option value="">Toute l'année</option>
+          {MOIS_LONGS.map((m, i) => (
+            <option key={m} value={String(i)}>
+              {m}
+            </option>
+          ))}
+        </select>
 
         <div className="groupe-droite-mc">
           <span className="compte-resultats-mc">
@@ -193,8 +203,6 @@ export default function Stats({ poste, fSections }) {
           </span>
         </div>
       </div>
-
-      <PanneauFiltresRegistre f={f} />
 
       {erreur && <p className="erreur">{erreur}</p>}
 
@@ -295,7 +303,7 @@ export default function Stats({ poste, fSections }) {
           </CarteGraphique>
         </div>
 
-        {!chargement && total === 0 && <p className="aide">Aucune intervention {f.filtresActifs ? 'ne correspond' : 'cette année'}.</p>}
+        {!chargement && total === 0 && <p className="aide">Aucune intervention {f.filtres.mois !== '' ? 'ce mois-ci' : 'cette année'}.</p>}
       </div>
     </section>
   )
