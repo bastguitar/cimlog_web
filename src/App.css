@@ -1536,36 +1536,40 @@ main > * {
 }
 
 /* Bascule Section / Dépt 05 de l'en-tête (novembre 2026) — deux boutons collés, l'actif en couleur. */
+/* Choix actif en aplat plein (texte blanc), l'autre en retrait — le périmètre affiché doit se lire
+   d'un coup d'œil (retour utilisateur 22/11/2026 : l'ancien surlignage pâle ne se voyait pas). */
 .bascule-vue-departement {
   display: flex;
+  gap: 2px;
+  padding: 2px;
+  border-radius: 999px;
+  background: var(--bg-alt);
   border: 1px solid var(--border);
-  border-radius: var(--radius-sm);
-  overflow: hidden;
 }
 
 .bascule-vue-departement button {
   font: inherit;
   font-size: 12.5px;
   font-weight: 700;
-  padding: 5px 10px;
+  padding: 4px 12px;
   border: none;
+  border-radius: 999px;
   background: none;
-  color: color-mix(in srgb, var(--text) 70%, var(--bg-alt));
+  color: color-mix(in srgb, var(--text) 55%, var(--bg-alt));
   cursor: pointer;
   white-space: nowrap;
-}
-
-.bascule-vue-departement button + button {
-  border-left: 1px solid var(--border);
+  transition: background 0.15s, color 0.15s;
 }
 
 .bascule-vue-departement button:hover:not(.actif) {
-  background: var(--bg-alt);
+  color: var(--text-h);
 }
 
 .bascule-vue-departement button.actif {
-  background: var(--chaleur-bg);
-  color: var(--chaleur);
+  background: var(--chaleur);
+  /* Blanc en thème clair, sombre en thème sombre (où --chaleur devient un bleu clair). */
+  color: var(--bg-card);
+  box-shadow: var(--shadow-sm);
   cursor: default;
 }
 

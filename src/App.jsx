@@ -68,14 +68,6 @@ export default function App() {
             <NavLink to="/stats">Stats</NavLink>
           </nav>
           <div className="entete-droite">
-            <SelecteurSections
-              sections={fSections.sections}
-              region={fSections.region}
-              selection={fSections.selection}
-              onSelect={fSections.selectionner}
-              nomPropre={fSections.nomPropre}
-              couleurPropre={fSections.couleurPropre}
-            />
             {/* Vue Section (tout ce qu'a fait la section, dans son département et en renfort ailleurs)
                 ou vue Département (tout ce qui s'est passé dans son département, toutes sections). */}
             {fSections.departementVue && (
@@ -83,6 +75,7 @@ export default function App() {
                 <button
                   type="button"
                   className={fSections.vueDepartement ? '' : 'actif'}
+                  aria-pressed={!fSections.vueDepartement}
                   onClick={() => fSections.vueDepartement && fSections.basculerVueDepartement()}
                   title="Toutes les interventions de la section, dans son département et hors département"
                 >
@@ -91,6 +84,7 @@ export default function App() {
                 <button
                   type="button"
                   className={fSections.vueDepartement ? 'actif' : ''}
+                  aria-pressed={fSections.vueDepartement}
                   onClick={() => !fSections.vueDepartement && fSections.basculerVueDepartement()}
                   title={`Toutes les interventions dans le ${fSections.departementVue}, quelle que soit la section qui les a faites`}
                 >
@@ -98,6 +92,14 @@ export default function App() {
                 </button>
               </div>
             )}
+            <SelecteurSections
+              sections={fSections.sections}
+              region={fSections.region}
+              selection={fSections.selection}
+              onSelect={fSections.selectionner}
+              nomPropre={fSections.nomPropre}
+              couleurPropre={fSections.couleurPropre}
+            />
             <button
               type="button"
               className="bouton-deconnexion"
