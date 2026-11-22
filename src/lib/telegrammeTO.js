@@ -117,13 +117,14 @@ function departementNom(fiche) {
 // Nom du poste de prise d'alerte, pour les sections qui en comptent plusieurs (voir GROUPES,
 // src/lib/sections.js) — ajouté après le département sur le TO (décision utilisateur, 09/10/2026,
 // ex. « IFSM SAVOIE MODANE 756 »). Les sections à poste unique (CRS05…) n'ont pas besoin d'entrée ici.
-// TODO : CRS06V encore manquant (à confirmer avec l'utilisateur) ; CRS06 = Saint-Martin-Vésubie
-// donné "je pense" par l'utilisateur, à reconfirmer.
+// Comme pour Albertville ou Grenoble, la section mère (CRS06 = Nice) n'a pas de poste ajouté ;
+// Saint-Martin-Vésubie est CRS06V (même correspondance que PPSM_PAR_SQUAD_CODE, optionsSnosm.js).
+// CRS06S : nom du poste à confirmer.
 const NOM_POSTE_PAR_SQUAD_CODE = {
   CRS38H: 'HUEZ',
   CRS73M: 'MODANE',
   CRS73C: 'COURCHEVEL',
-  CRS06: 'SAINT-MARTIN-VÉSUBIE',
+  CRS06V: 'SAINT-MARTIN-VÉSUBIE',
   CRS65G: 'GAVARNIE',
   CRS65L: 'LUCHON',
   CRS65S: 'SAINT-LARY-SOULAN',
