@@ -1638,19 +1638,24 @@ main > * {
 }
 
 .tableau-registre .col-commune-registre {
-  width: 15%;
+  width: 13%;
 }
 
 .tableau-registre .col-lieu-registre {
-  width: 14%;
+  width: 12%;
 }
 
 .tableau-registre .col-activite-registre {
-  width: 15%;
+  width: 13%;
 }
 
 .tableau-registre .col-pathologies-registre {
-  width: 13%;
+  width: 11%;
+}
+
+/* État médical SNOSM de chaque victime, une ligne par victime (novembre 2026). */
+.tableau-registre .col-blessures-registre {
+  width: 9%;
 }
 
 .tableau-registre .col-moyen-registre {

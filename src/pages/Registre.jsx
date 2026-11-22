@@ -11,6 +11,13 @@ import { telechargerTelegrammeTO } from '../lib/telegrammeTO'
 
 const formatHeure = (iso) => new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
 const pathologiesDe = (s) => (s.victimes ?? []).map((v) => v.pathologie).filter(Boolean).join(', ')
+// État médical SNOSM de chaque victime (Blessé, Décédé non traumatique…), une ligne par victime,
+// dans l'ordre des numéros de victime — doublons gardés (deux blessés = deux lignes).
+const blessuresDe = (s) =>
+  [...(s.victimes ?? [])]
+    .sort((a, b) => (a.local_id ?? 0) - (b.local_id ?? 0))
+    .map((v) => v.snosm_etat_medical)
+    .filter(Boolean)
 // Cim'Alerte ne remplit plus accident_type (octobre 2026) : le motif est désormais saisi par victime
 // (victimes.circonstances). On garde accident_type pour les fiches plus anciennes qui le portent.
 // Pastille NON MED : seulement si un moyen CRS a réellement été engagé — sans moyen (ou régulation),
@@ -31,6 +38,7 @@ function colonnesRegistre(multiple) {
     { cle: 'lieu', label: 'Lieu', classe: 'col-lieu-registre' },
     { cle: 'activite', label: 'Motif / Activité', classe: 'col-activite-registre' },
     { cle: 'pathologies', label: 'Pathologies', classe: 'col-pathologies-registre' },
+    { cle: 'blessures', label: 'Blessures', classe: 'col-blessures-registre' },
     { cle: 'moyen', label: 'Moyen', classe: 'col-moyen-registre' },
     { cle: 'equipe', label: 'Équipe', classe: 'col-equipe-registre' },
     { cle: 'to', label: '', classe: 'col-to-registre' }
@@ -207,6 +215,11 @@ export default function Registre({ fSections }) {
                           {motifDe(s) && <div className="cellule-sous-registre">{motifDe(s)}</div>}
                         </td>
                         <td>{pathologiesDe(s) || '—'}</td>
+                        <td>
+                          {blessuresDe(s).length > 0
+                            ? blessuresDe(s).map((b, i) => <div key={i}>{b}</div>)
+                            : '—'}
+                        </td>
                         <td>
                           {libelleMoyens(s) || '—'}
                           {/* Régulation alerte (demandé le 04/11/2026) : aucun moyen CRS engagé, la
