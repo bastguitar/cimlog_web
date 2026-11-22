@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
 import { useFiltresRegistre, filtrerEvenements } from '../hooks/useFiltresRegistre'
 import { ControlesFiltresRegistre, PanneauFiltresRegistre } from '../components/FiltresRegistre'
+import { estHorsCRS, estRegulation, estSansMoyen as sansAucunMoyen } from '../lib/moyens'
+import { OPTIONS_ETAT_MEDICAL } from '../lib/optionsSnosm'
 
 const MOIS = ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc']
 const JOUR_MS = 24 * 60 * 60 * 1000
@@ -18,6 +20,41 @@ const compterParMois = (liste) => {
   const c = Array(12).fill(0)
   for (const s of liste) c[new Date(s.created_at).getMonth()]++
   return c
+}
+
+/*
+ * Bilan mensuel (demandé le 22/11/2026) — une ligne par item, une colonne par mois, total de l'année.
+ *  - Demandes d'intervention : toutes les fiches ouvertes (filtres compris).
+ *  - Interventions effectuées : celles où un moyen CRS a été engagé — sans les régulations, les
+ *    fiches sans moyen et les secours passés à un service extérieur (SDIS, BT, SAMU…). Même règle
+ *    que le filtre « Moyens CRS » du Registre.
+ *  - Puis les victimes de ces interventions effectuées, par état médical SNOSM.
+ */
+const estEffectuee = (s) => !sansAucunMoyen(s) && !estRegulation(s) && !estHorsCRS(s)
+const NON_RENSEIGNE = 'Non renseigné'
+
+function bilanMensuel(liste) {
+  const lignes = [
+    { label: "Demandes d'intervention", valeurs: Array(12).fill(0), principale: true },
+    { label: 'Interventions effectuées', valeurs: Array(12).fill(0), principale: true },
+  ]
+  const parEtat = new Map([...OPTIONS_ETAT_MEDICAL, NON_RENSEIGNE].map((e) => [e, Array(12).fill(0)]))
+  for (const s of liste) {
+    const m = new Date(s.created_at).getMonth()
+    lignes[0].valeurs[m]++
+    if (!estEffectuee(s)) continue
+    lignes[1].valeurs[m]++
+    for (const v of s.victimes ?? []) {
+      const etat = parEtat.has(v.snosm_etat_medical) ? v.snosm_etat_medical : NON_RENSEIGNE
+      parEtat.get(etat)[m]++
+    }
+  }
+  for (const [label, valeurs] of parEtat) {
+    // « Non renseigné » seulement s'il y en a — les états prévus restent affichés même à zéro.
+    if (label === NON_RENSEIGNE && valeurs.every((v) => v === 0)) continue
+    lignes.push({ label, valeurs, victime: true })
+  }
+  return lignes.map((l) => ({ ...l, total: l.valeurs.reduce((a, b) => a + b, 0) }))
 }
 
 /** Indices régulièrement espacés à afficher en abscisse, pour ne pas entasser les étiquettes. */
@@ -99,6 +136,7 @@ export default function Stats({ poste, fSections }) {
   const medicalisees = evenementsVisibles.filter((s) => s.is_med).length
   const pctMedicalisees = total > 0 ? Math.round((medicalisees / total) * 100) : 0
 
+  const bilan = useMemo(() => bilanMensuel(f.evenementsFiltres), [f.evenementsFiltres])
   const parMois = useMemo(() => compterParMois(evenementsVisibles), [evenementsVisibles])
   const parMoisPrecedent = useMemo(() => compterParMois(precedentsFiltres), [precedentsFiltres])
 
@@ -168,6 +206,41 @@ export default function Stats({ poste, fSections }) {
           <TuileStat label="Secours donnés au SDIS" valeur={nbSDIS} sousLabel="exclus des statistiques" />
           <TuileStat label="Secours sans moyens engagés" valeur={nbSansMoyen} sousLabel="exclus des statistiques" />
         </div>
+
+        <CarteGraphique titre={`Bilan mensuel ${annee}`} sousTitre="État médical : victimes des interventions effectuées">
+          <div className="defilement-bilan-stats">
+            <table className="tableau-bilan-stats">
+              <thead>
+                <tr>
+                  <th />
+                  {MOIS.map((m) => (
+                    <th key={m}>{m}</th>
+                  ))}
+                  <th className="total-bilan-stats">Total {annee}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bilan.map((l, i) => (
+                  <tr
+                    key={l.label}
+                    className={[
+                      l.principale ? 'ligne-principale-bilan-stats' : '',
+                      l.victime && !bilan[i - 1]?.victime ? 'premiere-victime-bilan-stats' : '',
+                    ].join(' ')}
+                  >
+                    <th scope="row">{l.label}</th>
+                    {l.valeurs.map((v, m) => (
+                      <td key={m} className={v === 0 ? 'zero-bilan-stats' : ''}>
+                        {v}
+                      </td>
+                    ))}
+                    <td className="total-bilan-stats">{l.total}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </CarteGraphique>
 
         <div className="grille-graphiques-stats">
           <CarteGraphique titre="Interventions par mois" sousTitre={poste?.nom}>

@@ -3493,6 +3493,73 @@ main > * {
   grid-column: 1 / -1;
 }
 
+/* Bilan mensuel des Stats (novembre 2026) — items en lignes, mois en colonnes, total de l'année. */
+.defilement-bilan-stats {
+  overflow-x: auto;
+}
+
+.tableau-bilan-stats {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tableau-bilan-stats th,
+.tableau-bilan-stats td {
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  text-align: right;
+  white-space: nowrap;
+}
+
+.tableau-bilan-stats thead th {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: color-mix(in srgb, var(--text) 60%, var(--bg-alt));
+}
+
+.tableau-bilan-stats tbody th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--text);
+  padding-left: 18px;
+}
+
+.tableau-bilan-stats .ligne-principale-bilan-stats th {
+  padding-left: 8px;
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+.tableau-bilan-stats .ligne-principale-bilan-stats td {
+  font-weight: 700;
+  color: var(--text-h);
+}
+
+/* Séparateur avant le bloc des états médicaux. */
+.tableau-bilan-stats .premiere-victime-bilan-stats th,
+.tableau-bilan-stats .premiere-victime-bilan-stats td {
+  border-top: 2px solid var(--border);
+}
+
+.tableau-bilan-stats .zero-bilan-stats {
+  color: color-mix(in srgb, var(--text) 35%, var(--bg-alt));
+}
+
+.tableau-bilan-stats .total-bilan-stats {
+  font-weight: 700;
+  color: var(--chaleur);
+  background: var(--chaleur-bg);
+}
+
+.tableau-bilan-stats tbody tr:hover th,
+.tableau-bilan-stats tbody tr:hover td:not(.total-bilan-stats) {
+  background: var(--bg-alt);
+}
+
 .entete-carte-graphique {
   display: flex;
   align-items: baseline;
