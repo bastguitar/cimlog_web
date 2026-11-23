@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { listerAnnee, listerPeriode } from '../lib/registre'
-import { estHorsCRS, estRegulation, estSansMoyen as sansAucunMoyen } from '../lib/moyens'
+import { cleMoyen, estHorsCRS, estRegulation, estSansMoyen as sansAucunMoyen, moyensDe } from '../lib/moyens'
 import { OPTIONS_ETAT_MEDICAL } from '../lib/optionsSnosm'
 import { exporterBilanPdf } from '../lib/exportRegistrePdf'
 
@@ -14,6 +14,50 @@ const FENETRE_JOURS = 30
 const estSDIS = (s) => s.helicopter === 'SDIS'
 const estSansMoyen = (s) => !s.helicopter || s.helicopter === 'Pas de moyens engagés'
 const estExclu = (s) => estSDIS(s) || estSansMoyen(s)
+
+/*
+ * Bascule Secours / Régulations (demandé le 23/11/2026). Les régulations (lib/moyens.js,
+ * estRegulation) ont leur propre vue et ne comptent plus dans les tuiles et graphiques des secours.
+ */
+const MODES = [
+  { cle: 'secours', label: 'Secours' },
+  { cle: 'regulations', label: 'Régulations' },
+]
+const estDuMode = (mode) => (mode === 'regulations' ? estRegulation : (s) => !estRegulation(s) && !estExclu(s))
+
+const AUCUN_MOYEN = 'Aucun moyen engagé'
+
+/**
+ * Moyens engagés sur les régulations (Pisteurs, SDIS, BT…), par mois — une ligne par moyen (sans
+ * casse ni accents, sous sa graphie la plus fréquente), le plus fréquent d'abord, puis « Aucun moyen
+ * engagé ». Une régulation peut engager plusieurs moyens : elle compte alors dans chaque ligne.
+ */
+function moyensRegulationsParMois(liste) {
+  const parCle = new Map()
+  const aucun = Array(12).fill(0)
+  for (const s of liste) {
+    const m = new Date(s.created_at).getMonth()
+    const moyens = moyensDe(s)
+    if (moyens.length === 0) aucun[m]++
+    for (const moyen of moyens) {
+      const cle = cleMoyen(moyen)
+      if (!parCle.has(cle)) parCle.set(cle, { graphies: new Map(), valeurs: Array(12).fill(0) })
+      const e = parCle.get(cle)
+      e.graphies.set(moyen, (e.graphies.get(moyen) ?? 0) + 1)
+      e.valeurs[m]++
+    }
+  }
+  const lignes = [...parCle.values()]
+    .map(({ graphies, valeurs }) => ({
+      label: [...graphies.entries()].sort((a, b) => b[1] - a[1])[0][0],
+      valeurs,
+      total: valeurs.reduce((a, b) => a + b, 0),
+    }))
+    .sort((a, b) => b.total - a.total || a.label.localeCompare(b.label, 'fr'))
+  const totalAucun = aucun.reduce((a, b) => a + b, 0)
+  if (totalAucun > 0) lignes.push({ label: AUCUN_MOYEN, valeurs: aucun, total: totalAucun, aucun: true })
+  return lignes
+}
 
 const compterParMois = (liste) => {
   const c = Array(12).fill(0)
@@ -108,6 +152,9 @@ function etiquettesEspacees(n, maxAffichees) {
  */
 export default function Stats({ poste, fSections }) {
   const [annee, setAnnee] = useState(() => new Date().getFullYear())
+  const [mode, setMode] = useState('secours')
+  const enRegulations = mode === 'regulations'
+  const duMode = useMemo(() => estDuMode(mode), [mode])
   const [evenements, setEvenements] = useState([])
   const [evenementsPrecedents, setEvenementsPrecedents] = useState([])
   const [fenetre, setFenetre] = useState([])
@@ -183,19 +230,23 @@ export default function Stats({ poste, fSections }) {
   )
   // Toutes les fiches de la période (SDIS et sans moyen compris) — base du bilan mensuel.
   const evenementsPeriode = useMemo(() => duMois(evenementsVue), [duMois, evenementsVue])
-  const evenementsVisibles = useMemo(() => evenementsPeriode.filter((s) => !estExclu(s)), [evenementsPeriode])
-  const nbSDIS = useMemo(() => evenementsPeriode.filter(estSDIS).length, [evenementsPeriode])
-  const nbSansMoyen = useMemo(() => evenementsPeriode.filter(estSansMoyen).length, [evenementsPeriode])
+  // Fiches du mode choisi : secours (hors SDIS, sans moyen et régulations) ou régulations seules.
+  const evenementsVisibles = useMemo(() => evenementsPeriode.filter(duMode), [evenementsPeriode, duMode])
+  const nbSDIS = useMemo(() => evenementsPeriode.filter((s) => estSDIS(s) && !estRegulation(s)).length, [evenementsPeriode])
+  const nbSansMoyen = useMemo(
+    () => evenementsPeriode.filter((s) => estSansMoyen(s) && !estRegulation(s)).length,
+    [evenementsPeriode]
+  )
 
   const precedentsFiltres = useMemo(
-    () => duMois(filtrerVue(evenementsPrecedents)).filter((s) => !estExclu(s)),
-    [duMois, filtrerVue, evenementsPrecedents]
+    () => duMois(filtrerVue(evenementsPrecedents)).filter(duMode),
+    [duMois, filtrerVue, evenementsPrecedents, duMode]
   )
   // 30 derniers jours : indépendants du mois choisi (sinon vides dès qu'on regarde un autre mois).
-  const fenetreFiltree = useMemo(() => filtrerVue(fenetre).filter((s) => !estExclu(s)), [filtrerVue, fenetre])
+  const fenetreFiltree = useMemo(() => filtrerVue(fenetre).filter(duMode), [filtrerVue, fenetre, duMode])
   const fenetrePrecedenteFiltree = useMemo(
-    () => filtrerVue(fenetrePrecedente).filter((s) => !estExclu(s)),
-    [filtrerVue, fenetrePrecedente]
+    () => filtrerVue(fenetrePrecedente).filter(duMode),
+    [filtrerVue, fenetrePrecedente, duMode]
   )
 
   const total = evenementsVisibles.length
@@ -223,6 +274,17 @@ export default function Stats({ poste, fSections }) {
   }, [moisChoisi, enPeriode, periodeValide, du, au])
 
   const parActivite = useMemo(() => activitesParMois(evenementsPeriode), [evenementsPeriode])
+  const moyensRegulations = useMemo(
+    () => (enRegulations ? moyensRegulationsParMois(evenementsVisibles) : []),
+    [enRegulations, evenementsVisibles]
+  )
+  const regulationsParMois = useMemo(() => compterParMois(enRegulations ? evenementsVisibles : []), [enRegulations, evenementsVisibles])
+  const avecMoyen = enRegulations ? evenementsVisibles.filter((s) => moyensDe(s).length > 0).length : 0
+  const repartitionMoyens = useMemo(() => {
+    const lignes = moyensRegulations.map((l) => ({ label: l.label, valeur: l.total }))
+    if (lignes.length <= 8) return lignes
+    return [...lignes.slice(0, 7), { label: 'Autres', valeur: lignes.slice(7).reduce((n, d) => n + d.valeur, 0) }]
+  }, [moyensRegulations])
 
   const [exportEnCours, setExportEnCours] = useState(false)
   // Bouton Exporter PDF : menu des deux tableaux exportables (bilan médical / par activité).
@@ -242,14 +304,18 @@ export default function Stats({ poste, fSections }) {
     setExportEnCours(true)
     try {
       const [demandes, effectuees] = bilan.map((l) => l.total)
+      const nbReg = evenementsVisibles.length
       await exporterBilanPdf({
         contenu,
         lignes: bilan,
-        activites: parActivite,
+        activites: contenu === 'regulations' ? moyensRegulations : parActivite,
+        totauxMois: contenu === 'regulations' ? regulationsParMois : null,
         mois: moisPeriode,
         section: fSections.intitule,
         periode: !enPeriode && moisChoisi == null ? `Année ${annee}` : libellePeriode,
-        resume: `${demandes} demande${demandes > 1 ? 's' : ''}  ·  ${effectuees} intervention${effectuees > 1 ? 's' : ''} effectuée${effectuees > 1 ? 's' : ''}`,
+        resume: contenu === 'regulations'
+          ? `${nbReg} régulation${nbReg > 1 ? 's' : ''}  ·  ${avecMoyen} avec moyen${avecMoyen > 1 ? 's' : ''} engagé${avecMoyen > 1 ? 's' : ''}`
+          : `${demandes} demande${demandes > 1 ? 's' : ''}  ·  ${effectuees} intervention${effectuees > 1 ? 's' : ''} effectuée${effectuees > 1 ? 's' : ''}`,
       })
     } catch (e) {
       setErreur(`Export PDF : ${e.message}`)
@@ -283,6 +349,20 @@ export default function Stats({ poste, fSections }) {
   return (
     <section className="page page-mc">
       <div className="barre-mc">
+        <div className="bascule-vue-departement" role="group" aria-label="Statistiques affichées">
+          {MODES.map((m) => (
+            <button
+              key={m.cle}
+              type="button"
+              className={mode === m.cle ? 'actif' : ''}
+              aria-pressed={mode === m.cle}
+              onClick={() => setMode(m.cle)}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+
         {/* Seuls choix des Stats (22/11/2026) : année, mois de l'année, ou période libre. */}
         {!enPeriode && (
           <div className="nav-jour-mc">
@@ -327,7 +407,8 @@ export default function Stats({ poste, fSections }) {
 
         <div className="groupe-droite-mc">
           <span className="compte-resultats-mc">
-            {total} intervention{total > 1 ? 's' : ''}
+            {total} {enRegulations ? 'régulation' : 'intervention'}
+            {total > 1 ? 's' : ''}
           </span>
           <div className="menu-sections" ref={refMenuExport}>
             <button
@@ -342,12 +423,20 @@ export default function Stats({ poste, fSections }) {
             </button>
             {menuExportOuvert && (
               <div className="liste-menu-sections" role="menu">
-                <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('bilan')}>
-                  Bilan mensuel (état médical)
-                </button>
-                <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('activites')}>
-                  Secours par activité
-                </button>
+                {enRegulations ? (
+                  <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('regulations')}>
+                    Régulations par moyen engagé
+                  </button>
+                ) : (
+                  <>
+                    <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('bilan')}>
+                      Bilan mensuel (état médical)
+                    </button>
+                    <button type="button" role="menuitem" className="option-menu-sections" onClick={() => exporterBilan('activites')}>
+                      Secours par activité
+                    </button>
+                  </>
+                )}
               </div>
             )}
           </div>
@@ -357,126 +446,206 @@ export default function Stats({ poste, fSections }) {
       {erreur && <p className="erreur">{erreur}</p>}
 
       <div className="corps-stats">
-        <div className="rangee-tuiles-stats">
-          <TuileStat label={`Interventions ${libellePeriode}`} valeur={total} delta={delta} />
-          <TuileStat label="Victimes" valeur={totalVictimes} />
-          <TuileStat label="Médicalisées" valeur={`${pctMedicalisees} %`} sousLabel={`${medicalisees} / ${total}`} />
-          <TuileStat
-            label="30 derniers jours"
-            valeur={fenetreFiltree.length}
-            delta={
-              fenetrePrecedenteFiltree.length > 0
-                ? Math.round(((fenetreFiltree.length - fenetrePrecedenteFiltree.length) / fenetrePrecedenteFiltree.length) * 100)
-                : null
-            }
-          />
-          <TuileStat label="Secours donnés au SDIS" valeur={nbSDIS} sousLabel="exclus des statistiques" />
-          <TuileStat label="Secours sans moyens engagés" valeur={nbSansMoyen} sousLabel="exclus des statistiques" />
-        </div>
+        {enRegulations ? (
+          <>
+            <div className="rangee-tuiles-stats">
+              <TuileStat label={`Régulations ${libellePeriode}`} valeur={total} delta={delta} />
+              <TuileStat
+                label="Avec moyens engagés"
+                valeur={avecMoyen}
+                sousLabel={total > 0 ? `${Math.round((avecMoyen / total) * 100)} % des régulations` : null}
+              />
+              <TuileStat label="Sans moyen engagé" valeur={total - avecMoyen} />
+              <TuileStat
+                label="30 derniers jours"
+                valeur={fenetreFiltree.length}
+                delta={
+                  fenetrePrecedenteFiltree.length > 0
+                    ? Math.round(((fenetreFiltree.length - fenetrePrecedenteFiltree.length) / fenetrePrecedenteFiltree.length) * 100)
+                    : null
+                }
+              />
+            </div>
 
-        <CarteGraphique titre={`Bilan mensuel ${libellePeriode}`} sousTitre="État médical : victimes des interventions effectuées">
-          <div className="defilement-bilan-stats">
-            <table className="tableau-bilan-stats">
-              {/* Mois en lignes, items en colonnes (retour utilisateur 22/11/2026), total de l'année en bas. */}
-              <colgroup>
-                <col className="colonne-mois-bilan-stats" />
-                {bilan.map((l) => (
-                  <col key={l.label} />
-                ))}
-              </colgroup>
-              <thead>
-                <tr>
-                  <th />
-                  {bilan.map((l, i) => (
-                    <th key={l.label} className={classeColonneBilan(bilan, i)}>
-                      {l.label}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {MOIS_LONGS.map((mois, m) => (
-                  <tr key={mois}>
-                    <th scope="row">{mois}</th>
-                    {bilan.map((l, i) => (
-                      <td
-                        key={l.label}
-                        className={[classeColonneBilan(bilan, i), l.valeurs[m] === 0 ? 'zero-bilan-stats' : ''].join(' ')}
-                      >
-                        {l.valeurs[m]}
-                      </td>
-                    ))}
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot>
-                <tr className="total-bilan-stats">
-                  <th scope="row">Total</th>
-                  {bilan.map((l, i) => (
-                    <td key={l.label} className={classeColonneBilan(bilan, i)}>
-                      {l.total}
-                    </td>
-                  ))}
-                </tr>
-              </tfoot>
-            </table>
-          </div>
-        </CarteGraphique>
-
-        {/* Activités en lignes (trop nombreuses pour tenir en colonnes), mois de la période en colonnes. */}
-        <CarteGraphique titre={`Secours effectués par activité — ${libellePeriode}`} sousTitre="Moyen CRS engagé">
-          {parActivite.length === 0 ? (
-            <p className="aide">Aucun secours effectué sur cette période.</p>
-          ) : (
-            <div className="defilement-bilan-stats">
-              <table className="tableau-bilan-stats tableau-activites-stats">
-                <colgroup>
-                  <col className="colonne-activite-stats" />
-                  {moisPeriode.map((m) => (
-                    <col key={m} />
-                  ))}
-                  <col />
-                </colgroup>
-                <thead>
-                  <tr>
-                    <th />
-                    {moisPeriode.map((m) => (
-                      <th key={m}>{MOIS[m]}</th>
-                    ))}
-                    <th className="colonne-principale-bilan-stats">Total</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {parActivite.map((a) => (
-                    <tr key={a.label}>
-                      <th scope="row" title={a.label}>
-                        {a.label}
-                      </th>
+            <CarteGraphique
+              titre={`Moyens engagés sur les régulations — ${libellePeriode}`}
+              sousTitre="Une régulation peut engager plusieurs moyens"
+            >
+              {moyensRegulations.length === 0 ? (
+                <p className="aide">Aucune régulation sur cette période.</p>
+              ) : (
+                <div className="defilement-bilan-stats">
+                  <table className="tableau-bilan-stats tableau-activites-stats">
+                    <colgroup>
+                      <col className="colonne-activite-stats" />
                       {moisPeriode.map((m) => (
-                        <td key={m} className={a.valeurs[m] === 0 ? 'zero-bilan-stats' : ''}>
-                          {a.valeurs[m]}
+                        <col key={m} />
+                      ))}
+                      <col />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th />
+                        {moisPeriode.map((m) => (
+                          <th key={m}>{MOIS[m]}</th>
+                        ))}
+                        <th className="colonne-principale-bilan-stats">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {moyensRegulations.map((l) => (
+                        <tr key={l.label} className={l.aucun ? 'ligne-aucun-moyen-stats' : ''}>
+                          <th scope="row" title={l.label}>
+                            {l.label}
+                          </th>
+                          {moisPeriode.map((m) => (
+                            <td key={m} className={l.valeurs[m] === 0 ? 'zero-bilan-stats' : ''}>
+                              {l.valeurs[m]}
+                            </td>
+                          ))}
+                          <td className="colonne-principale-bilan-stats">{l.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      {/* Nombre de régulations, pas la somme des lignes (plusieurs moyens par régulation possibles). */}
+                      <tr className="total-bilan-stats">
+                        <th scope="row">Régulations</th>
+                        {moisPeriode.map((m) => (
+                          <td key={m}>{regulationsParMois[m]}</td>
+                        ))}
+                        <td>{moisPeriode.reduce((n, m) => n + regulationsParMois[m], 0)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </CarteGraphique>
+          </>
+        ) : (
+          <>
+            <div className="rangee-tuiles-stats">
+              <TuileStat label={`Interventions ${libellePeriode}`} valeur={total} delta={delta} />
+              <TuileStat label="Victimes" valeur={totalVictimes} />
+              <TuileStat label="Médicalisées" valeur={`${pctMedicalisees} %`} sousLabel={`${medicalisees} / ${total}`} />
+              <TuileStat
+                label="30 derniers jours"
+                valeur={fenetreFiltree.length}
+                delta={
+                  fenetrePrecedenteFiltree.length > 0
+                    ? Math.round(((fenetreFiltree.length - fenetrePrecedenteFiltree.length) / fenetrePrecedenteFiltree.length) * 100)
+                    : null
+                }
+              />
+              <TuileStat label="Secours donnés au SDIS" valeur={nbSDIS} sousLabel="exclus des statistiques" />
+              <TuileStat label="Secours sans moyens engagés" valeur={nbSansMoyen} sousLabel="exclus des statistiques" />
+            </div>
+
+            <CarteGraphique titre={`Bilan mensuel ${libellePeriode}`} sousTitre="État médical : victimes des interventions effectuées">
+              <div className="defilement-bilan-stats">
+                <table className="tableau-bilan-stats">
+                  {/* Mois en lignes, items en colonnes (retour utilisateur 22/11/2026), total de l'année en bas. */}
+                  <colgroup>
+                    <col className="colonne-mois-bilan-stats" />
+                    {bilan.map((l) => (
+                      <col key={l.label} />
+                    ))}
+                  </colgroup>
+                  <thead>
+                    <tr>
+                      <th />
+                      {bilan.map((l, i) => (
+                        <th key={l.label} className={classeColonneBilan(bilan, i)}>
+                          {l.label}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {MOIS_LONGS.map((mois, m) => (
+                      <tr key={mois}>
+                        <th scope="row">{mois}</th>
+                        {bilan.map((l, i) => (
+                          <td
+                            key={l.label}
+                            className={[classeColonneBilan(bilan, i), l.valeurs[m] === 0 ? 'zero-bilan-stats' : ''].join(' ')}
+                          >
+                            {l.valeurs[m]}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                  <tfoot>
+                    <tr className="total-bilan-stats">
+                      <th scope="row">Total</th>
+                      {bilan.map((l, i) => (
+                        <td key={l.label} className={classeColonneBilan(bilan, i)}>
+                          {l.total}
                         </td>
                       ))}
-                      <td className="colonne-principale-bilan-stats">{a.total}</td>
                     </tr>
-                  ))}
-                </tbody>
-                <tfoot>
-                  <tr className="total-bilan-stats">
-                    <th scope="row">Total</th>
-                    {moisPeriode.map((m) => (
-                      <td key={m}>{parActivite.reduce((n, a) => n + a.valeurs[m], 0)}</td>
-                    ))}
-                    <td>{parActivite.reduce((n, a) => n + a.total, 0)}</td>
-                  </tr>
-                </tfoot>
-              </table>
-            </div>
-          )}
-        </CarteGraphique>
+                  </tfoot>
+                </table>
+              </div>
+            </CarteGraphique>
+
+            {/* Activités en lignes (trop nombreuses pour tenir en colonnes), mois de la période en colonnes. */}
+            <CarteGraphique titre={`Secours effectués par activité — ${libellePeriode}`} sousTitre="Moyen CRS engagé">
+              {parActivite.length === 0 ? (
+                <p className="aide">Aucun secours effectué sur cette période.</p>
+              ) : (
+                <div className="defilement-bilan-stats">
+                  <table className="tableau-bilan-stats tableau-activites-stats">
+                    <colgroup>
+                      <col className="colonne-activite-stats" />
+                      {moisPeriode.map((m) => (
+                        <col key={m} />
+                      ))}
+                      <col />
+                    </colgroup>
+                    <thead>
+                      <tr>
+                        <th />
+                        {moisPeriode.map((m) => (
+                          <th key={m}>{MOIS[m]}</th>
+                        ))}
+                        <th className="colonne-principale-bilan-stats">Total</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {parActivite.map((a) => (
+                        <tr key={a.label}>
+                          <th scope="row" title={a.label}>
+                            {a.label}
+                          </th>
+                          {moisPeriode.map((m) => (
+                            <td key={m} className={a.valeurs[m] === 0 ? 'zero-bilan-stats' : ''}>
+                              {a.valeurs[m]}
+                            </td>
+                          ))}
+                          <td className="colonne-principale-bilan-stats">{a.total}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                    <tfoot>
+                      <tr className="total-bilan-stats">
+                        <th scope="row">Total</th>
+                        {moisPeriode.map((m) => (
+                          <td key={m}>{parActivite.reduce((n, a) => n + a.valeurs[m], 0)}</td>
+                        ))}
+                        <td>{parActivite.reduce((n, a) => n + a.total, 0)}</td>
+                      </tr>
+                    </tfoot>
+                  </table>
+                </div>
+              )}
+            </CarteGraphique>
+          </>
+        )}
 
         <div className="grille-graphiques-stats">
-          <CarteGraphique titre="Interventions par mois" sousTitre={poste?.nom}>
+          <CarteGraphique titre={enRegulations ? 'Régulations par mois' : 'Interventions par mois'} sousTitre={poste?.nom}>
             <GraphiqueLignes
               labels={MOIS}
               principal={parMois}
@@ -486,7 +655,7 @@ export default function Stats({ poste, fSections }) {
             />
           </CarteGraphique>
 
-          <CarteGraphique titre="Interventions par jour" sousTitre="30 derniers jours">
+          <CarteGraphique titre={enRegulations ? 'Régulations par jour' : 'Interventions par jour'} sousTitre="30 derniers jours">
             <GraphiqueLignes
               labels={etiquettesJours}
               principal={parJour}
@@ -496,7 +665,17 @@ export default function Stats({ poste, fSections }) {
             />
           </CarteGraphique>
 
-          <CarteGraphique titre="Répartition par activité" sousTitre={libellePeriode} pleineLargeur>
+          {enRegulations && (
+            <CarteGraphique titre="Répartition par moyen engagé" sousTitre={libellePeriode}>
+              {repartitionMoyens.length === 0 ? (
+                <p className="aide">Aucune donnée.</p>
+              ) : (
+                <GraphiqueBarresHorizontales donnees={repartitionMoyens} />
+              )}
+            </CarteGraphique>
+          )}
+
+          <CarteGraphique titre="Répartition par activité" sousTitre={libellePeriode} pleineLargeur={!enRegulations}>
             {activites.length === 0 ? (
               <p className="aide">Aucune donnée.</p>
             ) : (
@@ -505,7 +684,9 @@ export default function Stats({ poste, fSections }) {
           </CarteGraphique>
         </div>
 
-        {!chargement && total === 0 && <p className="aide">Aucune intervention sur cette période.</p>}
+        {!chargement && total === 0 && (
+          <p className="aide">Aucune {enRegulations ? 'régulation' : 'intervention'} sur cette période.</p>
+        )}
       </div>
     </section>
   )

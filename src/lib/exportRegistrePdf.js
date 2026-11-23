@@ -214,13 +214,21 @@ export function enregistrerPdf(doc, nom) {
  * `contenu` : 'bilan' (bilan mensuel / état médical) ou 'activites' — un PDF par tableau, au choix
  * depuis le bouton Exporter des Stats (demandé le 22/11/2026).
  */
-export async function exporterBilanPdf({ contenu = 'bilan', lignes, activites, mois, section, periode, resume }) {
+/**
+ * `contenu` : 'bilan' (état médical), 'activites' (secours par activité) ou 'regulations' (moyens
+ * engagés sur les régulations — `activites` porte alors une ligne par moyen, et `totauxMois` le
+ * nombre de régulations par mois, ligne de total : une régulation peut engager plusieurs moyens).
+ */
+export async function exporterBilanPdf({ contenu = 'bilan', lignes, activites, totauxMois, mois, section, periode, resume }) {
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
-  const parActivite = contenu === 'activites'
+  const regulations = contenu === 'regulations'
+  const parActivite = contenu === 'activites' || regulations
   await dessinerEnteteCrs(doc, {
-    titre: parActivite ? 'SECOURS PAR ACTIVITÉ' : 'BILAN DES SECOURS',
+    titre: regulations ? 'RÉGULATIONS — MOYENS ENGAGÉS' : parActivite ? 'SECOURS PAR ACTIVITÉ' : 'BILAN DES SECOURS',
     sousTitre: [section, periode].filter(Boolean).join(' — '),
-    note: parActivite
+    note: regulations
+      ? 'Régulations alerte, par moyen engagé — une régulation peut engager plusieurs moyens'
+      : parActivite
       ? 'Secours effectués (moyen CRS engagé) — hors régulations, fiches sans moyen et secours passés au SDIS / BT / SAMU'
       : 'État médical : victimes des interventions effectuées (moyen CRS engagé)',
     droite: resume,
@@ -271,20 +279,22 @@ export async function exporterBilanPdf({ contenu = 'bilan', lignes, activites, m
     doc.setFont('helvetica', 'italic')
     doc.setFontSize(10)
     doc.setTextColor(...GRIS)
-    doc.text('Aucun secours effectué sur cette période.', MARGE, 42)
+    doc.text(regulations ? 'Aucune régulation sur cette période.' : 'Aucun secours effectué sur cette période.', MARGE, 42)
   }
   if (parActivite && activites?.length) {
     autoTable(doc, {
       startY: 33,
       margin: { left: MARGE, right: MARGE, top: 14, bottom: 14 },
-      head: [['Activité', ...mois.map((m) => NOMS_MOIS[m].slice(0, 4) + (NOMS_MOIS[m].length > 4 ? '.' : '')), 'Total']],
+      head: [[regulations ? 'Moyen engagé' : 'Activité', ...mois.map((m) => NOMS_MOIS[m].slice(0, 4) + (NOMS_MOIS[m].length > 4 ? '.' : '')), 'Total']],
       body: activites.map((a) => [t(a.label), ...mois.map((m) => String(a.valeurs[m])), String(mois.reduce((n, m) => n + a.valeurs[m], 0))]),
       foot: [
-        [
-          'Total',
-          ...mois.map((m) => String(activites.reduce((n, a) => n + a.valeurs[m], 0))),
-          String(activites.reduce((n, a) => n + mois.reduce((k, m) => k + a.valeurs[m], 0), 0)),
-        ],
+        totauxMois
+          ? ['Régulations', ...mois.map((m) => String(totauxMois[m])), String(mois.reduce((n, m) => n + totauxMois[m], 0))]
+          : [
+              'Total',
+              ...mois.map((m) => String(activites.reduce((n, a) => n + a.valeurs[m], 0))),
+              String(activites.reduce((n, a) => n + mois.reduce((k, m) => k + a.valeurs[m], 0), 0)),
+            ],
       ],
       theme: 'grid',
       showHead: 'everyPage',
@@ -309,7 +319,7 @@ export async function exporterBilanPdf({ contenu = 'bilan', lignes, activites, m
     })
   }
 
-  const libelle = parActivite ? 'Secours par activité' : 'Bilan des secours'
+  const libelle = regulations ? 'Régulations' : parActivite ? 'Secours par activité' : 'Bilan des secours'
   numeroterPages(doc, `Track'log — ${libelle} — ${[section, periode].filter(Boolean).join(' — ')}`)
-  enregistrerPdf(doc, `${parActivite ? 'Activites' : 'Bilan'} ${[section, periode].filter(Boolean).join(' ')}`)
+  enregistrerPdf(doc, `${regulations ? 'Regulations' : parActivite ? 'Activites' : 'Bilan'} ${[section, periode].filter(Boolean).join(' ')}`)
 }
