@@ -94,6 +94,41 @@ const formatDateHeureFinService = (iso) => {
   return `${jour}/${mois}/${d.getFullYear()} ${heure}:${min}`
 }
 
+/**
+ * Ligne « Effectif CRS engagé » du TO. Rôle entre parenthèses après le nom (ex. « CDT DUPONT Jean
+ * (Secouriste) ») — le nom porte déjà son grade (voir avecGradeDepuisNom, FicheSnosm.jsx).
+ * Dépassement horaire (date + heure de fin de service) ajouté à la suite SEULEMENT pour les unités
+ * Pyrénées (CRS65/CRS66) — décision utilisateur, 09/10/2026 : cette mention ne concerne pas les
+ * unités Alpes.
+ *
+ * Opération sur plusieurs jours (27/11/2026, demande Lannemezan) : si des jours d'engagement sont
+ * renseignés (FicheSnosm, lien « Opération sur plusieurs jours ? »), l'effectif est regroupé par
+ * jour, une ligne par jour : « Le 14/11 : A (COS) - B (Secouriste) ». Une personne sans jour coché
+ * compte pour le premier jour. Sans aucun jour renseigné (le cas ordinaire), liste simple comme avant.
+ */
+function texteEffectifEngage(effectifs, region) {
+  const libelle = (e) => {
+    let texte = e.role ? `${e.personne} (${e.role})` : e.personne
+    if (region === 'PYRÉNÉES' && e.depassement_horaire) {
+      const dateHeure = formatDateHeureFinService(e.heure_depassement)
+      texte += dateHeure ? ` (Fin de service : ${dateHeure})` : ' (Fin de service)'
+    }
+    return texte
+  }
+  const personnes = effectifs.filter((e) => e.personne)
+  const joursDe = (e) => String(e.jours_engagement ?? '').split(',').map((j) => j.trim()).filter(Boolean)
+  const tousLesJours = [...new Set(personnes.flatMap(joursDe))].sort()
+  if (tousLesJours.length === 0) return personnes.map(libelle).join(' - ') || null
+
+  return tousLesJours
+    .map((jour, i) => {
+      const du = personnes.filter((e) => joursDe(e).includes(jour) || (i === 0 && joursDe(e).length === 0))
+      return du.length ? `Le ${jour.slice(8, 10)}/${jour.slice(5, 7)} : ${du.map(libelle).join(' - ')}` : null
+    })
+    .filter(Boolean)
+    .join('\n')
+}
+
 /** 1ère lettre en majuscule, le reste en minuscule — même convention que le reste du TO (nationalité,
  * blessures…), décision utilisateur. */
 function premiereMajusculeSeule(texte) {
@@ -294,18 +329,7 @@ export function construireModeleTO(fiche, { sectionNom, formation = false } = {}
       // son grade (voir avecGradeDepuisNom, FicheSnosm.jsx). Dépassement horaire (date + heure de fin
       // de service) ajouté à la suite SEULEMENT pour les unités Pyrénées (CRS65/CRS66) — décision
       // utilisateur, 09/10/2026 : cette mention ne concerne pas les unités Alpes.
-      effectifEngage:
-        (fiche.effectifs_engages ?? [])
-          .filter((e) => e.personne)
-          .map((e) => {
-            let texte = e.role ? `${e.personne} (${e.role})` : e.personne
-            if (region === 'PYRÉNÉES' && e.depassement_horaire) {
-              const dateHeure = formatDateHeureFinService(e.heure_depassement)
-              texte += dateHeure ? ` (Fin de service : ${dateHeure})` : ' (Fin de service)'
-            }
-            return texte
-          })
-          .join(' - ') || null,
+      effectifEngage: texteEffectifEngage(fiche.effectifs_engages ?? [], region),
       medicalisation: fiche.snosm_medicalisation,
       // Nom du médecin engagé — alimenté par Track'Alerte (rôle "Médecin" de l'effectif), affiché
       // entre parenthèses à la suite de la médicalisation dans le TO (décision utilisateur, 01/11/2026).

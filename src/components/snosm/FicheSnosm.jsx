@@ -791,6 +791,13 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
   const [erreur, setErreur] = useState(null)
   const [confirmerAnnulation, setConfirmerAnnulation] = useState(false)
   const [effectifs, setEffectifs] = useState(fiche.effectifs_engages ?? [])
+  // Opération sur plusieurs jours (recherche, 27/11/2026, demande Lannemezan) : qui était engagé
+  // quel jour (J, rappelés à J+1, J+2…). DISCRET ET OPTIONNEL : rien ne s'affiche pour un secours
+  // tenu sur une seule journée (alerte et clôture le même jour) — le cas de tous les jours — et,
+  // sinon, seulement un lien sous le tableau tant qu'on ne l'active pas. Une fois activé, chaque
+  // ligne d'effectif porte ses jours (cases à cocher) et le TO regroupe l'effectif par jour.
+  const joursOperation = joursEntre(fiche.created_at, fiche.clotureLe)
+  const [plusieursJours, setPlusieursJours] = useState(() => (fiche.effectifs_engages ?? []).some((e) => e.jours_engagement))
   const [creationTO, setCreationTO] = useState(false)
   // Tout l'annuaire (toutes sections) — Directeur d'enquête/Rédacteur/Signataire peuvent être n'importe qui, pas seulement la section courante.
   // Dédoublonné sur le libellé (nom + prénom, sans la section) : une même personne peut apparaître
@@ -1096,7 +1103,14 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
 
   async function ajouterLigneEffectif(role = '', personne = '') {
     try {
-      await ajouterEffectifEngage(fiche.id, codesRequete, { role, personne, depassement_horaire: false, heure_depassement: null })
+      await ajouterEffectifEngage(fiche.id, codesRequete, {
+        role,
+        personne,
+        depassement_horaire: false,
+        heure_depassement: null,
+        // Opération sur plusieurs jours : une personne ajoutée l'est d'abord pour le jour J.
+        ...(plusieursJours ? { jours_engagement: joursOperation[0] } : {}),
+      })
       await rafraichirEffectifs()
     } catch (e) {
       setErreur(e.message)
@@ -1164,6 +1178,23 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
       setEffectifs((es) => es.map((e) => (e.id === id ? { ...e, ...champs } : e)))
     } catch (e) {
       setErreur(e.message)
+    }
+  }
+
+  /** Active la saisie par jour : chacun est d'abord engagé le jour J, il ne reste qu'à cocher les
+   * jours de rappel. */
+  async function activerPlusieursJours() {
+    setPlusieursJours(true)
+    for (const e of effectifs) {
+      if (!e.jours_engagement) await majEffectif(e.id, { jours_engagement: joursOperation[0] })
+    }
+  }
+
+  /** Retour au cas ordinaire : les jours sont effacés, le TO redevient une liste simple. */
+  async function desactiverPlusieursJours() {
+    setPlusieursJours(false)
+    for (const e of effectifs) {
+      if (e.jours_engagement) await majEffectif(e.id, { jours_engagement: null })
     }
   }
 
@@ -1313,6 +1344,10 @@ export default function FicheSnosm({ fiche, codesRequete, onFicheMaj, sectionNom
                 onSupprimer={supprimerLigneEffectif}
                 secouristes={secouristes}
                 secouristesConnus={(fiche.team?.length ?? 0) > 0 || effectifJour.length > 0}
+                joursOperation={joursOperation}
+                plusieursJours={plusieursJours}
+                onActiverPlusieursJours={activerPlusieursJours}
+                onDesactiverPlusieursJours={desactiverPlusieursJours}
               />
             </div>
             {edition ? (
@@ -1593,23 +1628,87 @@ function Detail({ label, children }) {
   )
 }
 
-function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprimer, secouristes, secouristesConnus }) {
+function TableauEffectifs({
+  effectifs,
+  verrouillee,
+  onAjouter,
+  onMaj,
+  onSupprimer,
+  secouristes,
+  secouristesConnus,
+  joursOperation,
+  plusieursJours,
+  onActiverPlusieursJours,
+  onDesactiverPlusieursJours,
+}) {
+  // Jours proposés : ceux de l'opération (alerte → clôture), plus tout jour déjà coché qui en
+  // sortirait (date de clôture corrigée depuis), pour ne jamais masquer une saisie existante.
+  const joursAffiches = plusieursJours
+    ? [...new Set([...joursOperation, ...effectifs.flatMap((e) => listeJours(e.jours_engagement))])].sort()
+    : null
   return (
     <div className="tableau-effectifs-snosm">
       {/* Masqué quand des secouristes Cim'Alerte/effectif du jour sont déjà proposés juste au-dessus
           (boutons à cliquer pour les ajouter) — « aucun effectif » y serait trompeur : quelqu'un est
           bien connu sur cette intervention, juste pas encore ajouté comme ligne d'effectif ici. */}
       {effectifs.length === 0 && !secouristesConnus && <p className="aide">Aucun effectif renseigné.</p>}
+      {plusieursJours && (
+        <p className="aide">Opération sur plusieurs jours : cochez pour chacun les jours où il était engagé. Le TO regroupera l’effectif par jour.</p>
+      )}
       {effectifs.map((e) => (
-        <LigneEffectif key={e.id} effectif={e} verrouillee={verrouillee} onMaj={onMaj} onSupprimer={onSupprimer} secouristes={secouristes} />
+        <LigneEffectif
+          key={e.id}
+          effectif={e}
+          verrouillee={verrouillee}
+          onMaj={onMaj}
+          onSupprimer={onSupprimer}
+          secouristes={secouristes}
+          joursAffiches={joursAffiches}
+        />
       ))}
       {!verrouillee && (
         <button type="button" className="bouton-secondaire" onClick={onAjouter}>
           + Ajouter un effectif
         </button>
       )}
+      {/* Seulement si l'opération s'étale sur plusieurs jours — jamais pour un secours de la journée. */}
+      {!verrouillee && joursOperation.length > 1 && (
+        <button
+          type="button"
+          className="lien-plusieurs-jours-snosm"
+          onClick={plusieursJours ? onDesactiverPlusieursJours : onActiverPlusieursJours}
+        >
+          {plusieursJours ? 'Revenir à un effectif unique (sans jours)' : 'Opération sur plusieurs jours ? Préciser les jours d’engagement'}
+        </button>
+      )}
     </div>
   )
+}
+
+/** « 2026-11-14,2026-11-15 » → ['2026-11-14', '2026-11-15'] (vide ou null → []). */
+function listeJours(texte) {
+  return String(texte ?? '')
+    .split(',')
+    .map((j) => j.trim())
+    .filter(Boolean)
+}
+
+const pad2 = (n) => String(n).padStart(2, '0')
+const jourLocal = (d) => `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`
+
+/** Jours calendaires de l'alerte à la clôture (ou à aujourd'hui), au plus 15. */
+function joursEntre(debutIso, finIso) {
+  if (!debutIso) return []
+  const d = new Date(debutIso)
+  d.setHours(0, 0, 0, 0)
+  const fin = new Date(finIso ?? Date.now())
+  fin.setHours(0, 0, 0, 0)
+  const jours = []
+  while (d <= fin && jours.length < 15) {
+    jours.push(jourLocal(d))
+    d.setDate(d.getDate() + 1)
+  }
+  return jours
 }
 
 /**
@@ -1617,7 +1716,12 @@ function TableauEffectifs({ effectifs, verrouillee, onAjouter, onMaj, onSupprime
  * (3 valeurs fixes, jamais de texte libre) — décision utilisateur, dans cet ordre-là
  * précisément. Dépassement horaire déplie une heure de fin quand coché.
  */
-function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes }) {
+function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes, joursAffiches = null }) {
+  const joursCoches = listeJours(effectif.jours_engagement)
+  const basculerJour = (jour) => {
+    const nouveaux = joursCoches.includes(jour) ? joursCoches.filter((j) => j !== jour) : [...joursCoches, jour].sort()
+    onMaj(effectif.id, { jours_engagement: nouveaux.join(',') || null })
+  }
   const [personne, setPersonne] = useState(effectif.personne ?? '')
   const [ouvert, setOuvert] = useState(false)
   // Le clic sur une suggestion (onMouseDown) enregistre déjà la valeur choisie ; sans
@@ -1705,6 +1809,17 @@ function LigneEffectif({ effectif, verrouillee, onMaj, onSupprimer, secouristes 
         <button type="button" className="fermer-modale" onClick={() => onSupprimer(effectif.id)} aria-label="Supprimer cet effectif">
           ×
         </button>
+      )}
+      {joursAffiches && (
+        <div className="jours-effectif-snosm">
+          <span className="etiquette-jours-effectif-snosm">Engagé le :</span>
+          {joursAffiches.map((jour) => (
+            <label key={jour} className="champ-checkbox-snosm">
+              <input type="checkbox" checked={joursCoches.includes(jour)} disabled={verrouillee} onChange={() => basculerJour(jour)} />
+              {jour.slice(8, 10)}/{jour.slice(5, 7)}
+            </label>
+          ))}
+        </div>
       )}
     </div>
   )

@@ -3131,6 +3131,38 @@ main > * {
   align-self: flex-start;
 }
 
+/* Opération sur plusieurs jours (27/11/2026) : simple lien discret, sans cadre — la plupart des
+   secours n'en ont jamais besoin. */
+.tableau-effectifs-snosm > .lien-plusieurs-jours-snosm {
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
+  font-size: 12px;
+  color: var(--text);
+  opacity: 0.75;
+  text-decoration: underline;
+  cursor: pointer;
+}
+
+.tableau-effectifs-snosm > .lien-plusieurs-jours-snosm:hover {
+  opacity: 1;
+}
+
+/* Jours d'engagement : sur une ligne à part sous la personne (la ligne d'effectif est en flex-wrap). */
+.jours-effectif-snosm {
+  flex-basis: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  font-size: 12px;
+}
+
+.etiquette-jours-effectif-snosm {
+  opacity: 0.75;
+}
+
 .grille-renfort-snosm {
   gap: 10px 56px;
 }

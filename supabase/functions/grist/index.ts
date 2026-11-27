@@ -299,6 +299,9 @@ const CHAMPS_EFFECTIF: Array<[string, string, TypeChamp]> = [
   ['personne', 'Personne', 'text'],
   ['depassement_horaire', 'DepassementHoraire', 'bool'],
   ['heure_depassement', 'HeureDepassement', 'datetime'],
+  // Opération sur plusieurs jours (recherche, 27/11/2026, demande Lannemezan) : jours où la personne
+  // était engagée, « AAAA-MM-JJ » séparés par des virgules. Vide = cas ordinaire (rien ne change).
+  ['jours_engagement', 'JoursEngagement', 'text'],
 ]
 
 function depuisGrist(valeur: unknown, type: TypeChamp) {
